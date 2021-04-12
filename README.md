@@ -12,6 +12,18 @@ $ cargo run
 Hello, world!
 ```
 
+## Building
+
+Currently nightly is used as I'm using `#[feature(tst)]`.
+
+## TODO:
+
+Using nightly-2021-03-25 as that is the last rustfmt that works
+Update when https://rust-lang.github.io/rustup-components-history/
+shows rustfmt is working. Update `rust-toolchain` and
+`.github/workflows/ci-nightly` when fixed.
+
+
 ## License
 
 Licensed under either of
