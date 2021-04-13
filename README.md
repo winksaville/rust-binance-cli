@@ -1,4 +1,5 @@
 # Binance auto sell
+[![codecov](https://codecov.io/gh/winksaville/rust-binance-auto-sell/branch/main/graph/badge.svg?token=5l3L7yVGTj)](https://codecov.io/gh/winksaville/rust-binance-auto-sell)
 
 Automatically sell all assets owned by the user on binance.us
 except USD, USDT plus a minimum of BNB is kept.
