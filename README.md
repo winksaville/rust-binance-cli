@@ -14,14 +14,13 @@ Hello, world!
 
 ## Building
 
-Currently nightly is used as I'm using `#[feature(tst)]`.
+Building both nightly and stable defaulting to stable.
 
 ## TODO:
 
-Using nightly-2021-03-25 as that is the last rustfmt that works
-Update when https://rust-lang.github.io/rustup-components-history/
-shows rustfmt is working. Update `rust-toolchain` and
-`.github/workflows/ci-nightly` when fixed.
+Using nightly-2021-03-25 as that is the last rustfmt that works as
+shown at https://rust-lang.github.io/rustup-components-history/.
+Change this when rustfmt is fixed.
 
 
 ## License

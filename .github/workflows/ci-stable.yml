@@ -6,9 +6,7 @@
 
 on: [push, pull_request]
 
-# Using nightly-2021-03-25 as that is the last rustfmt that works as
-# shown at https://rust-lang.github.io/rustup-components-history/.
-name: CI nightly-2021-03-25
+name: CI stable
 
 env:
   RUST_BACKTRACE: 1
@@ -21,11 +19,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-03-25
+          toolchain: stable
           override: true
 
       - name: Run cargo check
@@ -41,11 +39,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-03-25
+          toolchain: stable
           override: true
 
       - name: Run cargo test
@@ -61,11 +59,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-03-25
+          toolchain: stable
           override: true
           components: rustfmt, clippy
 
