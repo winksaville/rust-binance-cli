@@ -67,10 +67,15 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '-- --test-threads 1'
+        # From:
+        #  https://github.com/Ch00k/orthanc-cli/blob/slow-follow-exec/.github/workflows/test.yml
+      - name: Install tarpaulin
+        run: cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
+
+        # From:
+        #  https://github.com/xd009642/tarpaulin#github-actions
+      - name: Run cargo tarpaulin
+        run: cargo tarpaulin --follow-exec --verbose --all-features --timeout 120 --workspace --out Xml
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2

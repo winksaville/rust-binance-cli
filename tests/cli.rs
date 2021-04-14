@@ -4,6 +4,7 @@ use std::error::Error;
 use std::process::Command;
 
 #[test]
+#[cfg(not(tarpaulin_include))]
 fn test_no_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
 
@@ -17,6 +18,7 @@ fn test_no_params() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+#[cfg(not(tarpaulin_include))]
 fn test_help() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
     cmd.arg("-h");
@@ -29,6 +31,7 @@ fn test_help() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+#[cfg(not(tarpaulin_include))]
 fn test_req_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
     cmd.arg("-s=secret_key");
@@ -44,6 +47,7 @@ fn test_req_params() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 #[test]
+#[cfg(not(tarpaulin_include))]
 fn test_req_params_as_env_vars() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
     cmd.env("SECRET_KEY", "secret key");
