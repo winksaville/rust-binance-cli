@@ -13,7 +13,7 @@ struct Cli {
     verbose: i32,
 }
 
-fn do_it() {
+fn main() {
     let args = Cli::parse();
 
     #[allow(unused)]
@@ -23,9 +23,4 @@ fn do_it() {
         "sec_key=secret key is never displayed api_key={}",
         std::str::from_utf8(&api_key).unwrap(),
     );
-}
-
-#[cfg(not(tarpaulin_include))]
-fn main() {
-    do_it();
 }
