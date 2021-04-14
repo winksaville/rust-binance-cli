@@ -130,6 +130,7 @@ Apr 13 17:50:57.732  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
 || src/main.rs: 6/6
 || 
+100.00% coverage, 6/6 lines covered
 ```
 
 ## TODO:
