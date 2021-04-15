@@ -9,6 +9,10 @@ use de_string_or_number::{
     de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
 };
 
+mod exchange_info;
+#[allow(unused)]
+use exchange_info::ExchangeInfo;
+
 #[derive(Debug, Clap)]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Cli {
