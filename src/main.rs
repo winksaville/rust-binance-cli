@@ -1,4 +1,6 @@
 use clap::{AppSettings, Clap};
+use log::trace;
+use reqwest;
 
 #[allow(unused)]
 use serde::{Deserialize, Serialize};
@@ -26,7 +28,37 @@ struct Cli {
     verbose: i32,
 }
 
-fn main() {
+struct BinanceContext {
+    base_url: String,
+}
+
+impl BinanceContext {
+    pub fn new() -> Self {
+        Self {
+            base_url: "binance.us".to_string(),
+        }
+    }
+}
+
+async fn get_exchange_info(ctx: &BinanceContext) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
+    trace!("get_exchange_info: +");
+    let url = format!("https://api.{}/api/v3/exchangeInfo", ctx.base_url);
+
+    let resp = reqwest::Client::new().get(url).send().await?.text().await?;
+
+    let exchange_info: ExchangeInfo = serde_json::from_str(&resp)?;
+
+    trace!("get_exchange_info: -");
+    Ok(exchange_info)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+    trace!("+");
+
+    let ctx = BinanceContext::new();
+
     let args = Cli::parse();
 
     #[allow(unused)]
@@ -36,4 +68,10 @@ fn main() {
         "sec_key=secret key is never displayed api_key={}",
         std::str::from_utf8(&api_key).unwrap(),
     );
+
+    let ei = get_exchange_info(&ctx).await?;
+    println!("ei={:#?}", ei);
+
+    trace!("-");
+    Ok(())
 }
