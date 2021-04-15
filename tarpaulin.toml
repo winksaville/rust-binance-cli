@@ -1,0 +1,4 @@
+[all]
+follow_exec = true
+ignore-tests = true
+verbose = true

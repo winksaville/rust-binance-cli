@@ -1,5 +1,14 @@
 use clap::{AppSettings, Clap};
 
+#[allow(unused)]
+use serde::{Deserialize, Serialize};
+
+mod de_string_or_number;
+#[allow(unused)]
+use de_string_or_number::{
+    de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
+};
+
 #[derive(Debug, Clap)]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Cli {

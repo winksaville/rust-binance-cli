@@ -75,7 +75,7 @@ jobs:
         # From:
         #  https://github.com/xd009642/tarpaulin#github-actions
       - name: Run cargo tarpaulin
-        run: cargo tarpaulin --follow-exec --verbose --all-features --workspace --out Xml
+        run: cargo tarpaulin --out Xml
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
