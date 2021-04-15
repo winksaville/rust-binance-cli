@@ -45,21 +45,28 @@ sec_key=secret key is never displayed api_key=the-api-key
 
 ## Test
 
+Test using `cargo test`:
 ```
 wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
 $ cargo test
     Finished test [unoptimized + debuginfo] target(s) in 0.01s
-     Running target/debug/deps/binance_auto_sell-8b2f8d3614c3ece0
+     Running target/debug/deps/binance_auto_sell-049bc8b772cabc65
 
-running 0 tests
+running 6 tests
+test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
+test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
+test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
+test exchange_info::test::test_exchange_info ... ok
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running target/debug/deps/cli-595a799ae4fee77f
+     Running target/debug/deps/cli-ce0518d68c450e5d
 
 running 4 tests
-test test_no_params ... ok
 test test_req_params ... ok
+test test_no_params ... ok
 test test_help ... ok
 test test_req_params_as_env_vars ... ok
 
@@ -68,55 +75,67 @@ test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 ## Code coverage
 
-> **There is a problem somewhere, if you've previously done a `cargo` `build`|`test`|`run`
-> you must do a `cargo clean` before a `cargo tarpaulin` will succeed. And then you
-> may get a `link` error if you subsequently do a `cargo build`. This too can be resolved
-> by doing a `cargo clean` before the first subsequent `cargo build` :(**
+> Note: tarpaulin is being used for code coverage, but you must use 0.18.0+.
+> Also, to run tarpaulin you need to clean the repo first otherwise
+> you may see problems described in [issue #1 in this repo](https://github.com/winksaville/rust-binance-auto-sell/issues/1)
+> and [issue #736 in Tarpaulin repo](https://github.com/xd009642/tarpaulin/issues/736). 
 
-
-Here is the error I'm seeing:
+So the first time run `cargo clean && cargo tarpaulin`:
 ```
 wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
-$ cargo tarpaulin --follow-exec
-Apr 13 17:48:22.451  INFO cargo_tarpaulin: Running Tarpaulin
-Apr 13 17:48:22.451  INFO cargo_tarpaulin: Building project
-   Compiling autocfg v1.0.1
+$ cargo clean ; cargo tarpaulin
+Apr 15 09:37:21.936  INFO cargo_tarpaulin: Running config all
+Apr 15 09:37:21.936  INFO cargo_tarpaulin: Running Tarpaulin
+Apr 15 09:37:21.936  INFO cargo_tarpaulin: Building project
    Compiling proc-macro2 v1.0.26
+   Compiling unicode-xid v0.2.1
 ...
    Compiling clap v3.0.0-beta.2
    Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
-error: could not compile `binance-auto-sell`
+    Finished test [unoptimized + debuginfo] target(s) in 12.37s
+Apr 15 09:37:34.553  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Apr 15 09:37:34.553  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/cli-ce0518d68c450e5d
 
-To learn more, run the command again with --verbose.
-warning: build failed, waiting for other jobs to finish...
-thread 'main' panicked at 'already borrowed: BorrowMutError', src/tools/cargo/src/cargo/util/config/mod.rs:307:20
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-Apr 13 17:48:30.124 ERROR cargo_tarpaulin: Failed to compile tests! Error: binance-auto-sell: linking with `cc` failed: exit code: 1
-Error: "Failed to compile tests! Error: binance-auto-sell: linking with `cc` failed: exit code: 1"
+running 4 tests
+test test_req_params_as_env_vars ... ok
+test test_req_params ... ok
+test test_no_params ... ok
+test test_help ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.83s
+
+Apr 15 09:37:38.409  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Apr 15 09:37:38.409  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/binance_auto_sell-049bc8b772cabc65
+
+running 6 tests
+test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
+test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
+test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
+test exchange_info::test::test_exchange_info ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+Apr 15 09:37:39.234  INFO cargo_tarpaulin::report: Coverage Results:
+|| Uncovered Lines:
+|| Tested/Total Lines:
+|| src/de_string_or_number.rs: 18/18
+|| src/main.rs: 6/6
+|| 
+100.00% coverage, 24/24 lines covered
 ```
 
-After a `cargo clean` I see:
+Subsequent runs clean is not necessary:
 ```
 wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
-$ cargo clean ; cargo tarpaulin --follow-exec
-Apr 13 17:50:45.333  INFO cargo_tarpaulin: Running Tarpaulin
-Apr 13 17:50:45.333  INFO cargo_tarpaulin: Building project
-   Compiling autocfg v1.0.1
-   Compiling proc-macro2 v1.0.26
-   Compiling version_check v0.9.3
-...
-   Compiling clap v3.0.0-beta.2
-   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
-    Finished test [unoptimized + debuginfo] target(s) in 8.25s
-Apr 13 17:50:53.842  INFO cargo_tarpaulin::process_handling::linux: Launching test
-Apr 13 17:50:53.842  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/binance_auto_sell-8b2f8d3614c3ece0
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-Apr 13 17:50:54.416  INFO cargo_tarpaulin::process_handling::linux: Launching test
-Apr 13 17:50:54.416  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/cli-595a799ae4fee77f
+$ cargo tarpaulin
+Apr 15 09:37:50.434  INFO cargo_tarpaulin: Running config all
+Apr 15 09:37:50.434  INFO cargo_tarpaulin: Running Tarpaulin
+Apr 15 09:37:50.434  INFO cargo_tarpaulin: Building project
+    Finished test [unoptimized + debuginfo] target(s) in 0.01s
+Apr 15 09:37:50.499  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Apr 15 09:37:50.499  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/cli-ce0518d68c450e5d
 
 running 4 tests
 test test_no_params ... ok
@@ -124,13 +143,50 @@ test test_help ... ok
 test test_req_params_as_env_vars ... ok
 test test_req_params ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.30s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.82s
 
-Apr 13 17:50:57.732  INFO cargo_tarpaulin::report: Coverage Results:
+Apr 15 09:37:54.346  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Apr 15 09:37:54.346  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/binance_auto_sell-049bc8b772cabc65
+
+running 6 tests
+test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
+test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
+test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
+test exchange_info::test::test_exchange_info ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+Apr 15 09:37:55.164  INFO cargo_tarpaulin::report: Coverage Results:
+|| Uncovered Lines:
 || Tested/Total Lines:
-|| src/main.rs: 6/6
+|| src/de_string_or_number.rs: 18/18 +0%
+|| src/main.rs: 6/6 +0%
 || 
-100.00% coverage, 6/6 lines covered
+100.00% coverage, 24/24 lines covered, +0% change in coverage
+```
+
+**But**, when you want to run any other of the `cargo build|run|test`
+commands the first one will also need to be preceeded by a `cargo clean`.
+```
+wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+$ cargo clean ; cargo run -- -s mysecretkey -a myapikey
+   Compiling proc-macro2 v1.0.26
+   Compiling unicode-xid v0.2.1
+...
+   Compiling clap v3.0.0-beta.2
+   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+    Finished dev [unoptimized + debuginfo] target(s) in 10.88s
+     Running `target/debug/binance-auto-sell -s mysecretkey -a myapikey`
+sec_key=secret key is never displayed api_key=myapikey
+```
+
+For subseqent `build|run|test`'s it is not necessary:
+```
+wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+$ cargo build
+    Finished dev [unoptimized + debuginfo] target(s) in 0.01s
 ```
 
 ## TODO:
@@ -138,9 +194,6 @@ Apr 13 17:50:57.732  INFO cargo_tarpaulin::report: Coverage Results:
 Using nightly-2021-03-25 as that is the last rustfmt that works as
 shown at https://rust-lang.github.io/rustup-components-history/.
 Change this when rustfmt is fixed.
-
-Fix problem with build issue of having to do `cargo cleans` before
-and after doing `cargo tarpaulin`.
 
 ## License
 
