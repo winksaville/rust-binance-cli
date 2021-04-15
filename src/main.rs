@@ -1,6 +1,5 @@
 use clap::{AppSettings, Clap};
 use log::trace;
-use reqwest;
 
 #[allow(unused)]
 use serde::{Deserialize, Serialize};
@@ -10,6 +9,9 @@ mod de_string_or_number;
 use de_string_or_number::{
     de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
 };
+
+mod binance_context;
+use binance_context::BinanceContext;
 
 mod exchange_info;
 #[allow(unused)]
@@ -28,24 +30,15 @@ struct Cli {
     verbose: i32,
 }
 
-struct BinanceContext {
-    base_url: String,
-}
-
-impl BinanceContext {
-    pub fn new() -> Self {
-        Self {
-            base_url: "binance.us".to_string(),
-        }
-    }
-}
-
-async fn get_exchange_info(ctx: &BinanceContext) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
+async fn get_exchange_info(
+    ctx: &BinanceContext,
+) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
     trace!("get_exchange_info: +");
-    let url = format!("https://api.{}/api/v3/exchangeInfo", ctx.base_url);
+
+    let url = ctx.make_url("api", "/api/v3/exchangeInfo");
+    trace!("get_exchange_info: url={}", url);
 
     let resp = reqwest::Client::new().get(url).send().await?.text().await?;
-
     let exchange_info: ExchangeInfo = serde_json::from_str(&resp)?;
 
     trace!("get_exchange_info: -");
@@ -69,8 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::str::from_utf8(&api_key).unwrap(),
     );
 
-    let ei = get_exchange_info(&ctx).await?;
-    println!("ei={:#?}", ei);
+    let _ei = get_exchange_info(&ctx).await?;
+    //println!("ei={:#?}", ei);
 
     trace!("-");
     Ok(())
