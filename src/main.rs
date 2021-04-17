@@ -62,8 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::str::from_utf8(&api_key).unwrap(),
     );
 
-    let _ei = get_exchange_info(&ctx).await?;
-    //println!("ei={:#?}", ei);
+    let ei = get_exchange_info(&ctx).await?;
+    println!("ei.server_time={:#?}", ei.server_time);
 
     trace!("-");
     Ok(())

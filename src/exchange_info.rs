@@ -189,10 +189,10 @@ pub struct Symbol {
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeInfo {
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    server_time: u64,
-    exchange_filters: Vec<ExchangeFilters>,
-    rate_limits: Vec<RateLimit>,
-    symbols: Vec<Symbol>,
+    pub server_time: u64,
+    pub exchange_filters: Vec<ExchangeFilters>,
+    pub rate_limits: Vec<RateLimit>,
+    pub symbols: Vec<Symbol>,
 }
 
 #[cfg(test)]
