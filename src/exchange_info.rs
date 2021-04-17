@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[allow(unused)]
 use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
@@ -152,37 +153,37 @@ pub enum IntervalType {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RateLimit {
-    rate_limit_type: RateLimitType, // Type of rate limit
-    interval: IntervalType,         // Type of interval
-    interval_num: u64,              // interval_num * interval is a duration
-    limit: u64,                     // limit is the maximum rate in the duration.
+    pub rate_limit_type: RateLimitType, // Type of rate limit
+    pub interval: IntervalType,         // Type of interval
+    pub interval_num: u64,              // interval_num * interval is a duration
+    pub limit: u64,                     // limit is the maximum rate in the duration.
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Symbol {
-    symbol: String,     // +enum BTCUSD?
-    base_asset: String, // +enum BTC?
+    pub symbol: String,     // +enum BTCUSD?
+    pub base_asset: String, // +enum BTC?
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    base_asset_precision: u64,
+    pub base_asset_precision: u64,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    base_commission_precision: u64,
-    iceberg_allowed: bool,
-    is_margin_trading_allowed: bool,
-    is_spot_trading_allowed: bool,
-    oco_allowed: bool,
-    quote_asset: String, // +enum USD?
+    pub base_commission_precision: u64,
+    pub iceberg_allowed: bool,
+    pub is_margin_trading_allowed: bool,
+    pub is_spot_trading_allowed: bool,
+    pub oco_allowed: bool,
+    pub quote_asset: String, // +enum USD?
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    quote_asset_precision: u64,
+    pub quote_asset_precision: u64,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    quote_commission_precision: u64,
-    quote_order_qty_market_allowed: bool,
+    pub quote_commission_precision: u64,
+    pub quote_order_qty_market_allowed: bool,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    quote_precision: u64,
-    status: String, // +enum TRADING?
-    permissions: Vec<String>,
-    order_types: Vec<String>,
-    filters: Vec<SymbolFilters>,
+    pub quote_precision: u64,
+    pub status: String, // +enum TRADING?
+    pub permissions: Vec<String>,
+    pub order_types: Vec<String>,
+    pub filters: Vec<SymbolFilters>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -195,11 +196,23 @@ pub struct ExchangeInfo {
     pub symbols: Vec<Symbol>,
 }
 
+impl ExchangeInfo {
+    pub fn symbols_to_map(&self) -> HashMap<&str, &Symbol> {
+        let mut hm = HashMap::<&str, &Symbol>::new();
+
+        for item in &self.symbols {
+            hm.insert(&item.symbol, &item);
+        }
+
+        hm
+    }
+}
+
 #[cfg(test)]
 mod test {
     //extern crate test;
 
-    #[allow(unused_imports)]
+    //#[allow(unused_imports)]
     use super::*;
 
     #[allow(unused)]
@@ -403,6 +416,14 @@ mod test {
                 assert_eq!(tick_size, 0.01);
             }
             _ => assert!(false),
+        }
+
+        let shm = ei.symbols_to_map();
+        let sm_btcusd = shm.get("BTCUSD");
+        assert!(sm_btcusd.is_some());
+        if let Some(sym) = sm_btcusd {
+            println!("sym.symbol={:#?}", sym.symbol);
+            assert_eq!(sym.symbol, s0.symbol);
         }
     }
 }

@@ -65,6 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ei = get_exchange_info(&ctx).await?;
     println!("ei.server_time={:#?}", ei.server_time);
 
+    let symhm = ei.symbols_to_map();
+    let sym = symhm.get("BTCUSD");
+    if let Some(sym_btcusd) = sym {
+        println!("sym_btcusd={:#?}", sym_btcusd);
+    }
+
     trace!("-");
     Ok(())
 }
