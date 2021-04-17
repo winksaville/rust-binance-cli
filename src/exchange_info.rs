@@ -22,6 +22,30 @@ pub enum ExchangeFilters {
     },
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SizeData {
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "minQty")]
+    pub min_qty: f64,
+
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "maxQty")]
+    pub max_qty: f64,
+
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "stepSize")]
+    pub step_size: f64,
+}
+
+// Couldn't use SymbolFilters directly as key to hash because
+// Eq and Hash are not implementatble for f64. Instead I'm
+// using `into()` of InfoStaticStr to convert it to a keyable item.
+// See: SymbolFilters.filters
+//
+// Accessing this requires a match and isn't pretty, IMHO.
+// Maybe [enum-as-inner](https://crates.io/crates/enum-as-inner#:~:text=named%20field%20case)
+// Or [enum variants as types](https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/)
+// related to [datasort refinements](https://github.com/rust-lang/rfcs/issues/754)?
 #[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
 #[serde(tag = "filterType")]
 pub enum SymbolFilters {
@@ -56,19 +80,7 @@ pub enum SymbolFilters {
     },
 
     #[serde(rename = "LOT_SIZE")]
-    LotSize {
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "minQty")]
-        min_qty: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "maxQty")]
-        max_qty: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "stepSize")]
-        step_size: f64,
-    },
+    LotSize(SizeData),
 
     #[serde(rename = "MIN_NOTIONAL")]
     MinNotional {
@@ -134,6 +146,16 @@ pub enum SymbolFilters {
     },
 }
 
+impl SymbolFilters {
+    pub fn get_lot_size(&self) -> Option<&SizeData> {
+        match self {
+            SymbolFilters::LotSize(sd) => Some(sd),
+            _ => None,
+        }
+        //Some(SizeData { min_qty: 1f64, max_qty: 2f64, step_size: 3f64})
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RateLimitType {
@@ -184,6 +206,19 @@ pub struct Symbol {
     pub permissions: Vec<String>,
     pub order_types: Vec<String>,
     pub filters: Vec<SymbolFilters>,
+}
+
+impl Symbol {
+    #[allow(unused)] // TODO: remove when used.
+    pub fn symbol_filters_to_map(&self) -> HashMap<&str, &SymbolFilters> {
+        let mut hm: HashMap<&str, &SymbolFilters> = HashMap::new();
+
+        for item in &self.filters {
+            hm.insert(item.into(), &item);
+        }
+
+        hm
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -424,6 +459,47 @@ mod test {
         if let Some(sym) = sm_btcusd {
             println!("sym.symbol={:#?}", sym.symbol);
             assert_eq!(sym.symbol, s0.symbol);
+
+            let sfhm = sym.symbol_filters_to_map();
+            println!("sfhm.len()={}", sfhm.len());
+            println!("sfhm={:#?}", sfhm);
+
+            // This is a lot of boilerplate, what I want to do is
+            // sfhm.get("LotSize") should be:
+            //   `get(SymbolFilters::LotSize) -> Option<&SymbolFilters::LotSize>`
+            //
+            // See SymbolFilters above
+            if let Some(lot_size) = sfhm.get("LotSize") {
+                println!("lot_size={:#?}", lot_size);
+                match *lot_size {
+                    SymbolFilters::LotSize(SizeData {
+                        min_qty,
+                        max_qty,
+                        step_size,
+                    }) => {
+                        assert_eq!(*min_qty, 0.000001);
+                        assert_eq!(*max_qty, 9000.0);
+                        assert_eq!(*step_size, 0.000001);
+                    }
+                    _ => {}
+                }
+            } else {
+                assert!(false, "No LotSize, should never happen");
+            }
+
+            // This seems more natural
+            if let Some(lot_size) = sfhm.get("LotSize") {
+                if let Some(sd) = lot_size.get_lot_size() {
+                    println!("sd={:#?}", sd);
+                    assert_eq!(sd.min_qty, 0.000001);
+                    assert_eq!(sd.max_qty, 9000.0);
+                    assert_eq!(sd.step_size, 0.000001);
+                } else {
+                    assert!(false, "No DataSize, should never happen");
+                }
+            } else {
+                assert!(false, "No LotSize, should never happen");
+            }
         }
     }
 }
