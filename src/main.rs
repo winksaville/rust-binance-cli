@@ -30,9 +30,9 @@ struct Cli {
     verbose: i32,
 }
 
-async fn get_exchange_info(
+async fn get_exchange_info<'e>(
     ctx: &BinanceContext,
-) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
+) -> Result<ExchangeInfo<'e>, Box<dyn std::error::Error>> {
     trace!("get_exchange_info: +");
 
     let url = ctx.make_url("api", "/api/v3/exchangeInfo");
@@ -65,11 +65,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ei = get_exchange_info(&ctx).await?;
     println!("ei.server_time={:#?}", ei.server_time);
 
-    let eihm = ei.symbols_to_map();
-    println!("eihm.len()={}", eihm.len());
-    if let Some(sym_bnb) = eihm.get("BNBUSD") {
-        println!("sym_bnb={:#?}", sym_bnb);
-    }
+    // let eihm = ei.symbols_to_map();
+    // println!("eihm.len()={}", eihm.len());
+    // if let Some(sym_bnb) = eihm.get("BNBUSD") {
+    //     println!("sym_bnb={:#?}", sym_bnb);
+    // }
 
     trace!("-");
     Ok(())

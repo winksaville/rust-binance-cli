@@ -183,7 +183,7 @@ pub struct RateLimit {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Symbol {
+pub struct Symbol<'a> {
     pub symbol: String,     // +enum BTCUSD?
     pub base_asset: String, // +enum BTC?
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
@@ -206,33 +206,60 @@ pub struct Symbol {
     pub permissions: Vec<String>,
     pub order_types: Vec<String>,
     pub filters: Vec<SymbolFilters>,
+
+    #[serde(skip)]
+    filters_map: Option<HashMap<&'a str, &'a SymbolFilters>>,
 }
 
-impl Symbol {
-    #[allow(unused)] // TODO: remove when used.
-    pub fn symbol_filters_to_map(&self) -> HashMap<&str, &SymbolFilters> {
-        let mut hm: HashMap<&str, &SymbolFilters> = HashMap::new();
+impl<'s> Symbol<'s> {
+    fn symbol_filters_to_map(&self) -> HashMap<&'s str, &'s SymbolFilters> {
+        // What if OOM?
+        let mut hm: HashMap<&'s str, &'s SymbolFilters> = HashMap::new();
 
+        let item: &SymbolFilters;
         for item in &self.filters {
-            hm.insert(item.into(), &item);
+            let key = item.into();
+            hm.insert(key, item);
         }
 
         hm
+    }
+
+    fn get_filter_map(&self, sym: &'s str) -> HashMap<&'s str, &'s SymbolFilters> {
+        if self.filters_map.is_none() {
+            self.filters_map = Some(self.symbol_filters_to_map())
+        }
+
+        self.filters_map.unwrap()
+    }
+
+    pub fn get_lot_size(&self, sym: &'s str) -> Option<&'s SizeData> {
+        let fm = self.get_filter_map(sym);
+
+        //let sf= fm.get("LotSize");
+        if let Some(lot_size) = fm.get("LotSize") {
+            lot_size.get_lot_size()
+        } else {
+            None
+        }
     }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExchangeInfo {
+pub struct ExchangeInfo<'e> {
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub server_time: u64,
     pub exchange_filters: Vec<ExchangeFilters>,
     pub rate_limits: Vec<RateLimit>,
-    pub symbols: Vec<Symbol>,
+    pub symbols: Vec<Symbol<'e>>,
+
+    #[serde(skip)]
+    symbols_map: Option<HashMap<&'e str, &'e Symbol<'e>>>,
 }
 
-impl ExchangeInfo {
-    pub fn symbols_to_map(&self) -> HashMap<&str, &Symbol> {
+impl<'e> ExchangeInfo<'e> {
+    fn symbols_to_map(&self) -> HashMap<&str, &Symbol> {
         let mut hm = HashMap::<&str, &Symbol>::new();
 
         for item in &self.symbols {
@@ -241,6 +268,25 @@ impl ExchangeInfo {
 
         hm
     }
+
+    //pub fn get_sym(&self, sym: &str) -> Option<&Symbol> {
+    //    if symbols_map.is_none() {
+    //        self.symbols_map = symbols_to_map(self);
+    //    }
+
+    //    self.symbols_map.get(sym)
+    //}
+    //pub fn get_lot_size(&self, sym: &str) -> Option<&SizeData> {
+    //    if symbols_map.is_none() {
+    //
+    //    }
+    //    if self.filters_map.is_none() {
+    //        //pub fn symbol_filters_to_map(&self) -> HashMap<&str, &SymbolFilters>
+    //        self.symbols_to_map();
+    //        self.filters_map =
+    //    }
+
+    //}
 }
 
 #[cfg(test)]
@@ -460,46 +506,46 @@ mod test {
             println!("sym.symbol={:#?}", sym.symbol);
             assert_eq!(sym.symbol, s0.symbol);
 
-            let sfhm = sym.symbol_filters_to_map();
-            println!("sfhm.len()={}", sfhm.len());
-            println!("sfhm={:#?}", sfhm);
+            // let sfhm = sym.symbol_filters_to_map();
+            // println!("sfhm.len()={}", sfhm.len());
+            // println!("sfhm={:#?}", sfhm);
 
-            // This is a lot of boilerplate, what I want to do is
-            // sfhm.get("LotSize") should be:
-            //   `get(SymbolFilters::LotSize) -> Option<&SymbolFilters::LotSize>`
-            //
-            // See SymbolFilters above
-            if let Some(lot_size) = sfhm.get("LotSize") {
-                println!("lot_size={:#?}", lot_size);
-                match *lot_size {
-                    SymbolFilters::LotSize(SizeData {
-                        min_qty,
-                        max_qty,
-                        step_size,
-                    }) => {
-                        assert_eq!(*min_qty, 0.000001);
-                        assert_eq!(*max_qty, 9000.0);
-                        assert_eq!(*step_size, 0.000001);
-                    }
-                    _ => {}
-                }
-            } else {
-                assert!(false, "No LotSize, should never happen");
-            }
+            // // This is a lot of boilerplate, what I want to do is
+            // // sfhm.get("LotSize") should be:
+            // //   `get(SymbolFilters::LotSize) -> Option<&SymbolFilters::LotSize>`
+            // //
+            // // See SymbolFilters above
+            // if let Some(lot_size) = sfhm.get("LotSize") {
+            //     println!("lot_size={:#?}", lot_size);
+            //     match *lot_size {
+            //         SymbolFilters::LotSize(SizeData {
+            //             min_qty,
+            //             max_qty,
+            //             step_size,
+            //         }) => {
+            //             assert_eq!(*min_qty, 0.000001);
+            //             assert_eq!(*max_qty, 9000.0);
+            //             assert_eq!(*step_size, 0.000001);
+            //         }
+            //         _ => {}
+            //     }
+            // } else {
+            //     assert!(false, "No LotSize, should never happen");
+            // }
 
-            // This seems more natural
-            if let Some(lot_size) = sfhm.get("LotSize") {
-                if let Some(sd) = lot_size.get_lot_size() {
-                    println!("sd={:#?}", sd);
-                    assert_eq!(sd.min_qty, 0.000001);
-                    assert_eq!(sd.max_qty, 9000.0);
-                    assert_eq!(sd.step_size, 0.000001);
-                } else {
-                    assert!(false, "No DataSize, should never happen");
-                }
-            } else {
-                assert!(false, "No LotSize, should never happen");
-            }
+            // // This seems more natural
+            // if let Some(lot_size) = sfhm.get("LotSize") {
+            //     if let Some(sd) = lot_size.get_lot_size() {
+            //         println!("sd={:#?}", sd);
+            //         assert_eq!(sd.min_qty, 0.000001);
+            //         assert_eq!(sd.max_qty, 9000.0);
+            //         assert_eq!(sd.step_size, 0.000001);
+            //     } else {
+            //         assert!(false, "No DataSize, should never happen");
+            //     }
+            // } else {
+            //     assert!(false, "No LotSize, should never happen");
+            // }
         }
     }
 }
