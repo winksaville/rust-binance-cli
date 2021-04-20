@@ -285,20 +285,44 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_exchange_info() {
-        // // vvv OK. Here I can create_filters_map using either technique.
-        //            But I can't create_symbols_map
-        // let mut mut_ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
-        //     Ok(info) => info,
-        //     Err(e) => panic!("Error processing response: e={}", e),
-        // };
-        // for xyz in &mut mut_ei.symbols { // Mutable borrow here --------v
-        //     create_filters_map(xyz); // Works                           |
-        //     //xyz.create_filters_map(); // Works                        |
-        // }  //                                                           |
-        // //println!("mut_ei={:#?}", mut_ei); // So you can do it here <--|
-        // // ^^^
+    fn test_create_filters() {
+        // Here I can create_filters_map using either technique.
+        // But I can't create_symbols_map
+        let mut mut_ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
+            Ok(info) => info,
+            Err(e) => panic!("Error processing response: e={}", e),
+        };
 
+        for xyz in &mut mut_ei.symbols {
+            if true {
+                create_filters_map(xyz); // Works
+            } else {
+                xyz.create_filters_map(); // Works
+            }
+        }
+
+        // If uncommented this causes the error below
+        let ei = mut_ei.create_symbols_map();
+        //    error[E0499]: cannot borrow `mut_ei` as mutable more than once at a time
+        //       --> src/exchange_info.rs:306:18
+        //        |
+        //    296 |         for xyz in &mut mut_ei.symbols {
+        //        |                    ------------------- first mutable borrow occurs here
+        //    ...
+        //    305 |         let ei = mut_ei.create_symbols_map();
+        //        |                  ^^^^^^
+        //        |                  |
+        //        |                  second mutable borrow occurs here
+        //        |                  first borrow later used here
+        //
+        //    error: aborting due to previous error
+        //
+        //    For more information about this error, try `rustc --explain E0499`.
+        //    error: could not compile `binance-auto-sell`
+    }
+
+    #[test]
+    fn test_exchange_info() {
         // vvv Ok. Here I create_symbols_map but I can't creat_filters_map
         let mut mut_ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
             Ok(info) => info,
