@@ -284,121 +284,6 @@ mod test {
     //#[allow(unused_imports)]
     use super::*;
 
-    #[allow(unused)]
-    const EXCHANGE_INFO_DATA: &str = r#"{
-         "serverTime": 1618003698059,
-         "exchangeFilters": [
-             {
-                 "filterType": "EXCHANGE_MAX_NUM_ORDERS",
-                 "maxNumOrders": 123
-             },
-             {
-                 "filterType": "EXCHANGE_MAX_NUM_ALGO_ORDERS",
-                 "maxNumAlgoOrders": "456"
-             }
-         ],
-         "rateLimits": [
-             {
-                 "interval": "MINUTE",
-                 "intervalNum": 1,
-                 "limit": 1200,
-                 "rateLimitType": "RAW_REQUEST"
-             },
-             {
-                 "interval": "SECOND",
-                 "intervalNum": 10,
-                 "limit": 100,
-                 "rateLimitType": "REQUEST_WEIGHT"
-             },
-             {
-                 "interval": "DAY",
-                 "intervalNum": 1,
-                 "limit": 200000,
-                 "rateLimitType": "ORDERS"
-             }
-         ],
-         "symbols": [
-             {
-                 "symbol": "BTCUSD",
-                 "baseAsset": "BTC",
-                 "quoteAsset": "USD",
-                 "baseAssetPrecision": 8,
-                 "baseCommissionPrecision": 8,
-                 "icebergAllowed": true,
-                 "isMarginTradingAllowed": false,
-                 "isSpotTradingAllowed": true,
-                 "ocoAllowed": true,
-                 "quoteAssetPrecision": 4,
-                 "quoteCommissionPrecision": 2,
-                 "quoteOrderQtyMarketAllowed": true,
-                 "quotePrecision": 4,
-                 "status": "TRADING",
-                 "permissions": [
-                   "SPOT"
-                 ],
-                 "orderTypes": [
-                     "LIMIT",
-                     "LIMIT_MAKER",
-                     "MARKET",
-                     "STOP_LOSS_LIMIT",
-                     "TAKE_PROFIT_LIMIT"
-                 ],
-                 "filters": [
-                     {
-                         "filterType": "PRICE_FILTER",
-                         "maxPrice": "100000.0000",
-                         "minPrice": "0.0100",
-                         "tickSize": "0.0100"
-                     },
-                     {
-                         "avgPriceMins": 5,
-                         "filterType": "PERCENT_PRICE",
-                         "multiplierDown": "0.2",
-                         "multiplierUp": "5"
-                     },
-                     {
-                         "filterType": "LOT_SIZE",
-                         "maxQty": "9000.00000000",
-                         "minQty": "0.00000100",
-                         "stepSize": "0.00000100"
-                     },
-                     {
-                         "applyToMarket": true,
-                         "avgPriceMins": 5,
-                         "filterType": "MIN_NOTIONAL",
-                         "minNotional": "10.0000"
-                     },
-                     {
-                         "filterType": "ICEBERG_PARTS",
-                         "limit": 10
-                     },
-                     {
-                         "filterType": "MARKET_LOT_SIZE",
-                         "maxQty": "3200.00000000",
-                         "minQty": "0.00000000",
-                         "stepSize": "0.00000000"
-                     },
-                     {
-                         "filterType": "MAX_NUM_ORDERS",
-                         "maxNumOrders": 200
-                     },
-                     {
-                         "filterType": "MAX_NUM_ALGO_ORDERS",
-                         "maxNumAlgoOrders": 5
-                     },
-                     {
-                         "filterType": "MAX_NUM_ICEBERG_ORDERS",
-                         "maxNumIcebergOrders": 5
-                     },
-                     {
-                         "filterType": "MAX_POSITION",
-                         "maxPosition": 10.0
-                     }
-                 ]
-             }
-         ]
-     }"#;
-
     #[test]
     fn test_exchange_info() {
         // // vvv OK. Here I can create_filters_map using either technique.
@@ -531,4 +416,119 @@ mod test {
         println!("xxxxxx_sym={:#?}", xxxxxx_sym);
         // ^^^ OK
     }
+
+    #[allow(unused)]
+    const EXCHANGE_INFO_DATA: &str = r#"{
+         "serverTime": 1618003698059,
+         "exchangeFilters": [
+             {
+                 "filterType": "EXCHANGE_MAX_NUM_ORDERS",
+                 "maxNumOrders": 123
+             },
+             {
+                 "filterType": "EXCHANGE_MAX_NUM_ALGO_ORDERS",
+                 "maxNumAlgoOrders": "456"
+             }
+         ],
+         "rateLimits": [
+             {
+                 "interval": "MINUTE",
+                 "intervalNum": 1,
+                 "limit": 1200,
+                 "rateLimitType": "RAW_REQUEST"
+             },
+             {
+                 "interval": "SECOND",
+                 "intervalNum": 10,
+                 "limit": 100,
+                 "rateLimitType": "REQUEST_WEIGHT"
+             },
+             {
+                 "interval": "DAY",
+                 "intervalNum": 1,
+                 "limit": 200000,
+                 "rateLimitType": "ORDERS"
+             }
+         ],
+         "symbols": [
+             {
+                 "symbol": "BTCUSD",
+                 "baseAsset": "BTC",
+                 "quoteAsset": "USD",
+                 "baseAssetPrecision": 8,
+                 "baseCommissionPrecision": 8,
+                 "icebergAllowed": true,
+                 "isMarginTradingAllowed": false,
+                 "isSpotTradingAllowed": true,
+                 "ocoAllowed": true,
+                 "quoteAssetPrecision": 4,
+                 "quoteCommissionPrecision": 2,
+                 "quoteOrderQtyMarketAllowed": true,
+                 "quotePrecision": 4,
+                 "status": "TRADING",
+                 "permissions": [
+                   "SPOT"
+                 ],
+                 "orderTypes": [
+                     "LIMIT",
+                     "LIMIT_MAKER",
+                     "MARKET",
+                     "STOP_LOSS_LIMIT",
+                     "TAKE_PROFIT_LIMIT"
+                 ],
+                 "filters": [
+                     {
+                         "filterType": "PRICE_FILTER",
+                         "maxPrice": "100000.0000",
+                         "minPrice": "0.0100",
+                         "tickSize": "0.0100"
+                     },
+                     {
+                         "avgPriceMins": 5,
+                         "filterType": "PERCENT_PRICE",
+                         "multiplierDown": "0.2",
+                         "multiplierUp": "5"
+                     },
+                     {
+                         "filterType": "LOT_SIZE",
+                         "maxQty": "9000.00000000",
+                         "minQty": "0.00000100",
+                         "stepSize": "0.00000100"
+                     },
+                     {
+                         "applyToMarket": true,
+                         "avgPriceMins": 5,
+                         "filterType": "MIN_NOTIONAL",
+                         "minNotional": "10.0000"
+                     },
+                     {
+                         "filterType": "ICEBERG_PARTS",
+                         "limit": 10
+                     },
+                     {
+                         "filterType": "MARKET_LOT_SIZE",
+                         "maxQty": "3200.00000000",
+                         "minQty": "0.00000000",
+                         "stepSize": "0.00000000"
+                     },
+                     {
+                         "filterType": "MAX_NUM_ORDERS",
+                         "maxNumOrders": 200
+                     },
+                     {
+                         "filterType": "MAX_NUM_ALGO_ORDERS",
+                         "maxNumAlgoOrders": 5
+                     },
+                     {
+                         "filterType": "MAX_NUM_ICEBERG_ORDERS",
+                         "maxNumIcebergOrders": 5
+                     },
+                     {
+                         "filterType": "MAX_POSITION",
+                         "maxPosition": 10.0
+                     }
+                 ]
+             }
+         ]
+     }"#;
 }
