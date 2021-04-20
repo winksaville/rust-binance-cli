@@ -10,6 +10,10 @@ use de_string_or_number::{
     de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
 };
 
+mod de_vec_to_hashmap;
+#[allow(unused)]
+use de_vec_to_hashmap::de_vec_to_hashmap;
+
 mod binance_context;
 use binance_context::BinanceContext;
 
