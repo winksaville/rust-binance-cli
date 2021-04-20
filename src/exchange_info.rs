@@ -152,7 +152,6 @@ impl SymbolFilters {
             SymbolFilters::LotSize(sd) => Some(sd),
             _ => None,
         }
-        //Some(SizeData { min_qty: 1f64, max_qty: 2f64, step_size: 3f64})
     }
 }
 
@@ -208,40 +207,37 @@ pub struct Symbol<'a> {
     pub filters: Vec<SymbolFilters>,
 
     #[serde(skip)]
-    filters_map: Option<HashMap<&'a str, &'a SymbolFilters>>,
+    filters_map: HashMap<&'a str, &'a SymbolFilters>,
+}
+
+fn create_filters_map<'s>(sym: &'s mut Symbol<'s>) -> &'s Symbol<'s> {
+    sym.filters_map = HashMap::<&str, &SymbolFilters>::new();
+
+    for item in &sym.filters {
+        let key = item.into();
+        sym.filters_map.insert(key, item);
+    }
+
+    //println!("create_filters_map sym={:#?}", sym);
+    sym
 }
 
 impl<'s> Symbol<'s> {
-    fn symbol_filters_to_map(&self) -> HashMap<&'s str, &'s SymbolFilters> {
-        // What if OOM?
-        let mut hm: HashMap<&'s str, &'s SymbolFilters> = HashMap::new();
+    fn create_filters_map(&'s mut self) -> &Self {
+        self.filters_map = HashMap::<&'s str, &'s SymbolFilters>::new();
 
-        let item: &SymbolFilters;
         for item in &self.filters {
             let key = item.into();
-            hm.insert(key, item);
+            self.filters_map.insert(key, item);
         }
 
-        hm
+        //println!("create_filters_map sym={:#?}", self);
+        self
     }
 
-    fn get_filter_map(&self, sym: &'s str) -> HashMap<&'s str, &'s SymbolFilters> {
-        if self.filters_map.is_none() {
-            self.filters_map = Some(self.symbol_filters_to_map())
-        }
-
-        self.filters_map.unwrap()
-    }
-
-    pub fn get_lot_size(&self, sym: &'s str) -> Option<&'s SizeData> {
-        let fm = self.get_filter_map(sym);
-
-        //let sf= fm.get("LotSize");
-        if let Some(lot_size) = fm.get("LotSize") {
-            lot_size.get_lot_size()
-        } else {
-            None
-        }
+    // Not yet working mut/lifetime problems, is empty
+    pub fn get_lot_size(&self) -> Option<&'s SizeData> {
+        self.filters_map.get("LotSize")?.get_lot_size()
     }
 }
 
@@ -255,37 +251,29 @@ pub struct ExchangeInfo<'e> {
     pub symbols: Vec<Symbol<'e>>,
 
     #[serde(skip)]
-    symbols_map: Option<HashMap<&'e str, &'e Symbol<'e>>>,
+    symbols_map: HashMap<&'e str, &'e Symbol<'e>>,
 }
 
 impl<'e> ExchangeInfo<'e> {
-    fn symbols_to_map(&self) -> HashMap<&str, &Symbol> {
-        let mut hm = HashMap::<&str, &Symbol>::new();
+    fn create_symbols_map(&'e mut self) -> &Self {
+        self.symbols_map = HashMap::<&'e str, &'e Symbol<'e>>::new();
 
         for item in &self.symbols {
-            hm.insert(&item.symbol, &item);
+            //let sym = item.create_filters_map();
+            //self.symbols_map.insert(&sym.symbol, &sym);
+            self.symbols_map.insert(&item.symbol, item);
         }
 
-        hm
+        self
     }
 
-    //pub fn get_sym(&self, sym: &str) -> Option<&Symbol> {
-    //    if symbols_map.is_none() {
-    //        self.symbols_map = symbols_to_map(self);
-    //    }
+    pub fn get_sym(&'e self, symbol: &str) -> Option<&'e Symbol<'e>> {
+        Some(*self.symbols_map.get(symbol)?)
+    }
 
-    //    self.symbols_map.get(sym)
-    //}
-    //pub fn get_lot_size(&self, sym: &str) -> Option<&SizeData> {
-    //    if symbols_map.is_none() {
-    //
-    //    }
-    //    if self.filters_map.is_none() {
-    //        //pub fn symbol_filters_to_map(&self) -> HashMap<&str, &SymbolFilters>
-    //        self.symbols_to_map();
-    //        self.filters_map =
-    //    }
-
+    // Symbol::filters_map not yet initialized, got mut/lifetime problems :(
+    //pub fn get_lot_size(&'e self, symbol: &str) -> Option<&'e SizeData> {
+    //   self.get_sym(symbol)?.get_lot_size()
     //}
 }
 
@@ -298,136 +286,172 @@ mod test {
 
     #[allow(unused)]
     const EXCHANGE_INFO_DATA: &str = r#"{
-        "serverTime": 1618003698059,
-        "exchangeFilters": [
-            {
-                "filterType": "EXCHANGE_MAX_NUM_ORDERS",
-                "maxNumOrders": 123
-            },
-            {
-                "filterType": "EXCHANGE_MAX_NUM_ALGO_ORDERS",
-                "maxNumAlgoOrders": "456"
-            }
-        ],
-        "rateLimits": [
-            {
-                "interval": "MINUTE",
-                "intervalNum": 1,
-                "limit": 1200,
-                "rateLimitType": "RAW_REQUEST"
-            },
-            {
-                "interval": "SECOND",
-                "intervalNum": 10,
-                "limit": 100,
-                "rateLimitType": "REQUEST_WEIGHT"
-            },
-            {
-                "interval": "DAY",
-                "intervalNum": 1,
-                "limit": 200000,
-                "rateLimitType": "ORDERS"
-            }
-        ],
-        "symbols": [
-            {
-                "symbol": "BTCUSD",
-                "baseAsset": "BTC",
-                "quoteAsset": "USD",
-                "baseAssetPrecision": 8,
-                "baseCommissionPrecision": 8,
-                "icebergAllowed": true,
-                "isMarginTradingAllowed": false,
-                "isSpotTradingAllowed": true,
-                "ocoAllowed": true,
-                "quoteAssetPrecision": 4,
-                "quoteCommissionPrecision": 2,
-                "quoteOrderQtyMarketAllowed": true,
-                "quotePrecision": 4,
-                "status": "TRADING",
-                "permissions": [
-                  "SPOT"
-                ],
-                "orderTypes": [
-                    "LIMIT",
-                    "LIMIT_MAKER",
-                    "MARKET",
-                    "STOP_LOSS_LIMIT",
-                    "TAKE_PROFIT_LIMIT"
-                ],
-                "filters": [
-                    {
-                        "filterType": "PRICE_FILTER",
-                        "maxPrice": "100000.0000",
-                        "minPrice": "0.0100",
-                        "tickSize": "0.0100"
-                    },
-                    {
-                        "avgPriceMins": 5,
-                        "filterType": "PERCENT_PRICE",
-                        "multiplierDown": "0.2",
-                        "multiplierUp": "5"
-                    },
-                    {
-                        "filterType": "LOT_SIZE",
-                        "maxQty": "9000.00000000",
-                        "minQty": "0.00000100",
-                        "stepSize": "0.00000100"
-                    },
-                    {
-                        "applyToMarket": true,
-                        "avgPriceMins": 5,
-                        "filterType": "MIN_NOTIONAL",
-                        "minNotional": "10.0000"
-                    },
-                    {
-                        "filterType": "ICEBERG_PARTS",
-                        "limit": 10
-                    },
-                    {
-                        "filterType": "MARKET_LOT_SIZE",
-                        "maxQty": "3200.00000000",
-                        "minQty": "0.00000000",
-                        "stepSize": "0.00000000"
-                    },
-                    {
-                        "filterType": "MAX_NUM_ORDERS",
-                        "maxNumOrders": 200
-                    },
-                    {
-                        "filterType": "MAX_NUM_ALGO_ORDERS",
-                        "maxNumAlgoOrders": 5
-                    },
-                    {
-                        "filterType": "MAX_NUM_ICEBERG_ORDERS",
-                        "maxNumIcebergOrders": 5
-                    },
-                    {
-                        "filterType": "MAX_POSITION",
-                        "maxPosition": 10.0
-                    }
-                ]
-            }
-        ]
-    }"#;
+         "serverTime": 1618003698059,
+         "exchangeFilters": [
+             {
+                 "filterType": "EXCHANGE_MAX_NUM_ORDERS",
+                 "maxNumOrders": 123
+             },
+             {
+                 "filterType": "EXCHANGE_MAX_NUM_ALGO_ORDERS",
+                 "maxNumAlgoOrders": "456"
+             }
+         ],
+         "rateLimits": [
+             {
+                 "interval": "MINUTE",
+                 "intervalNum": 1,
+                 "limit": 1200,
+                 "rateLimitType": "RAW_REQUEST"
+             },
+             {
+                 "interval": "SECOND",
+                 "intervalNum": 10,
+                 "limit": 100,
+                 "rateLimitType": "REQUEST_WEIGHT"
+             },
+             {
+                 "interval": "DAY",
+                 "intervalNum": 1,
+                 "limit": 200000,
+                 "rateLimitType": "ORDERS"
+             }
+         ],
+         "symbols": [
+             {
+                 "symbol": "BTCUSD",
+                 "baseAsset": "BTC",
+                 "quoteAsset": "USD",
+                 "baseAssetPrecision": 8,
+                 "baseCommissionPrecision": 8,
+                 "icebergAllowed": true,
+                 "isMarginTradingAllowed": false,
+                 "isSpotTradingAllowed": true,
+                 "ocoAllowed": true,
+                 "quoteAssetPrecision": 4,
+                 "quoteCommissionPrecision": 2,
+                 "quoteOrderQtyMarketAllowed": true,
+                 "quotePrecision": 4,
+                 "status": "TRADING",
+                 "permissions": [
+                   "SPOT"
+                 ],
+                 "orderTypes": [
+                     "LIMIT",
+                     "LIMIT_MAKER",
+                     "MARKET",
+                     "STOP_LOSS_LIMIT",
+                     "TAKE_PROFIT_LIMIT"
+                 ],
+                 "filters": [
+                     {
+                         "filterType": "PRICE_FILTER",
+                         "maxPrice": "100000.0000",
+                         "minPrice": "0.0100",
+                         "tickSize": "0.0100"
+                     },
+                     {
+                         "avgPriceMins": 5,
+                         "filterType": "PERCENT_PRICE",
+                         "multiplierDown": "0.2",
+                         "multiplierUp": "5"
+                     },
+                     {
+                         "filterType": "LOT_SIZE",
+                         "maxQty": "9000.00000000",
+                         "minQty": "0.00000100",
+                         "stepSize": "0.00000100"
+                     },
+                     {
+                         "applyToMarket": true,
+                         "avgPriceMins": 5,
+                         "filterType": "MIN_NOTIONAL",
+                         "minNotional": "10.0000"
+                     },
+                     {
+                         "filterType": "ICEBERG_PARTS",
+                         "limit": 10
+                     },
+                     {
+                         "filterType": "MARKET_LOT_SIZE",
+                         "maxQty": "3200.00000000",
+                         "minQty": "0.00000000",
+                         "stepSize": "0.00000000"
+                     },
+                     {
+                         "filterType": "MAX_NUM_ORDERS",
+                         "maxNumOrders": 200
+                     },
+                     {
+                         "filterType": "MAX_NUM_ALGO_ORDERS",
+                         "maxNumAlgoOrders": 5
+                     },
+                     {
+                         "filterType": "MAX_NUM_ICEBERG_ORDERS",
+                         "maxNumIcebergOrders": 5
+                     },
+                     {
+                         "filterType": "MAX_POSITION",
+                         "maxPosition": 10.0
+                     }
+                 ]
+             }
+         ]
+     }"#;
 
     #[test]
     fn test_exchange_info() {
-        let ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
+        // // vvv OK. Here I can create_filters_map using either technique.
+        //            But I can't create_symbols_map
+        // let mut mut_ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
+        //     Ok(info) => info,
+        //     Err(e) => panic!("Error processing response: e={}", e),
+        // };
+        // for xyz in &mut mut_ei.symbols { // Mutable borrow here --------v
+        //     create_filters_map(xyz); // Works                           |
+        //     //xyz.create_filters_map(); // Works                        |
+        // }  //                                                           |
+        // //println!("mut_ei={:#?}", mut_ei); // So you can do it here <--|
+        // // ^^^
+
+        // vvv Ok. Here I create_symbols_map but I can't creat_filters_map
+        let mut mut_ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
             Ok(info) => info,
             Err(e) => panic!("Error processing response: e={}", e),
         };
+        let ei = mut_ei.create_symbols_map();
+        println!("ei.server_time={:#?}", ei.server_time);
         println!("ei={:#?}", ei);
-        assert_eq!(ei.server_time, 1618003698059u64);
 
-        // To "complex" for texting
+        // Verify symbols_map points at symbols
+        println!("&ei.symbols[0].symbol={:p}", &ei.symbols[0].symbol);
+        println!(
+            "&ei.symbols_map[\"BTCUSD\"].symbol={:p}",
+            &ei.symbols_map["BTCUSD"].symbol
+        );
+        assert_eq!(&ei.symbols[0].symbol, &ei.symbols_map["BTCUSD"].symbol);
+
+        println!(
+            "&ei.symbols[0].order_types={:p}",
+            &ei.symbols[0].order_types
+        );
+        println!(
+            "&ei.symbols_map[\"BTCUSD\"].order_types={:p}",
+            &ei.symbols_map["BTCUSD"].order_types
+        );
+        assert_eq!(
+            &ei.symbols[0].order_types,
+            &ei.symbols_map["BTCUSD"].order_types
+        );
+
+        // To "complex" for testing
         match &ei.exchange_filters[0] {
             ExchangeFilters::ExchangeMaxNumOrders {
                 max_num_orders: num,
             } => assert_eq!(*num, 123),
             _ => assert!(false),
         };
-        // This is simpler but seem to still need a `match` to access the field
+        // This is simpler but seems to still need a `match` to access the field
         let ef0 = &ei.exchange_filters[0];
         assert!(matches!(ef0, ExchangeFilters::ExchangeMaxNumOrders { .. }));
 
@@ -499,53 +523,12 @@ mod test {
             _ => assert!(false),
         }
 
-        let shm = ei.symbols_to_map();
-        let sm_btcusd = shm.get("BTCUSD");
-        assert!(sm_btcusd.is_some());
-        if let Some(sym) = sm_btcusd {
-            println!("sym.symbol={:#?}", sym.symbol);
-            assert_eq!(sym.symbol, s0.symbol);
+        let btcusd_sym = ei.get_sym("BTCUSD");
+        assert!(btcusd_sym.is_some());
 
-            // let sfhm = sym.symbol_filters_to_map();
-            // println!("sfhm.len()={}", sfhm.len());
-            // println!("sfhm={:#?}", sfhm);
-
-            // // This is a lot of boilerplate, what I want to do is
-            // // sfhm.get("LotSize") should be:
-            // //   `get(SymbolFilters::LotSize) -> Option<&SymbolFilters::LotSize>`
-            // //
-            // // See SymbolFilters above
-            // if let Some(lot_size) = sfhm.get("LotSize") {
-            //     println!("lot_size={:#?}", lot_size);
-            //     match *lot_size {
-            //         SymbolFilters::LotSize(SizeData {
-            //             min_qty,
-            //             max_qty,
-            //             step_size,
-            //         }) => {
-            //             assert_eq!(*min_qty, 0.000001);
-            //             assert_eq!(*max_qty, 9000.0);
-            //             assert_eq!(*step_size, 0.000001);
-            //         }
-            //         _ => {}
-            //     }
-            // } else {
-            //     assert!(false, "No LotSize, should never happen");
-            // }
-
-            // // This seems more natural
-            // if let Some(lot_size) = sfhm.get("LotSize") {
-            //     if let Some(sd) = lot_size.get_lot_size() {
-            //         println!("sd={:#?}", sd);
-            //         assert_eq!(sd.min_qty, 0.000001);
-            //         assert_eq!(sd.max_qty, 9000.0);
-            //         assert_eq!(sd.step_size, 0.000001);
-            //     } else {
-            //         assert!(false, "No DataSize, should never happen");
-            //     }
-            // } else {
-            //     assert!(false, "No LotSize, should never happen");
-            // }
-        }
+        let xxxxxx_sym = ei.get_sym("XXXXXX");
+        assert!(xxxxxx_sym.is_none());
+        println!("xxxxxx_sym={:#?}", xxxxxx_sym);
+        // ^^^ OK
     }
 }
