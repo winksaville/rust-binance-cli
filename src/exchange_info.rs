@@ -7,23 +7,6 @@ use std::collections::HashMap;
 use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
 
 use strum_macros::IntoStaticStr;
-#[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
-#[serde(tag = "filterType")]
-pub enum ExchangeFilters {
-    #[serde(rename = "EXCHANGE_MAX_NUM_ORDERS")]
-    ExchangeMaxNumOrders {
-        #[serde(deserialize_with = "de_string_or_number_to_u64")]
-        #[serde(rename = "maxNumOrders")]
-        max_num_orders: u64,
-    },
-    #[serde(rename = "EXCHANGE_MAX_NUM_ALGO_ORDERS")]
-    ExchangeMaxAlgoOrders {
-        #[serde(deserialize_with = "de_string_or_number_to_u64")]
-        #[serde(rename = "maxNumAlgoOrders")]
-        max_num_algo_orders: u64,
-    },
-}
-
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct SizeRec {
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
@@ -140,6 +123,42 @@ pub enum SymbolFilters {
     },
 }
 
+// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
+pub fn de_vec_symbol_filters_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, SymbolFilters>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ItemsVisitor;
+
+    impl<'de> Visitor<'de> for ItemsVisitor {
+        type Value = HashMap<String, SymbolFilters>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a sequence of items")
+        }
+
+        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, SymbolFilters>, V::Error>
+        where
+            V: SeqAccess<'de>,
+        {
+            let mut map: HashMap<String, SymbolFilters> =
+                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+
+            while let Some(item) = seq.next_element::<SymbolFilters>()? {
+                // println!("item={:#?}", item);
+                let key: &'static str = item.into();
+                map.insert(key.to_string(), item);
+            }
+
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(ItemsVisitor)
+}
+
 impl SymbolFilters {
     pub fn get_lot_size(&self) -> Option<&SizeRec> {
         match self {
@@ -216,31 +235,6 @@ impl SymbolFilters {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum RateLimitType {
-    RawRequest,
-    RequestWeight,
-    Orders,
-}
-
-#[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum IntervalType {
-    Minute,
-    Second,
-    Day,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RateLimit {
-    pub rate_limit_type: RateLimitType, // Type of rate limit
-    pub interval: IntervalType,         // Type of interval
-    pub interval_num: u64,              // interval_num * interval is a duration
-    pub limit: u64,                     // limit is the maximum rate in the duration.
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 //pub struct Symbol<'a> {
@@ -272,42 +266,6 @@ pub struct Symbol {
 }
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
-pub fn de_vec_symbol_filters_to_hashmap<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<String, SymbolFilters>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct ItemsVisitor;
-
-    impl<'de> Visitor<'de> for ItemsVisitor {
-        type Value = HashMap<String, SymbolFilters>;
-
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            formatter.write_str("a sequence of items")
-        }
-
-        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, SymbolFilters>, V::Error>
-        where
-            V: SeqAccess<'de>,
-        {
-            let mut map: HashMap<String, SymbolFilters> =
-                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
-
-            while let Some(item) = seq.next_element::<SymbolFilters>()? {
-                println!("item={:#?}", item);
-                let key: &'static str = item.into();
-                map.insert(key.to_string(), item);
-            }
-
-            Ok(map)
-        }
-    }
-
-    deserializer.deserialize_seq(ItemsVisitor)
-}
-
-// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 pub fn de_vec_symbols_to_hashmap<'de, D>(
     deserializer: D,
 ) -> Result<HashMap<String, Symbol>, D::Error>
@@ -331,7 +289,7 @@ where
                 HashMap::with_capacity(seq.size_hint().unwrap_or(0));
 
             while let Some(sym) = seq.next_element::<Symbol>()? {
-                println!("sym={:#?}", sym);
+                // println!("sym={:#?}", sym);
                 map.insert(sym.symbol.clone(), sym);
             }
 
@@ -342,59 +300,205 @@ where
     deserializer.deserialize_seq(ItemsVisitor)
 }
 
+#[allow(unused)] // For now used in testing
 impl Symbol {
-    #[allow(unused)] // For now used in testing
     pub fn get_lot_size(&self) -> Option<&SizeRec> {
         self.filters_map.get("LotSize")?.get_lot_size()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_market_lot_size(&self) -> Option<&SizeRec> {
         self.filters_map.get("MarketLotSize")?.get_market_lot_size()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_price_filter(&self) -> Option<&PriceFilterRec> {
         self.filters_map.get("PriceFilter")?.get_price_filter()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_percent_price(&self) -> Option<&PercentPriceRec> {
         self.filters_map.get("PercentPrice")?.get_percent_price()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_min_notional(&self) -> Option<&MinNotionalRec> {
         self.filters_map.get("MinNotional")?.get_min_notional()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_iceberg_parts(&self) -> Option<u64> {
         self.filters_map.get("IcebergParts")?.get_iceberg_parts()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_max_num_iceberg_orders(&self) -> Option<u64> {
         self.filters_map
             .get("MaxNumIcebergOrders")?
             .get_max_num_iceberg_orders()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_max_num_orders(&self) -> Option<u64> {
         self.filters_map.get("MaxNumOrders")?.get_max_num_orders()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_max_num_algo_orders(&self) -> Option<u64> {
         self.filters_map
             .get("MaxNumAlgoOrders")?
             .get_max_num_algo_orders()
     }
 
-    #[allow(unused)] // For now used in testing
     pub fn get_max_position(&self) -> Option<f64> {
         self.filters_map.get("MaxPosition")?.get_max_position()
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, IntoStaticStr)]
+#[serde(tag = "filterType")]
+pub enum ExchangeFilters {
+    #[serde(rename = "EXCHANGE_MAX_NUM_ORDERS")]
+    ExchangeMaxNumOrders {
+        #[serde(deserialize_with = "de_string_or_number_to_u64")]
+        #[serde(rename = "maxNumOrders")]
+        max_num_orders: u64,
+    },
+    #[serde(rename = "EXCHANGE_MAX_NUM_ALGO_ORDERS")]
+    ExchangeMaxNumAlgoOrders {
+        #[serde(deserialize_with = "de_string_or_number_to_u64")]
+        #[serde(rename = "maxNumAlgoOrders")]
+        max_num_algo_orders: u64,
+    },
+}
+
+impl ExchangeFilters {
+    pub fn get_max_num_orders(&self) -> Option<u64> {
+        match self {
+            ExchangeFilters::ExchangeMaxNumOrders { max_num_orders } => Some(*max_num_orders),
+            _ => None,
+        }
+    }
+
+    pub fn get_max_num_algo_orders(&self) -> Option<u64> {
+        match self {
+            ExchangeFilters::ExchangeMaxNumAlgoOrders {
+                max_num_algo_orders,
+            } => Some(*max_num_algo_orders),
+            _ => None,
+        }
+    }
+}
+
+// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
+pub fn de_vec_exchange_filters_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, ExchangeFilters>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ItemsVisitor;
+
+    impl<'de> Visitor<'de> for ItemsVisitor {
+        type Value = HashMap<String, ExchangeFilters>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a sequence of items")
+        }
+
+        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, ExchangeFilters>, V::Error>
+        where
+            V: SeqAccess<'de>,
+        {
+            let mut map: HashMap<String, ExchangeFilters> =
+                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+
+            while let Some(item) = seq.next_element::<ExchangeFilters>()? {
+                // println!("item={:#?}", item);
+                let key: &'static str = item.into();
+                map.insert(key.to_string(), item);
+            }
+
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(ItemsVisitor)
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, IntoStaticStr)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RateLimitType {
+    RawRequest,
+    RequestWeight,
+    Orders,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, IntoStaticStr)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum IntervalType {
+    Minute,
+    Second,
+    Day,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RateLimit {
+    pub rate_limit_type: RateLimitType, // Type of rate limit
+    pub interval: IntervalType,         // Type of interval
+    pub interval_num: u64,              // interval_num * interval is a duration
+    pub limit: u64,                     // limit is the maximum rate in the duration.
+}
+
+// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
+pub fn de_vec_rate_limit_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, RateLimit>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ItemsVisitor;
+
+    impl<'de> Visitor<'de> for ItemsVisitor {
+        type Value = HashMap<String, RateLimit>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a sequence of items")
+        }
+
+        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, RateLimit>, V::Error>
+        where
+            V: SeqAccess<'de>,
+        {
+            let mut map: HashMap<String, RateLimit> =
+                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+
+            while let Some(item) = seq.next_element::<RateLimit>()? {
+                // println!("item={:#?}", item);
+                let key: &'static str = item.rate_limit_type.into();
+                map.insert(key.to_string(), item);
+            }
+
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(ItemsVisitor)
+}
+
+impl RateLimit {
+    pub fn get_raw_request(&self) -> Option<&RateLimit> {
+        match self.rate_limit_type {
+            RateLimitType::RawRequest => Some(self),
+            _ => None,
+        }
+    }
+
+    pub fn get_request_weight(&self) -> Option<&RateLimit> {
+        match self.rate_limit_type {
+            RateLimitType::RequestWeight => Some(self),
+            _ => None,
+        }
+    }
+
+    pub fn get_orders(&self) -> Option<&RateLimit> {
+        match self.rate_limit_type {
+            RateLimitType::Orders => Some(self),
+            _ => None,
+        }
     }
 }
 
@@ -403,15 +507,41 @@ impl Symbol {
 pub struct ExchangeInfo {
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub server_time: u64,
-    pub exchange_filters: Vec<ExchangeFilters>,
-    pub rate_limits: Vec<RateLimit>,
+    #[serde(deserialize_with = "de_vec_exchange_filters_to_hashmap")]
+    pub exchange_filters: HashMap<String, ExchangeFilters>,
+    #[serde(deserialize_with = "de_vec_rate_limit_to_hashmap")]
+    pub rate_limits: HashMap<String, RateLimit>,
     #[serde(deserialize_with = "de_vec_symbols_to_hashmap")]
     #[serde(rename = "symbols")]
     symbols_map: HashMap<String, Symbol>,
 }
 
 #[allow(unused)]
-impl<'e> ExchangeInfo {
+impl ExchangeInfo {
+    pub fn get_max_num_orders(&self) -> Option<u64> {
+        self.exchange_filters
+            .get("ExchangeMaxNumOrders")?
+            .get_max_num_orders()
+    }
+
+    pub fn get_max_num_algo_orders(&self) -> Option<u64> {
+        self.exchange_filters
+            .get("ExchangeMaxNumAlgoOrders")?
+            .get_max_num_algo_orders()
+    }
+
+    pub fn get_raw_request_rate_limit(&self) -> Option<&RateLimit> {
+        self.rate_limits.get("RawRequest")?.get_raw_request()
+    }
+
+    pub fn get_request_weight_rate_limit(&self) -> Option<&RateLimit> {
+        self.rate_limits.get("RequestWeight")?.get_request_weight()
+    }
+
+    pub fn get_orders_rate_limit(&self) -> Option<&RateLimit> {
+        self.rate_limits.get("Orders")?.get_orders()
+    }
+
     pub fn get_sym(&self, symbol: &str) -> Option<&Symbol> {
         self.symbols_map.get(symbol)
     }
@@ -430,15 +560,14 @@ mod test {
             Ok(info) => info,
             Err(e) => panic!("Error processing response: e={}", e),
         };
-        //ei.symbols_map = create_symbols_map(&ei.symbols);
-        println!("ei.server_time={:#?}", ei.server_time);
-        //println!("ei={:#?}", ei);
+        // println!("ei.server_time={:#?}", ei.server_time);
+        assert_eq!(ei.server_time, 1618003698059);
 
         // Verify we can get "the" symbol
         let btcusd = ei.symbols_map.get("BTCUSD");
         assert!(btcusd.is_some(), "BTCUSD should have been found");
         let btcusd = btcusd.unwrap();
-        println!("btcusd={:#?}", btcusd);
+        // println!("btcusd={:#?}", btcusd);
         assert_eq!(btcusd.symbol, "BTCUSD");
         assert_eq!(btcusd.base_asset, "BTC");
         assert_eq!(btcusd.quote_asset, "USD");
@@ -468,42 +597,48 @@ mod test {
         // Verify we get None when a symbol isn't found
         assert!(ei.symbols_map.get("NOT-A-SYMBOL").is_none());
 
-        // To "complex" for testing
-        match &ei.exchange_filters[0] {
-            ExchangeFilters::ExchangeMaxNumOrders {
-                max_num_orders: num,
-            } => assert_eq!(*num, 123),
-            _ => assert!(false),
-        };
-        // This is simpler but seems to still need a `match` to access the field
-        let ef0 = &ei.exchange_filters[0];
-        assert!(matches!(ef0, ExchangeFilters::ExchangeMaxNumOrders { .. }));
+        let ei_mno = ei.get_max_num_orders();
+        assert!(ei_mno.is_some());
+        let ei_mno = ei_mno.unwrap();
+        assert_eq!(ei_mno, 123);
 
-        match ei.exchange_filters[1] {
-            ExchangeFilters::ExchangeMaxAlgoOrders {
-                max_num_algo_orders: num,
-            } => assert_eq!(num, 456),
-            _ => assert!(false),
-        };
+        let ei_mnao = ei.get_max_num_algo_orders();
+        assert!(ei_mnao.is_some());
+        let ei_mnao = ei_mnao.unwrap();
+        assert_eq!(ei_mnao, 456);
 
-        // Using `matches!` is nice for this "homogeneous" structure with typed fields
-        let rl0 = &ei.rate_limits[0];
-        assert!(matches!(rl0.rate_limit_type, RateLimitType::RawRequest));
-        assert!(matches!(rl0.interval, IntervalType::Minute));
-        assert_eq!(rl0.interval_num, 1);
-        assert_eq!(rl0.limit, 1200);
+        let ei_rr_rl = ei.get_raw_request_rate_limit();
+        assert!(ei_rr_rl.is_some(), "Should always succeed");
+        let ei_rr_rl = ei_rr_rl.unwrap();
+        assert!(matches!(
+            ei_rr_rl.rate_limit_type,
+            RateLimitType::RawRequest
+        ));
+        assert!(matches!(ei_rr_rl.interval, IntervalType::Minute));
+        assert_eq!(ei_rr_rl.interval_num, 1);
+        assert_eq!(ei_rr_rl.limit, 1200);
 
-        let rl1 = &ei.rate_limits[1];
-        assert!(matches!(rl1.rate_limit_type, RateLimitType::RequestWeight));
-        assert!(matches!(rl1.interval, IntervalType::Second));
-        assert_eq!(rl1.interval_num, 10);
-        assert_eq!(rl1.limit, 100);
+        let ei_rw_rl = ei.get_request_weight_rate_limit();
+        assert!(ei_rw_rl.is_some(), "Should always succeed");
+        let ei_rw_rl = ei_rw_rl.unwrap();
+        assert!(matches!(
+            ei_rw_rl.rate_limit_type,
+            RateLimitType::RequestWeight
+        ));
+        assert!(matches!(ei_rw_rl.interval, IntervalType::Second));
+        assert_eq!(ei_rw_rl.interval_num, 10);
+        assert_eq!(ei_rw_rl.limit, 100);
 
-        let rl2 = &ei.rate_limits[2];
-        assert!(matches!(rl2.rate_limit_type, RateLimitType::Orders));
-        assert!(matches!(rl2.interval, IntervalType::Day));
-        assert_eq!(rl2.interval_num, 1);
-        assert_eq!(rl2.limit, 200000);
+        let ei_orders_rl = ei.get_orders_rate_limit();
+        assert!(ei_orders_rl.is_some(), "Should always succeed");
+        let ei_orders_rl = ei_orders_rl.unwrap();
+        assert!(matches!(
+            ei_orders_rl.rate_limit_type,
+            RateLimitType::Orders
+        ));
+        assert!(matches!(ei_orders_rl.interval, IntervalType::Day));
+        assert_eq!(ei_orders_rl.interval_num, 1);
+        assert_eq!(ei_orders_rl.limit, 200000);
 
         let pfr = btcusd.get_price_filter();
         assert!(pfr.is_some(), "Should always succeed");
