@@ -542,7 +542,7 @@ impl ExchangeInfo {
         self.rate_limits.get("Orders")?.get_orders()
     }
 
-    pub fn get_sym(&self, symbol: &str) -> Option<&Symbol> {
+    pub fn get_symbol(&self, symbol: &str) -> Option<&Symbol> {
         self.symbols_map.get(symbol)
     }
 }
@@ -564,7 +564,7 @@ mod test {
         assert_eq!(ei.server_time, 1618003698059);
 
         // Verify we can get "the" symbol
-        let btcusd = ei.symbols_map.get("BTCUSD");
+        let btcusd = ei.get_symbol("BTCUSD");
         assert!(btcusd.is_some(), "BTCUSD should have been found");
         let btcusd = btcusd.unwrap();
         // println!("btcusd={:#?}", btcusd);
