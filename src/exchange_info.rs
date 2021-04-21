@@ -69,6 +69,20 @@ pub struct PercentPriceRec {
     avg_price_mins: u64,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct MinNotionalRec {
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "minNotional")]
+    min_notional: f64,
+
+    #[serde(rename = "applyToMarket")]
+    apply_to_market: bool,
+
+    #[serde(deserialize_with = "de_string_or_number_to_u64")]
+    #[serde(rename = "avgPriceMins")]
+    avg_price_mins: u64,
+}
+
 // Accessing this requires a match and isn't pretty, IMHO.
 // Maybe [enum-as-inner](https://crates.io/crates/enum-as-inner#:~:text=named%20field%20case)
 // Or [enum variants as types](https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/)
@@ -89,18 +103,7 @@ pub enum SymbolFilters {
     MarketLotSize(SizeRec),
 
     #[serde(rename = "MIN_NOTIONAL")]
-    MinNotional {
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "minNotional")]
-        min_notional: f64,
-
-        #[serde(rename = "applyToMarket")]
-        apply_to_market: bool,
-
-        #[serde(deserialize_with = "de_string_or_number_to_u64")]
-        #[serde(rename = "avgPriceMins")]
-        avg_price_mins: u64,
-    },
+    MinNotional(MinNotionalRec),
 
     #[serde(rename = "ICEBERG_PARTS")]
     IcebergParts {
@@ -162,6 +165,13 @@ impl SymbolFilters {
     pub fn get_percent_price(&self) -> Option<&PercentPriceRec> {
         match self {
             SymbolFilters::PercentPrice(ppr) => Some(ppr),
+            _ => None,
+        }
+    }
+
+    pub fn get_min_notional(&self) -> Option<&MinNotionalRec> {
+        match self {
+            SymbolFilters::MinNotional(mnr) => Some(mnr),
             _ => None,
         }
     }
@@ -313,6 +323,11 @@ impl Symbol {
     pub fn get_percent_price(&self) -> Option<&PercentPriceRec> {
         self.filters_map.get("PercentPrice")?.get_percent_price()
     }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_min_notional(&self) -> Option<&MinNotionalRec> {
+        self.filters_map.get("MinNotional")?.get_min_notional()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -444,6 +459,13 @@ mod test {
         let ppr = ppr.unwrap();
         assert_eq!(ppr.multiplier_down, 0.2);
         assert_eq!(ppr.mulitplier_up, 5.0);
+
+        let mnr = btcusd.get_min_notional();
+        assert!(mnr.is_some(), "Should always succeed");
+        let mnr = mnr.unwrap();
+        assert_eq!(mnr.min_notional, 0.001);
+        assert_eq!(mnr.apply_to_market, true);
+        assert_eq!(mnr.avg_price_mins, 5);
     }
 
     #[allow(unused)]
@@ -513,8 +535,8 @@ mod test {
                          "tickSize": "0.0100"
                      },
                      {
-                         "avgPriceMins": 5,
                          "filterType": "PERCENT_PRICE",
+                         "avgPriceMins": 5,
                          "multiplierDown": "0.2",
                          "multiplierUp": "5"
                      },
@@ -525,10 +547,10 @@ mod test {
                          "stepSize": "0.00000100"
                      },
                      {
+                         "filterType": "MIN_NOTIONAL",
                          "applyToMarket": true,
                          "avgPriceMins": 5,
-                         "filterType": "MIN_NOTIONAL",
-                         "minNotional": "10.0000"
+                         "minNotional": "0.001"
                      },
                      {
                          "filterType": "ICEBERG_PARTS",
