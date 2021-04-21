@@ -175,6 +175,13 @@ impl SymbolFilters {
             _ => None,
         }
     }
+
+    pub fn get_iceberg_parts(&self) -> Option<u64> {
+        match self {
+            SymbolFilters::IcebergParts { limit } => Some(*limit),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
@@ -328,6 +335,11 @@ impl Symbol {
     pub fn get_min_notional(&self) -> Option<&MinNotionalRec> {
         self.filters_map.get("MinNotional")?.get_min_notional()
     }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_iceberg_parts(&self) -> Option<u64> {
+        self.filters_map.get("IcebergParts")?.get_iceberg_parts()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -466,6 +478,11 @@ mod test {
         assert_eq!(mnr.min_notional, 0.001);
         assert_eq!(mnr.apply_to_market, true);
         assert_eq!(mnr.avg_price_mins, 5);
+
+        let ibp = btcusd.get_iceberg_parts();
+        assert!(ibp.is_some(), "Should always succeed");
+        let ibp = ibp.unwrap();
+        assert_eq!(ibp, 10);
     }
 
     #[allow(unused)]
