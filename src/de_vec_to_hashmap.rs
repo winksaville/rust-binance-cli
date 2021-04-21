@@ -4,8 +4,6 @@ use serde_json::value::Value;
 
 use std::collections::HashMap;
 
-use crate::exchange_info::Symbol;
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SymbolX {
     pub symbol: String,
@@ -43,36 +41,6 @@ fn to_symbolx(item: Value) -> Option<SymbolX> {
     sx.value = obj.get("value")?.as_i64()?;
     Some(sx)
 }
-
-// Convert a string or number to i64
-//pub fn de_vec_to_hashmap<'de, D: Deserializer<'de>>(
-//    deserializer: D,
-//) -> Result<HashMap<String, Box<SymbolX>>, D::Error> {
-//    let first = Value::deserialize(deserializer);
-//    println!("first={:#?}", first);
-//    Ok(match first? {
-//        Value::Array(a) => {
-//            println!("de_vec_to_hashmap: a={:#?}", a);
-//            let mut hm = HashMap::<String, Box<SymbolX>>::new();
-//            for item in a {
-//                let sx = to_symbolx(item);
-//                match sx {
-//                    Some(sx) => {
-//                        let key = sx.symbol.clone();
-//                        hm.insert(key, sx);
-//                    }
-//                    None => {
-//                        return Err(de::Error::custom("Not a SymbolX object"));
-//                    }
-//                }
-//            }
-//            hm
-//        }
-//        _ => {
-//            return Err(de::Error::custom("Expecting Array"));
-//        }
-//    })
-//}
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 pub fn de_vec_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, SymbolX>, D::Error>
