@@ -230,12 +230,13 @@ where
         where
             V: SeqAccess<'de>,
         {
-            let map: HashMap<String, SymbolFilters> =
+            let mut map: HashMap<String, SymbolFilters> =
                 HashMap::with_capacity(seq.size_hint().unwrap_or(0));
 
             while let Some(item) = seq.next_element::<SymbolFilters>()? {
                 println!("item={:#?}", item);
-                //map.insert(item.into(), item);
+                let key: &'static str = item.into();
+                map.insert(key.to_string(), item);
             }
 
             Ok(map)
@@ -245,34 +246,40 @@ where
     deserializer.deserialize_seq(ItemsVisitor)
 }
 
-//fn create_filters_map<'s>(sym: &'s mut Symbol<'s>) {
-//fn create_filters_map<'s>(sym: &'s mut Symbol<'s>) -> &'s Symbol<'s> {
-// fn create_filters_map<'s>(sym: &'s Symbol<'s>) -> HashMap<&'s str, &'s SymbolFilters> {
-//     //let hm: Box<HashMap<&str, &SymbolFilters>> = Box::new();
-//     let mut hm = HashMap::<&str, &SymbolFilters>::new();
-// 
-//     for item in &sym.filters {
-//         let key = item.into();
-//         hm.insert(key, item);
-//     }
-// 
-//     //println!("create_filters_map sym={:#?}", sym);
-//     hm
-// }
+// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
+pub fn de_vec_symbols_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, Symbol>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ItemsVisitor;
+
+    impl<'de> Visitor<'de> for ItemsVisitor {
+        type Value = HashMap<String, Symbol>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a sequence of items")
+        }
+
+        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, Symbol>, V::Error>
+        where
+            V: SeqAccess<'de>,
+        {
+            let mut map: HashMap<String, Symbol> =
+                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+
+            while let Some(sym) = seq.next_element::<Symbol>()? {
+                println!("sym={:#?}", sym);
+                map.insert(sym.symbol.clone(), sym);
+            }
+
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(ItemsVisitor)
+}
 
 impl<'s> Symbol {
-    //fn create_filters_map(&'s mut self) { // -> &Self {
-    //    self.filters_map = HashMap::<&'s str, &'s SymbolFilters>::new();
-
-    //    for item in &self.filters {
-    //        let key = item.into();
-    //        self.filters_map.insert(key, item);
-    //    }
-
-    //    //println!("create_filters_map sym={:#?}", self);
-    //    //self
-    //}
-
     // Not yet working mut/lifetime problems, is empty
     //pub fn get_lot_size(&self) -> Option<&'s SizeData> {
     //    self.filters_map.get("LotSize")?.get_lot_size()
@@ -281,46 +288,17 @@ impl<'s> Symbol {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExchangeInfo<'e> {
+pub struct ExchangeInfo {
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub server_time: u64,
     pub exchange_filters: Vec<ExchangeFilters>,
     pub rate_limits: Vec<RateLimit>,
-    pub symbols: Vec<Symbol>,
-
-    #[serde(skip)]
-    symbols_map: HashMap<&'e str, &'e Symbol>,
+    #[serde(deserialize_with = "de_vec_symbols_to_hashmap")]
+    #[serde(rename = "symbols")]
+    symbols_map: HashMap<String, Symbol>,
 }
 
-//fn create_symbols_map<'s>(symbols: &'s mut Vec<Symbol<'s>>) -> HashMap<&'s str, &'s Symbol<'s>> {
-//    let mut hm: HashMap<&'s str, &'s Symbol> = HashMap::new();
-//
-//    for item in symbols {
-//        let key = &item.symbol;
-//        let fhm = create_filters_map(item);
-//        //item.filters_map = fhm; //create_filters_map(item);
-//        hm.insert(key, item);
-//    }
-//
-//    //println!("create_filters_map sym={:#?}", sym);
-//    hm
-//}
-
-impl<'e> ExchangeInfo<'e> {
-    //fn create_symbols_map(&'e mut self) -> &Self {
-    //    self.symbols_map = HashMap::<&'e str, &'e Symbol<'e>>::new();
-
-    //    for item in &mut self.symbols {
-    //        //let hm: Box<HashMap::<&str, &SymbolFilters>> = create_filters_map(item);
-    //        //item.filters_map = create_filters_map(item);
-    //        create_filters_map(item);
-    //        let s = &item.symbol;
-    //        self.symbols_map.insert(s, item);
-    //    }
-
-    //    self
-    //}
-
+impl<'e> ExchangeInfo {
     //pub fn get_sym(&'e self, symbol: &str) -> Option<&Symbol> {
     //    Some(*self.symbols_map.get(symbol)?)
     //}
@@ -339,160 +317,101 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_create_filters() {
-        // Here I can create_filters_map using either technique.
-        // But I can't create_symbols_map
-        //let mut_ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
-        //    Ok(info) => info,
-        //    Err(e) => panic!("Error processing response: e={}", e),
-        //};
-
-        //for xyz in &mut mut_ei.symbols {
-        //    //if true {
-        //    create_filters_map(xyz); // Works
-        //                             //} else {
-        //                             //    xyz.create_filters_map(); // Works
-        //                             //}
-        //}
-
-        // If uncommented this causes the error below
-        //let ei = mut_ei.create_symbols_map();
-        //    error[E0499]: cannot borrow `mut_ei` as mutable more than once at a time
-        //       --> src/exchange_info.rs:306:18
-        //        |
-        //    296 |         for xyz in &mut mut_ei.symbols {
-        //        |                    ------------------- first mutable borrow occurs here
-        //    ...
-        //    305 |         let ei = mut_ei.create_symbols_map();
-        //        |                  ^^^^^^
-        //        |                  |
-        //        |                  second mutable borrow occurs here
-        //        |                  first borrow later used here
-        //
-        //    error: aborting due to previous error
-        //
-        //    For more information about this error, try `rustc --explain E0499`.
-        //    error: could not compile `binance-auto-sell`
-    }
-
-    #[test]
     fn test_exchange_info() {
-        // vvv Ok. Here I create_symbols_map but I can't creat_filters_map
         let ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
             Ok(info) => info,
             Err(e) => panic!("Error processing response: e={}", e),
         };
         //ei.symbols_map = create_symbols_map(&ei.symbols);
         println!("ei.server_time={:#?}", ei.server_time);
-        println!("ei={:#?}", ei);
+        //println!("ei={:#?}", ei);
 
-        // // Verify symbols_map points at symbols
-        // println!("&ei.symbols[0].symbol={:p}", &ei.symbols[0].symbol);
-        // println!(
-        //     "&ei.symbols_map[\"BTCUSD\"].symbol={:p}",
-        //     &ei.symbols_map["BTCUSD"].symbol
-        // );
-        // assert_eq!(&ei.symbols[0].symbol, &ei.symbols_map["BTCUSD"].symbol);
+        // Verify we can get "the" symbol
+        let btcusd = ei.symbols_map.get("BTCUSD");
+        assert!(btcusd.is_some(), "BTCUSD should have been found");
+        let btcusd = btcusd.unwrap();
+        println!("btcusd={:#?}", btcusd);
+        assert_eq!(btcusd.symbol, "BTCUSD");
+        assert_eq!(btcusd.base_asset, "BTC");
+        assert_eq!(btcusd.quote_asset, "USD");
+        assert_eq!(btcusd.base_asset_precision, 8);
+        assert_eq!(btcusd.base_commission_precision, 8);
+        assert_eq!(btcusd.iceberg_allowed, true);
+        assert_eq!(btcusd.is_margin_trading_allowed, false);
+        assert_eq!(btcusd.is_spot_trading_allowed, true);
+        assert_eq!(btcusd.oco_allowed, true);
+        assert_eq!(btcusd.quote_asset_precision, 4);
+        assert_eq!(btcusd.quote_commission_precision, 2);
+        assert_eq!(btcusd.quote_order_qty_market_allowed, true);
+        assert_eq!(btcusd.quote_precision, 4);
+        assert_eq!(btcusd.status, "TRADING");
+        assert_eq!(btcusd.permissions, ["SPOT"]);
+        assert_eq!(
+            btcusd.order_types,
+            [
+                "LIMIT",
+                "LIMIT_MAKER",
+                "MARKET",
+                "STOP_LOSS_LIMIT",
+                "TAKE_PROFIT_LIMIT",
+            ]
+        );
 
-        // println!(
-        //     "&ei.symbols[0].order_types={:p}",
-        //     &ei.symbols[0].order_types
-        // );
-        // println!(
-        //     "&ei.symbols_map[\"BTCUSD\"].order_types={:p}",
-        //     &ei.symbols_map["BTCUSD"].order_types
-        // );
-        // assert_eq!(
-        //     &ei.symbols[0].order_types,
-        //     &ei.symbols_map["BTCUSD"].order_types
-        // );
+        // Verify we get None when a symbol isn't found
+        assert!(ei.symbols_map.get("NOT-A-SYMBOL").is_none());
 
-        // // To "complex" for testing
-        // match &ei.exchange_filters[0] {
-        //     ExchangeFilters::ExchangeMaxNumOrders {
-        //         max_num_orders: num,
-        //     } => assert_eq!(*num, 123),
-        //     _ => assert!(false),
-        // };
-        // // This is simpler but seems to still need a `match` to access the field
-        // let ef0 = &ei.exchange_filters[0];
-        // assert!(matches!(ef0, ExchangeFilters::ExchangeMaxNumOrders { .. }));
+        // To "complex" for testing
+        match &ei.exchange_filters[0] {
+            ExchangeFilters::ExchangeMaxNumOrders {
+                max_num_orders: num,
+            } => assert_eq!(*num, 123),
+            _ => assert!(false),
+        };
+        // This is simpler but seems to still need a `match` to access the field
+        let ef0 = &ei.exchange_filters[0];
+        assert!(matches!(ef0, ExchangeFilters::ExchangeMaxNumOrders { .. }));
 
-        // match ei.exchange_filters[1] {
-        //     ExchangeFilters::ExchangeMaxAlgoOrders {
-        //         max_num_algo_orders: num,
-        //     } => assert_eq!(num, 456),
-        //     _ => assert!(false),
-        // };
+        match ei.exchange_filters[1] {
+            ExchangeFilters::ExchangeMaxAlgoOrders {
+                max_num_algo_orders: num,
+            } => assert_eq!(num, 456),
+            _ => assert!(false),
+        };
 
-        // // Using `matches!` is nice for this "homogeneous" structure with typed fields
-        // let rl0 = &ei.rate_limits[0];
-        // assert!(matches!(rl0.rate_limit_type, RateLimitType::RawRequest));
-        // assert!(matches!(rl0.interval, IntervalType::Minute));
-        // assert_eq!(rl0.interval_num, 1);
-        // assert_eq!(rl0.limit, 1200);
+        // Using `matches!` is nice for this "homogeneous" structure with typed fields
+        let rl0 = &ei.rate_limits[0];
+        assert!(matches!(rl0.rate_limit_type, RateLimitType::RawRequest));
+        assert!(matches!(rl0.interval, IntervalType::Minute));
+        assert_eq!(rl0.interval_num, 1);
+        assert_eq!(rl0.limit, 1200);
 
-        // let rl1 = &ei.rate_limits[1];
-        // assert!(matches!(rl1.rate_limit_type, RateLimitType::RequestWeight));
-        // assert!(matches!(rl1.interval, IntervalType::Second));
-        // assert_eq!(rl1.interval_num, 10);
-        // assert_eq!(rl1.limit, 100);
+        let rl1 = &ei.rate_limits[1];
+        assert!(matches!(rl1.rate_limit_type, RateLimitType::RequestWeight));
+        assert!(matches!(rl1.interval, IntervalType::Second));
+        assert_eq!(rl1.interval_num, 10);
+        assert_eq!(rl1.limit, 100);
 
-        // let rl2 = &ei.rate_limits[2];
-        // assert!(matches!(rl2.rate_limit_type, RateLimitType::Orders));
-        // assert!(matches!(rl2.interval, IntervalType::Day));
-        // assert_eq!(rl2.interval_num, 1);
-        // assert_eq!(rl2.limit, 200000);
+        let rl2 = &ei.rate_limits[2];
+        assert!(matches!(rl2.rate_limit_type, RateLimitType::Orders));
+        assert!(matches!(rl2.interval, IntervalType::Day));
+        assert_eq!(rl2.interval_num, 1);
+        assert_eq!(rl2.limit, 200000);
 
-        // // Symbols
-        // let s0 = &ei.symbols[0];
-        // assert_eq!(s0.symbol, "BTCUSD");
-        // assert_eq!(s0.base_asset, "BTC");
-        // assert_eq!(s0.quote_asset, "USD");
-        // assert_eq!(s0.base_asset_precision, 8);
-        // assert_eq!(s0.base_commission_precision, 8);
-        // assert_eq!(s0.iceberg_allowed, true);
-        // assert_eq!(s0.is_margin_trading_allowed, false);
-        // assert_eq!(s0.is_spot_trading_allowed, true);
-        // assert_eq!(s0.oco_allowed, true);
-        // assert_eq!(s0.quote_asset_precision, 4);
-        // assert_eq!(s0.quote_commission_precision, 2);
-        // assert_eq!(s0.quote_order_qty_market_allowed, true);
-        // assert_eq!(s0.quote_precision, 4);
-        // assert_eq!(s0.status, "TRADING");
-        // assert_eq!(s0.permissions, ["SPOT"]);
-        // assert_eq!(
-        //     s0.order_types,
-        //     [
-        //         "LIMIT",
-        //         "LIMIT_MAKER",
-        //         "MARKET",
-        //         "STOP_LOSS_LIMIT",
-        //         "TAKE_PROFIT_LIMIT",
-        //     ]
-        // );
-
-        // let s0f0 = &s0.filters0[0];
-        // match *s0f0 {
-        //     SymbolFilters::PriceFilter {
-        //         min_price,
-        //         max_price,
-        //         tick_size,
-        //     } => {
-        //         assert_eq!(min_price, 0.01);
-        //         assert_eq!(max_price, 100000.0);
-        //         assert_eq!(tick_size, 0.01);
-        //     }
-        //     _ => assert!(false),
-        // }
-
-        // let btcusd_sym = ei.get_sym("BTCUSD");
-        // assert!(btcusd_sym.is_some());
-
-        // let xxxxxx_sym = ei.get_sym("XXXXXX");
-        // assert!(xxxxxx_sym.is_none());
-        // println!("xxxxxx_sym={:#?}", xxxxxx_sym);
-        // ^^^ OK
+        let price_filter = btcusd.filters_map.get("PriceFilter");
+        assert!(price_filter.is_some(), "Should always succeed");
+        let price_filter = price_filter.unwrap();
+        match price_filter {
+            SymbolFilters::PriceFilter {
+                min_price,
+                max_price,
+                tick_size,
+            } => {
+                assert_eq!(*min_price, 0.01);
+                assert_eq!(*max_price, 100000.0);
+                assert_eq!(*tick_size, 0.01);
+            }
+            _ => assert!(false),
+        }
     }
 
     #[allow(unused)]

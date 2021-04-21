@@ -36,7 +36,7 @@ struct Cli {
 
 async fn get_exchange_info<'e>(
     ctx: &BinanceContext,
-) -> Result<ExchangeInfo<'e>, Box<dyn std::error::Error>> {
+) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
     trace!("get_exchange_info: +");
 
     let url = ctx.make_url("api", "/api/v3/exchangeInfo");
