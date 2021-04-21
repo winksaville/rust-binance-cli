@@ -182,6 +182,13 @@ impl SymbolFilters {
             _ => None,
         }
     }
+
+    pub fn get_max_num_orders(&self) -> Option<u64> {
+        match self {
+            SymbolFilters::MaxNumOrders { max_num_orders } => Some(*max_num_orders),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
@@ -340,6 +347,11 @@ impl Symbol {
     pub fn get_iceberg_parts(&self) -> Option<u64> {
         self.filters_map.get("IcebergParts")?.get_iceberg_parts()
     }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_max_num_orders(&self) -> Option<u64> {
+        self.filters_map.get("MaxNumOrders")?.get_max_num_orders()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -483,6 +495,11 @@ mod test {
         assert!(ibp.is_some(), "Should always succeed");
         let ibp = ibp.unwrap();
         assert_eq!(ibp, 10);
+
+        let mno = btcusd.get_max_num_orders();
+        assert!(mno.is_some(), "Should always succeed");
+        let mno = mno.unwrap();
+        assert_eq!(mno, 200);
     }
 
     #[allow(unused)]
