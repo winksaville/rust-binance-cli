@@ -213,7 +213,9 @@ pub struct Symbol {
 }
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
-pub fn de_vec_symbol_filters_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, SymbolFilters>, D::Error>
+pub fn de_vec_symbol_filters_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, SymbolFilters>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -247,7 +249,9 @@ where
 }
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
-pub fn de_vec_symbols_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, Symbol>, D::Error>
+pub fn de_vec_symbols_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, Symbol>, D::Error>
 where
     D: Deserializer<'de>,
 {

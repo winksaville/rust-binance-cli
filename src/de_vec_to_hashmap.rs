@@ -1,45 +1,11 @@
 #[allow(unused)]
-use serde::{de, de::SeqAccess, de::Error, de::Visitor, Deserialize, Deserializer, Serialize};
-use serde_json::value::Value;
-
+use serde::{de, de::Error, de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SymbolX {
     pub symbol: String,
     pub value: i64,
-}
-
-impl Default for SymbolX {
-    fn default() -> Self {
-        SymbolX {
-            symbol: "".to_string(),
-            value: 0,
-        }
-    }
-}
-impl SymbolX {
-    fn new(symbol: String, value: i64) -> SymbolX {
-        SymbolX {
-            symbol,
-            value
-        }
-    }
-
-    fn new_boxed(symbol: String, value: i64) -> Box<SymbolX> {
-        Box::new(SymbolX {
-            symbol,
-            value
-        })
-    }
-}
-
-fn to_symbolx(item: Value) -> Option<SymbolX> {
-    let obj = item.as_object()?;
-    let mut sx = SymbolX::default();
-    sx.symbol = obj.get("symbol")?.to_string();
-    sx.value = obj.get("value")?.as_i64()?;
-    Some(sx)
 }
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
@@ -84,7 +50,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     struct ValuesToTest {
         #[serde(deserialize_with = "de_vec_to_hashmap")]
-        symbols : HashMap<String, SymbolX>,
+        symbols: HashMap<String, SymbolX>,
     }
 
     #[test]
