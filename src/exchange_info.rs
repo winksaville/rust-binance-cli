@@ -25,7 +25,7 @@ pub enum ExchangeFilters {
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-pub struct SizeData {
+pub struct SizeRec {
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minQty")]
     pub min_qty: f64,
@@ -77,7 +77,7 @@ pub enum SymbolFilters {
     },
 
     #[serde(rename = "LOT_SIZE")]
-    LotSize(SizeData),
+    LotSize(SizeRec),
 
     #[serde(rename = "MIN_NOTIONAL")]
     MinNotional {
@@ -144,7 +144,7 @@ pub enum SymbolFilters {
 }
 
 impl SymbolFilters {
-    pub fn get_lot_size(&self) -> Option<&SizeData> {
+    pub fn get_lot_size(&self) -> Option<&SizeRec> {
         match self {
             SymbolFilters::LotSize(sd) => Some(sd),
             _ => None,
@@ -279,7 +279,7 @@ where
 }
 
 impl Symbol {
-    pub fn get_lot_size(&self) -> Option<&SizeData> {
+    pub fn get_lot_size(&self) -> Option<&SizeRec> {
         self.filters_map.get("LotSize")?.get_lot_size()
     }
 }
@@ -302,7 +302,7 @@ impl<'e> ExchangeInfo {
         self.symbols_map.get(symbol)
     }
 
-    pub fn get_lot_size(&self, symbol: &str) -> Option<&SizeData> {
+    pub fn get_lot_size(&self, symbol: &str) -> Option<&SizeRec> {
         self.get_sym(symbol)?.get_lot_size()
     }
 }
