@@ -111,6 +111,13 @@ pub enum SymbolFilters {
         limit: u64,
     },
 
+    #[serde(rename = "MAX_NUM_ICEBERG_ORDERS")]
+    MaxNumIcebergOrders {
+        #[serde(deserialize_with = "de_string_or_number_to_u64")]
+        #[serde(rename = "maxNumIcebergOrders")]
+        max_num_iceberg_orders: u64,
+    },
+
     #[serde(rename = "MAX_NUM_ORDERS")]
     MaxNumOrders {
         #[serde(deserialize_with = "de_string_or_number_to_u64")]
@@ -123,13 +130,6 @@ pub enum SymbolFilters {
         #[serde(deserialize_with = "de_string_or_number_to_u64")]
         #[serde(rename = "maxNumAlgoOrders")]
         max_num_algo_orders: u64,
-    },
-
-    #[serde(rename = "MAX_NUM_ICEBERG_ORDERS")]
-    MaxNumIcebergOrders {
-        #[serde(deserialize_with = "de_string_or_number_to_u64")]
-        #[serde(rename = "maxNumIcebergOrders")]
-        max_num_iceberg_orders: u64,
     },
 
     #[serde(rename = "MAX_POSITION")]
@@ -179,6 +179,15 @@ impl SymbolFilters {
     pub fn get_iceberg_parts(&self) -> Option<u64> {
         match self {
             SymbolFilters::IcebergParts { limit } => Some(*limit),
+            _ => None,
+        }
+    }
+
+    pub fn get_max_num_iceberg_orders(&self) -> Option<u64> {
+        match self {
+            SymbolFilters::MaxNumIcebergOrders {
+                max_num_iceberg_orders,
+            } => Some(*max_num_iceberg_orders),
             _ => None,
         }
     }
@@ -358,6 +367,13 @@ impl Symbol {
     }
 
     #[allow(unused)] // For now used in testing
+    pub fn get_max_num_iceberg_orders(&self) -> Option<u64> {
+        self.filters_map
+            .get("MaxNumIcebergOrders")?
+            .get_max_num_iceberg_orders()
+    }
+
+    #[allow(unused)] // For now used in testing
     pub fn get_max_num_orders(&self) -> Option<u64> {
         self.filters_map.get("MaxNumOrders")?.get_max_num_orders()
     }
@@ -440,16 +456,6 @@ mod test {
         // Verify we get None when a symbol isn't found
         assert!(ei.symbols_map.get("NOT-A-SYMBOL").is_none());
 
-        let btcusd_ls = btcusd.get_lot_size().unwrap();
-        assert_eq!(0.000001, btcusd_ls.min_qty);
-        assert_eq!(9000.0, btcusd_ls.max_qty);
-        assert_eq!(0.000001, btcusd_ls.step_size);
-
-        let btcusd_ls = btcusd.get_market_lot_size().unwrap();
-        assert_eq!(0.1, btcusd_ls.min_qty);
-        assert_eq!(3200.0, btcusd_ls.max_qty);
-        assert_eq!(0.01, btcusd_ls.step_size);
-
         // To "complex" for testing
         match &ei.exchange_filters[0] {
             ExchangeFilters::ExchangeMaxNumOrders {
@@ -500,6 +506,16 @@ mod test {
         assert_eq!(ppr.multiplier_down, 0.2);
         assert_eq!(ppr.mulitplier_up, 5.0);
 
+        let btcusd_ls = btcusd.get_lot_size().unwrap();
+        assert_eq!(0.000001, btcusd_ls.min_qty);
+        assert_eq!(9000.0, btcusd_ls.max_qty);
+        assert_eq!(0.000001, btcusd_ls.step_size);
+
+        let btcusd_ls = btcusd.get_market_lot_size().unwrap();
+        assert_eq!(0.1, btcusd_ls.min_qty);
+        assert_eq!(3200.0, btcusd_ls.max_qty);
+        assert_eq!(0.01, btcusd_ls.step_size);
+
         let mnr = btcusd.get_min_notional();
         assert!(mnr.is_some(), "Should always succeed");
         let mnr = mnr.unwrap();
@@ -511,6 +527,11 @@ mod test {
         assert!(ibp.is_some(), "Should always succeed");
         let ibp = ibp.unwrap();
         assert_eq!(ibp, 10);
+
+        let mnibo = btcusd.get_max_num_iceberg_orders();
+        assert!(mnibo.is_some(), "Should always succeed");
+        let mnibo = mnibo.unwrap();
+        assert_eq!(mnibo, 5);
 
         let mno = btcusd.get_max_num_orders();
         assert!(mno.is_some(), "Should always succeed");
@@ -602,6 +623,12 @@ mod test {
                          "stepSize": "0.00000100"
                      },
                      {
+                         "filterType": "MARKET_LOT_SIZE",
+                         "maxQty": "3200.00000000",
+                         "minQty": "0.10000000",
+                         "stepSize": "0.01000000"
+                     },
+                     {
                          "filterType": "MIN_NOTIONAL",
                          "applyToMarket": true,
                          "avgPriceMins": 5,
@@ -612,10 +639,8 @@ mod test {
                          "limit": 10
                      },
                      {
-                         "filterType": "MARKET_LOT_SIZE",
-                         "maxQty": "3200.00000000",
-                         "minQty": "0.10000000",
-                         "stepSize": "0.01000000"
+                         "filterType": "MAX_NUM_ICEBERG_ORDERS",
+                         "maxNumIcebergOrders": 5
                      },
                      {
                          "filterType": "MAX_NUM_ORDERS",
@@ -624,10 +649,6 @@ mod test {
                      {
                          "filterType": "MAX_NUM_ALGO_ORDERS",
                          "maxNumAlgoOrders": 5
-                     },
-                     {
-                         "filterType": "MAX_NUM_ICEBERG_ORDERS",
-                         "maxNumIcebergOrders": 5
                      },
                      {
                          "filterType": "MAX_POSITION",
