@@ -79,6 +79,9 @@ pub enum SymbolFilters {
     #[serde(rename = "LOT_SIZE")]
     LotSize(SizeRec),
 
+    #[serde(rename = "MARKET_LOT_SIZE")]
+    MarketLotSize(SizeRec),
+
     #[serde(rename = "MIN_NOTIONAL")]
     MinNotional {
         #[serde(deserialize_with = "de_string_or_number_to_f64")]
@@ -97,21 +100,6 @@ pub enum SymbolFilters {
     IcebergParts {
         #[serde(deserialize_with = "de_string_or_number_to_u64")]
         limit: u64,
-    },
-
-    #[serde(rename = "MARKET_LOT_SIZE")]
-    MarketLotSize {
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "minQty")]
-        min_qty: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "maxQty")]
-        max_qty: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "stepSize")]
-        step_size: f64,
     },
 
     #[serde(rename = "MAX_NUM_ORDERS")]
@@ -147,6 +135,13 @@ impl SymbolFilters {
     pub fn get_lot_size(&self) -> Option<&SizeRec> {
         match self {
             SymbolFilters::LotSize(sd) => Some(sd),
+            _ => None,
+        }
+    }
+
+    pub fn get_market_lot_size(&self) -> Option<&SizeRec> {
+        match self {
+            SymbolFilters::MarketLotSize(sd) => Some(sd),
             _ => None,
         }
     }
@@ -279,8 +274,14 @@ where
 }
 
 impl Symbol {
+    #[allow(unused)] // For now used in testing
     pub fn get_lot_size(&self) -> Option<&SizeRec> {
         self.filters_map.get("LotSize")?.get_lot_size()
+    }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_market_lot_size(&self) -> Option<&SizeRec> {
+        self.filters_map.get("MarketLotSize")?.get_market_lot_size()
     }
 }
 
@@ -300,10 +301,6 @@ pub struct ExchangeInfo {
 impl<'e> ExchangeInfo {
     pub fn get_sym(&self, symbol: &str) -> Option<&Symbol> {
         self.symbols_map.get(symbol)
-    }
-
-    pub fn get_lot_size(&self, symbol: &str) -> Option<&SizeRec> {
-        self.get_sym(symbol)?.get_lot_size()
     }
 }
 
@@ -358,11 +355,15 @@ mod test {
         // Verify we get None when a symbol isn't found
         assert!(ei.symbols_map.get("NOT-A-SYMBOL").is_none());
 
-        let ei_ls = ei.get_lot_size("BTCUSD").unwrap();
         let btcusd_ls = btcusd.get_lot_size().unwrap();
-        assert_eq!(ei_ls.min_qty, btcusd_ls.min_qty);
-        assert_eq!(ei_ls.max_qty, btcusd_ls.max_qty);
-        assert_eq!(ei_ls.step_size, btcusd_ls.step_size);
+        assert_eq!(0.000001, btcusd_ls.min_qty);
+        assert_eq!(9000.0, btcusd_ls.max_qty);
+        assert_eq!(0.000001, btcusd_ls.step_size);
+
+        let btcusd_ls = btcusd.get_market_lot_size().unwrap();
+        assert_eq!(0.1, btcusd_ls.min_qty);
+        assert_eq!(3200.0, btcusd_ls.max_qty);
+        assert_eq!(0.01, btcusd_ls.step_size);
 
         // To "complex" for testing
         match &ei.exchange_filters[0] {
@@ -509,8 +510,8 @@ mod test {
                      {
                          "filterType": "MARKET_LOT_SIZE",
                          "maxQty": "3200.00000000",
-                         "minQty": "0.00000000",
-                         "stepSize": "0.00000000"
+                         "minQty": "0.10000000",
+                         "stepSize": "0.01000000"
                      },
                      {
                          "filterType": "MAX_NUM_ORDERS",
