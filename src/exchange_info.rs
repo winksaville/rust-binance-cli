@@ -39,6 +39,36 @@ pub struct SizeRec {
     pub step_size: f64,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct PriceFilterRec {
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "minPrice")]
+    min_price: f64,
+
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "maxPrice")]
+    max_price: f64,
+
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "tickSize")]
+    tick_size: f64,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct PercentPriceRec {
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "multiplierUp")]
+    mulitplier_up: f64,
+
+    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    #[serde(rename = "multiplierDown")]
+    multiplier_down: f64,
+
+    #[serde(deserialize_with = "de_string_or_number_to_u64")]
+    #[serde(rename = "avgPriceMins")]
+    avg_price_mins: u64,
+}
+
 // Accessing this requires a match and isn't pretty, IMHO.
 // Maybe [enum-as-inner](https://crates.io/crates/enum-as-inner#:~:text=named%20field%20case)
 // Or [enum variants as types](https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/)
@@ -47,34 +77,10 @@ pub struct SizeRec {
 #[serde(tag = "filterType")]
 pub enum SymbolFilters {
     #[serde(rename = "PRICE_FILTER")]
-    PriceFilter {
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "minPrice")]
-        min_price: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "maxPrice")]
-        max_price: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "tickSize")]
-        tick_size: f64,
-    },
+    PriceFilter(PriceFilterRec),
 
     #[serde(rename = "PERCENT_PRICE")]
-    PrecentPrice {
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "multiplierUp")]
-        mulitplier_up: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
-        #[serde(rename = "multiplierDown")]
-        multiplier_down: f64,
-
-        #[serde(deserialize_with = "de_string_or_number_to_u64")]
-        #[serde(rename = "avgPriceMins")]
-        avg_price_mins: u64,
-    },
+    PercentPrice(PercentPriceRec),
 
     #[serde(rename = "LOT_SIZE")]
     LotSize(SizeRec),
@@ -134,14 +140,28 @@ pub enum SymbolFilters {
 impl SymbolFilters {
     pub fn get_lot_size(&self) -> Option<&SizeRec> {
         match self {
-            SymbolFilters::LotSize(sd) => Some(sd),
+            SymbolFilters::LotSize(sr) => Some(sr),
             _ => None,
         }
     }
 
     pub fn get_market_lot_size(&self) -> Option<&SizeRec> {
         match self {
-            SymbolFilters::MarketLotSize(sd) => Some(sd),
+            SymbolFilters::MarketLotSize(sr) => Some(sr),
+            _ => None,
+        }
+    }
+
+    pub fn get_price_filter(&self) -> Option<&PriceFilterRec> {
+        match self {
+            SymbolFilters::PriceFilter(pfr) => Some(pfr),
+            _ => None,
+        }
+    }
+
+    pub fn get_percent_price(&self) -> Option<&PercentPriceRec> {
+        match self {
+            SymbolFilters::PercentPrice(ppr) => Some(ppr),
             _ => None,
         }
     }
@@ -283,6 +303,16 @@ impl Symbol {
     pub fn get_market_lot_size(&self) -> Option<&SizeRec> {
         self.filters_map.get("MarketLotSize")?.get_market_lot_size()
     }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_price_filter(&self) -> Option<&PriceFilterRec> {
+        self.filters_map.get("PriceFilter")?.get_price_filter()
+    }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_percent_price(&self) -> Option<&PercentPriceRec> {
+        self.filters_map.get("PercentPrice")?.get_percent_price()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -402,21 +432,18 @@ mod test {
         assert_eq!(rl2.interval_num, 1);
         assert_eq!(rl2.limit, 200000);
 
-        let price_filter = btcusd.filters_map.get("PriceFilter");
-        assert!(price_filter.is_some(), "Should always succeed");
-        let price_filter = price_filter.unwrap();
-        match price_filter {
-            SymbolFilters::PriceFilter {
-                min_price,
-                max_price,
-                tick_size,
-            } => {
-                assert_eq!(*min_price, 0.01);
-                assert_eq!(*max_price, 100000.0);
-                assert_eq!(*tick_size, 0.01);
-            }
-            _ => assert!(false),
-        }
+        let pfr = btcusd.get_price_filter();
+        assert!(pfr.is_some(), "Should always succeed");
+        let pfr = pfr.unwrap();
+        assert_eq!(pfr.min_price, 0.01);
+        assert_eq!(pfr.max_price, 100000.0);
+        assert_eq!(pfr.tick_size, 0.01);
+
+        let ppr = btcusd.get_percent_price();
+        assert!(ppr.is_some(), "Should always succeed");
+        let ppr = ppr.unwrap();
+        assert_eq!(ppr.multiplier_down, 0.2);
+        assert_eq!(ppr.mulitplier_up, 5.0);
     }
 
     #[allow(unused)]
