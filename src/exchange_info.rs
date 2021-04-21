@@ -207,6 +207,13 @@ impl SymbolFilters {
             _ => None,
         }
     }
+
+    pub fn get_max_position(&self) -> Option<f64> {
+        match self {
+            SymbolFilters::MaxPosition { max_position } => Some(*max_position),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, IntoStaticStr)]
@@ -384,6 +391,11 @@ impl Symbol {
             .get("MaxNumAlgoOrders")?
             .get_max_num_algo_orders()
     }
+
+    #[allow(unused)] // For now used in testing
+    pub fn get_max_position(&self) -> Option<f64> {
+        self.filters_map.get("MaxPosition")?.get_max_position()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -542,6 +554,11 @@ mod test {
         assert!(mnao.is_some(), "Should always succeed");
         let mno = mnao.unwrap();
         assert_eq!(mno, 5);
+
+        let mp = btcusd.get_max_position();
+        assert!(mp.is_some(), "Should always succeed");
+        let mp = mp.unwrap();
+        assert_eq!(mp, 10.0);
     }
 
     #[allow(unused)]
