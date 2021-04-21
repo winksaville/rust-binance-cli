@@ -39,11 +39,6 @@ pub struct SizeData {
     pub step_size: f64,
 }
 
-// Couldn't use SymbolFilters directly as key to hash because
-// Eq and Hash are not implementatble for f64. Instead I'm
-// using `into()` of InfoStaticStr to convert it to a keyable item.
-// See: SymbolFilters.filters
-//
 // Accessing this requires a match and isn't pretty, IMHO.
 // Maybe [enum-as-inner](https://crates.io/crates/enum-as-inner#:~:text=named%20field%20case)
 // Or [enum variants as types](https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/)
@@ -283,11 +278,10 @@ where
     deserializer.deserialize_seq(ItemsVisitor)
 }
 
-impl<'s> Symbol {
-    // Not yet working mut/lifetime problems, is empty
-    //pub fn get_lot_size(&self) -> Option<&'s SizeData> {
-    //    self.filters_map.get("LotSize")?.get_lot_size()
-    //}
+impl Symbol {
+    pub fn get_lot_size(&self) -> Option<&SizeData> {
+        self.filters_map.get("LotSize")?.get_lot_size()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -302,15 +296,15 @@ pub struct ExchangeInfo {
     symbols_map: HashMap<String, Symbol>,
 }
 
+#[allow(unused)]
 impl<'e> ExchangeInfo {
-    //pub fn get_sym(&'e self, symbol: &str) -> Option<&Symbol> {
-    //    Some(*self.symbols_map.get(symbol)?)
-    //}
+    pub fn get_sym(&self, symbol: &str) -> Option<&Symbol> {
+        self.symbols_map.get(symbol)
+    }
 
-    // Symbol::filters_map not yet initialized, got mut/lifetime problems :(
-    //pub fn get_lot_size(&'e self, symbol: &str) -> Option<&'e SizeData> {
-    //   self.get_sym(symbol)?.get_lot_size()
-    //}
+    pub fn get_lot_size(&self, symbol: &str) -> Option<&SizeData> {
+        self.get_sym(symbol)?.get_lot_size()
+    }
 }
 
 #[cfg(test)]
@@ -363,6 +357,12 @@ mod test {
 
         // Verify we get None when a symbol isn't found
         assert!(ei.symbols_map.get("NOT-A-SYMBOL").is_none());
+
+        let ei_ls = ei.get_lot_size("BTCUSD").unwrap();
+        let btcusd_ls = btcusd.get_lot_size().unwrap();
+        assert_eq!(ei_ls.min_qty, btcusd_ls.min_qty);
+        assert_eq!(ei_ls.max_qty, btcusd_ls.max_qty);
+        assert_eq!(ei_ls.step_size, btcusd_ls.step_size);
 
         // To "complex" for testing
         match &ei.exchange_filters[0] {
