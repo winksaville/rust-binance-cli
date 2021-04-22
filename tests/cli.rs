@@ -9,10 +9,8 @@ fn test_no_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
 
     cmd.assert()
-        .code(predicate::eq(2))
-        .stderr(predicate::str::contains(
-            "required arguments were not provided",
-        ));
+        .code(predicate::eq(0))
+        .stdout(predicate::str::starts_with("Usage: "));
 
     Ok(())
 }
@@ -58,7 +56,8 @@ fn test_req_params_as_env_vars() -> Result<(), Box<dyn Error>> {
         .stdout(predicate::str::contains(
             "sec_key=secret key is never displayed",
         ))
-        .stdout(predicate::str::contains("api_key=api key"));
+        .stdout(predicate::str::contains("api_key=api key"))
+        .stdout(predicate::str::contains("Usage:"));
 
     Ok(())
 }

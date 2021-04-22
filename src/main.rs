@@ -1,4 +1,4 @@
-use clap::{AppSettings, Clap};
+//use clap::{AppSettings, Clap};
 use log::trace;
 
 #[allow(unused)]
@@ -18,21 +18,7 @@ mod binance_context;
 use binance_context::BinanceContext;
 
 mod exchange_info;
-#[allow(unused)]
 use exchange_info::ExchangeInfo;
-
-#[derive(Debug, Clap)]
-#[clap(setting = AppSettings::ColoredHelp)]
-struct Cli {
-    #[clap(short, long, env = "SECRET_KEY")]
-    secret_key: String,
-
-    #[clap(short, long, env = "API_KEY")]
-    api_key: String,
-
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: i32,
-}
 
 async fn get_exchange_info<'e>(
     ctx: &BinanceContext,
@@ -52,29 +38,56 @@ async fn get_exchange_info<'e>(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    trace!("+");
+    trace!("main: +");
 
     let ctx = BinanceContext::new();
 
-    let args = Cli::parse();
-
+    // For now we'll always do this so we pass our tests
     #[allow(unused)]
-    let sec_key: Vec<u8> = args.secret_key.as_bytes().to_vec();
-    let api_key: Vec<u8> = args.api_key.as_bytes().to_vec();
-    println!(
-        "sec_key=secret key is never displayed api_key={}",
-        std::str::from_utf8(&api_key).unwrap(),
-    );
+    let sec_key: Vec<u8> = ctx.opts.secret_key.as_bytes().to_vec();
+    let api_key: Vec<u8> = ctx.opts.api_key.as_bytes().to_vec();
+    if !sec_key.is_empty() || !api_key.is_empty() {
+        println!(
+            "sec_key=secret key is never displayed api_key={}",
+            if api_key.is_empty() {
+                "len is 0"
+            } else {
+                std::str::from_utf8(&api_key).unwrap()
+            }
+        );
+    }
 
-    let ei = get_exchange_info(&ctx).await?;
-    println!("ei.server_time={:#?}", ei.server_time);
+    if std::env::args().len() == 1 {
+        let args: Vec<String> = std::env::args().collect();
+        let prog_name = std::path::Path::new(&args[0]).file_name();
+        let name = match prog_name {
+            Some(pn) => match pn.to_str() {
+                Some(n) => n,
+                None => &args[0],
+            },
+            None => &args[0],
+        };
+        println!("Usage: {} -h or --help", name);
+        return Ok(());
+    }
 
-    // let eihm = ei.symbols_to_map();
-    // println!("eihm.len()={}", eihm.len());
-    // if let Some(sym_bnb) = eihm.get("BNBUSD") {
-    //     println!("sym_bnb={:#?}", sym_bnb);
-    // }
+    if ctx.opts.get_exchange_info || !ctx.opts.symbol.is_empty() {
+        let ei = get_exchange_info(&ctx).await?;
 
-    trace!("-");
+        if ctx.opts.get_exchange_info {
+            println!("ei={:#?}", ei);
+        }
+
+        if !ctx.opts.symbol.is_empty() {
+            let sym = ei.get_symbol(&ctx.opts.symbol);
+            match sym {
+                Some(sym) => println!("{}={:#?}", sym.symbol, sym),
+                None => println!("{} not found", ctx.opts.symbol),
+            }
+        }
+    }
+
+    trace!("main: -");
+
     Ok(())
 }
