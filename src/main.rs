@@ -24,6 +24,10 @@ mod account_info;
 #[allow(unused)]
 use account_info::AccountInfo;
 
+mod binance_signature;
+#[allow(unused)]
+use binance_signature::{binance_signature, query_vec_u8};
+
 async fn get_exchange_info<'e>(
     ctx: &BinanceContext,
 ) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
