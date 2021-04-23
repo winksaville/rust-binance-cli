@@ -14,22 +14,22 @@ pub struct Balance {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
-    account_type: String,
-    can_deposit: bool,
-    can_trade: bool,
-    can_withdraw: bool,
+    pub account_type: String,
+    pub can_deposit: bool,
+    pub can_trade: bool,
+    pub can_withdraw: bool,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    buyer_commission: f64,
+    pub buyer_commission: f64,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    maker_commission: f64,
+    pub maker_commission: f64,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    seller_commission: f64,
+    pub seller_commission: f64,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    taker_commission: f64,
+    pub taker_commission: f64,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    update_time: u64,
-    permissions: Vec<String>,
-    balances: Vec<Balance>,
+    pub update_time: u64,
+    pub permissions: Vec<String>,
+    pub balances: Vec<Balance>,
 }
 
 #[cfg(test)]

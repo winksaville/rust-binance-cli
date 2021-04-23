@@ -33,11 +33,6 @@ pub struct Opts {
     #[structopt(short, long, required = false, env = "API_KEY", default_value)]
     pub api_key: String,
 
-    /// Get exchange info and display parts of it
-    #[structopt(short, long)]
-    //#[clap(short, long)]
-    pub get_exchange_info: bool,
-
     /// Symbol name such as; BNBUSD
     #[structopt(short = "S", long, required = false, default_value)]
     pub symbol: String,
@@ -46,6 +41,16 @@ pub struct Opts {
     #[structopt(short, long, parse(from_occurrences))]
     //#[clap(short, long, parse(from_occurrences))]
     pub verbose: u8,
+
+    /// Get exchange info and display parts of it
+    #[structopt(short = "E", long)]
+    //#[clap(short, long)]
+    pub get_exchange_info: bool,
+
+    /// Get account info and display it
+    #[structopt(short = "A", long)]
+    //#[clap(short, long)]
+    pub get_account_info: bool,
 }
 
 pub struct BinanceContext {
