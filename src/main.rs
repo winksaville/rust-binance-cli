@@ -20,6 +20,10 @@ use binance_context::BinanceContext;
 mod exchange_info;
 use exchange_info::ExchangeInfo;
 
+mod account_info;
+#[allow(unused)]
+use account_info::AccountInfo;
+
 async fn get_exchange_info<'e>(
     ctx: &BinanceContext,
 ) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
