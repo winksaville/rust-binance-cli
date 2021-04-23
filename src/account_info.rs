@@ -34,8 +34,6 @@ pub struct AccountInfo {
 
 #[cfg(test)]
 mod test {
-    // extern crate test;
-
     use super::*;
 
     const ACCOUNT_INFO_DATA: &str = r#"{

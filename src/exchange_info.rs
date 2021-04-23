@@ -549,9 +549,6 @@ impl ExchangeInfo {
 
 #[cfg(test)]
 mod test {
-    //extern crate test;
-
-    //#[allow(unused_imports)]
     use super::*;
 
     #[test]
