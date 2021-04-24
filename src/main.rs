@@ -32,29 +32,46 @@ mod binance_signature;
 use binance_signature::{binance_signature, query_vec_u8};
 
 fn timestamp_ms_to_secs_nsecs(timestamp_ms: i64) -> (i64, u32) {
+    // println!("time_ms_to_utc: + timestamp_ms={}", timestamp_ms);
     let mut secs = timestamp_ms / 1000;
     let ms: u32 = if timestamp_ms < 0 {
-        secs -= 1;
-        (1_000 - (-timestamp_ms % 1000)) as u32
+        // When time is less than zero the it's only negative
+        // to the "epoch" thus seconds are "negative" but the
+        // milli-seconds are positive. Thus -1ms is represented
+        // in time as -1sec + 0.999ms. Sooooooo
+
+        // First negate then modulo 1000 to get millis as a u32
+        let mut millis = (-timestamp_ms % 1_000) as u32;
+
+        // This is very "likely" and it would be nice to be able
+        // to tell the compiler with `if likely(millis > 0) {...}
+        if millis > 0 {
+            // We need to reduce secs by 1
+            secs -= 1;
+
+            // And map ms 1..999 to 999..1
+            millis = 1_000 - millis;
+            // println!("time_ms_to_utc: adjusted   timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
+        } else {
+            // millis is 0 and secs is correct as is.
+            // println!("time_ms_to_utc: unadjusted timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
+        }
+
+        millis
     } else {
-        (timestamp_ms % 1000) as u32
+        // This actually caused clippy to output "unnecessarary `let` binding"
+        // but for I want to be able to have the pritnln and I've found that
+        // allowing unnecessary_cast suppresses the warning.
+        #[allow(clippy::unnecessary_cast)]
+        let millis = (timestamp_ms % 1000) as u32;
+        //println!("time_ms_to_utc: unadjusted timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
+
+        millis
     };
-    let mut nsecs = ms * 1_000_000u32;
-    // println!("time_ms_to_utc: pre-adj  timestamp={} secs={} ms={} nsecs={}", timestamp_ms, secs, ms, nsecs);
 
-    // The adjustment below is needed so nsecs will always
-    // between 0..999. Without this on mutliples of -1000 for
-    // negative timestamps it has a range of 0..1_000_000_000.
-    //
-    // Note: It is not necessary to do this adjustment for
-    // NativeDateTime::from_timestamp on Linux but it might
-    // matter on other platforms.
-    if nsecs == 1_000_000_000 {
-        secs += 1;
-        nsecs = 0;
-    }
-    // println!("time_ms_to_utc: post-adj timestamp={} secs={} ms={} nsecs={}", timestamp_ms, secs, ms, nsecs);
+    let nsecs = ms * 1_000_000u32;
 
+    // println!("time_ms_to_utc: - timestamp_ms={} secs={} nsecs={}", timestamp_ms, secs, nsecs);
     (secs, nsecs)
 }
 
