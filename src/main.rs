@@ -1,7 +1,7 @@
 //use clap::{AppSettings, Clap};
 use log::trace;
 
-use chrono::prelude::Utc;
+use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 
 #[allow(unused)]
 use serde::{Deserialize, Serialize};
@@ -24,13 +24,69 @@ use exchange_info::ExchangeInfo;
 
 mod account_info;
 #[allow(unused)]
-use account_info::AccountInfo;
+use account_info::{AccountInfo, Balance};
 
 mod binance_signature;
+
 #[allow(unused)]
 use binance_signature::{binance_signature, query_vec_u8};
 
-fn time_ms_utc_now() -> i64 {
+fn timestamp_ms_to_secs_nsecs(timestamp_ms: i64) -> (i64, u32) {
+    let mut secs = timestamp_ms / 1000;
+    let ms: u32 = if timestamp_ms < 0 {
+        secs -= 1;
+        (1_000 - (-timestamp_ms % 1000)) as u32
+    } else {
+        (timestamp_ms % 1000) as u32
+    };
+    let mut nsecs = ms * 1_000_000u32;
+    // println!("time_ms_to_utc: pre-adj  timestamp={} secs={} ms={} nsecs={}", timestamp_ms, secs, ms, nsecs);
+
+    // The adjustment below is needed so nsecs will always
+    // between 0..999. Without this on mutliples of -1000 for
+    // negative timestamps it has a range of 0..1_000_000_000.
+    //
+    // Note: It is not necessary to do this adjustment for
+    // NativeDateTime::from_timestamp on Linux but it might
+    // matter on other platforms.
+    if nsecs == 1_000_000_000 {
+        secs += 1;
+        nsecs = 0;
+    }
+    // println!("time_ms_to_utc: post-adj timestamp={} secs={} ms={} nsecs={}", timestamp_ms, secs, ms, nsecs);
+
+    (secs, nsecs)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_timestamp_ms_to_secs_nsecs() {
+        assert_eq!(timestamp_ms_to_secs_nsecs(-2001), (-3i64, 999_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(-2000), (-2i64, 0u32));
+        //assert_eq!(timestamp_ms_to_secs_nsecs(-2000), (-3i64, 1_000_000_000u32)); // No Adjustment
+        assert_eq!(timestamp_ms_to_secs_nsecs(-1999), (-2i64, 1_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(-1001), (-2i64, 999_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(-1000), (-1i64, 0u32));
+        //assert_eq!(timestamp_ms_to_secs_nsecs(-1000), (0i64, 1_000_000_000u32)); // No adjustment
+        assert_eq!(timestamp_ms_to_secs_nsecs(-999), (-1i64, 1_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(-1), (-1i64, 999_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(0), (0i64, 0u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(1), (0i64, 1_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(999), (0i64, 999_000_000u32));
+        assert_eq!(timestamp_ms_to_secs_nsecs(1000), (1i64, 0u32));
+    }
+}
+
+fn time_ms_to_utc(timestamp: i64) -> DateTime<Utc> {
+    let (secs, nsecs) = timestamp_ms_to_secs_nsecs(timestamp);
+    let naive_datetime = NaiveDateTime::from_timestamp(secs, nsecs);
+    DateTime::from_utc(naive_datetime, Utc)
+}
+
+fn utc_now_to_time_ms() -> i64 {
     let now = Utc::now();
     now.timestamp_millis()
 }
@@ -54,7 +110,7 @@ async fn get_account_info<'e>(
     let api_key = ctx.opts.api_key.as_bytes();
 
     let mut params = vec![];
-    let ts_string: String = format!("{}", time_ms_utc_now());
+    let ts_string: String = format!("{}", utc_now_to_time_ms());
     params.append(&mut vec![("timestamp", ts_string.as_str())]);
 
     let mut query = query_vec_u8(&params);
@@ -178,7 +234,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if ctx.opts.get_account_info {
         let ai = get_account_info(&ctx).await?;
-        println!("ai={:#?}", ai);
+        //println!("ai={:#?}", ai);
+        println!("     account_type: {}", ai.account_type);
+        println!("      can_deposit: {}", ai.can_deposit);
+        println!("        can_trade: {}", ai.can_trade);
+        println!("     can_withdraw: {}", ai.can_withdraw);
+        println!(" buyer_commission: {}", ai.buyer_commission);
+        println!(" maker_commission: {}", ai.maker_commission);
+        println!("seller_commission: {}", ai.seller_commission);
+        println!(" taker_commission: {}", ai.taker_commission);
+        println!("      update_time: {}", time_ms_to_utc(ai.update_time));
+        println!("      permissions: {:?}", ai.permissions);
+        for balance in ai.balances {
+            if balance.free > 0.0 {
+                println!(
+                    "{}: free: {} locked: {}",
+                    balance.asset, balance.free, balance.locked
+                );
+            }
+        }
     }
 
     trace!("main: -");

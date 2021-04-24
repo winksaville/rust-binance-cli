@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
+use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_i64};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Balance {
-    asset: String,
+    pub asset: String,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    free: f64,
+    pub free: f64,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    locked: f64,
+    pub locked: f64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -26,8 +26,8 @@ pub struct AccountInfo {
     pub seller_commission: f64,
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     pub taker_commission: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub update_time: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
+    pub update_time: i64,
     pub permissions: Vec<String>,
     pub balances: Vec<Balance>,
 }
