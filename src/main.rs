@@ -21,26 +21,13 @@ mod exchange_info;
 use exchange_info::ExchangeInfo;
 
 mod account_info;
-#[allow(unused)]
-use account_info::{AccountInfo, Balance};
+use account_info::AccountInfo;
 
 mod binance_signature;
-
-#[allow(unused)]
-use binance_signature::{binance_signature, query_vec_u8};
+use binance_signature::{append_signature, binance_signature, query_vec_u8};
 
 mod common;
 use common::{time_ms_to_utc, utc_now_to_time_ms};
-
-fn append_signature(query: &mut Vec<u8>, signature: [u8; 32]) {
-    let signature_string = hex::encode(&signature);
-    trace!("signature_string={}", signature_string);
-
-    let signature_params = vec![("signature", signature_string.as_str())];
-    trace!("signature_params={:?}", signature_params);
-    query.append(&mut vec![b'&']);
-    query.append(&mut query_vec_u8(&signature_params));
-}
 
 async fn get_account_info<'e>(
     ctx: &BinanceContext,

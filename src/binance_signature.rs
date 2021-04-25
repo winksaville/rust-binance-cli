@@ -39,6 +39,14 @@ pub fn binance_signature(sig_key: &[u8], qs: &[u8], body: &[u8]) -> [u8; 32] {
     signature.into()
 }
 
+pub fn append_signature(query: &mut Vec<u8>, signature: [u8; 32]) {
+    let signature_string = hex::encode(&signature);
+
+    let signature_params = vec![("signature", signature_string.as_str())];
+    query.append(&mut vec![b'&']);
+    query.append(&mut query_vec_u8(&signature_params));
+}
+
 #[cfg(test)]
 mod test {
     use hex_literal::hex;
@@ -216,5 +224,19 @@ mod test {
         // Validate
         assert_eq!(signature.len(), 32);
         assert_eq!(signature, expected);
+    }
+
+    #[test]
+    fn test_append_signature() {
+        let mut query = query_vec_u8(&[("param1", "hello")]);
+        let signature = binance_signature("sig_key".as_bytes(), &query, &[]);
+        // println!("query={}", hex::encode(&query));
+        // println!("signature={}", hex::encode(&signature));
+        append_signature(&mut query, signature);
+        // println!("query: {}", std::str::from_utf8(&query).unwrap());
+        assert_eq!(
+            std::str::from_utf8(&query).unwrap(),
+            "param1=hello&signature=00a3431da6f4a2d483ca5fe1ed550ae0046a529ded39377cc7c45ace41245011"
+        );
     }
 }
