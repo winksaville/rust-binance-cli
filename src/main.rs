@@ -26,6 +26,13 @@ use account_info::AccountInfo;
 mod binance_signature;
 use binance_signature::{append_signature, binance_signature, query_vec_u8};
 
+mod order_response;
+#[allow(unused)]
+use order_response::OrderResponse;
+
+mod binance_trade;
+use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Side};
+
 mod common;
 use common::{time_ms_to_utc, utc_now_to_time_ms};
 
@@ -174,13 +181,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("      update_time: {}", time_ms_to_utc(ai.update_time));
         println!("      permissions: {:?}", ai.permissions);
         for balance in ai.balances {
-            if balance.free > 0.0 {
+            if balance.free > 0.0 || balance.locked > 0.0 {
                 println!(
                     "{}: free: {} locked: {}",
                     balance.asset, balance.free, balance.locked
                 );
             }
         }
+    }
+
+    if !ctx.opts.sell.is_empty() {
+        let symbol = ctx.opts.sell.clone();
+        let quantity = ctx.opts.quantity;
+        if quantity <= 0.0 {
+            return Err(format!("Can't sell {} quantity", quantity).into());
+        }
+        let response = binance_new_order_or_test(
+            ctx,
+            &symbol,
+            Side::SELL,
+            OrderType::Market(MarketQuantityType::Quantity(quantity)),
+            true,
+        )
+        .await?;
+        println!("Sell reponse: {:#?}", response);
     }
 
     trace!("main: -");

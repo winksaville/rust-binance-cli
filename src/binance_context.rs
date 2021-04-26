@@ -51,6 +51,16 @@ pub struct Opts {
     #[structopt(short = "A", long)]
     //#[clap(short, long)]
     pub get_account_info: bool,
+
+    /// Sell Symbol, --sell=BNDUSD
+    #[structopt(long, required = false, default_value)]
+    //#[clap(long)]
+    pub sell: String,
+
+    /// Quantity to buy or sell
+    #[structopt(long, required = false, default_value)]
+    //#[clap(long)]
+    pub quantity: f64,
 }
 
 pub struct BinanceContext {
