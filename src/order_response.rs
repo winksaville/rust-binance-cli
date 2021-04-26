@@ -20,9 +20,11 @@ pub struct Fill {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OrderResponse {
+pub struct OrderResponseSuccess {
     #[serde(default)]
     pub test: bool,
+    #[serde(default)]
+    pub query: String,
     symbol: String,
     pub client_order_id: String,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
@@ -47,10 +49,11 @@ pub struct OrderResponse {
     pub fills: Vec<Fill>,
 }
 
-impl Default for OrderResponse {
-    fn default() -> OrderResponse {
-        OrderResponse {
+impl Default for OrderResponseSuccess {
+    fn default() -> OrderResponseSuccess {
+        OrderResponseSuccess {
             test: false,
+            query: "".to_string(),
             symbol: "".to_string(),
             client_order_id: "".to_string(),
             order_id: 0,
@@ -69,11 +72,43 @@ impl Default for OrderResponse {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct OrderResponseFailure {
+    #[serde(default)]
+    pub test: bool,
+    #[serde(default)]
+    pub query: String,
+    #[serde(default)]
+    pub status: u16,
+    pub code: i64,
+    pub msg: String,
+}
+
+impl OrderResponseFailure {
+    pub fn new(
+        test: bool,
+        status: u16,
+        query: &str,
+        body: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut order_response_failure: OrderResponseFailure = serde_json::from_str(body)?;
+        order_response_failure.test = test;
+        order_response_failure.query = query.to_string();
+        order_response_failure.status = status;
+        Ok(order_response_failure)
+    }
+}
+#[derive(Debug, Deserialize, Serialize)]
+pub enum OrderResponse {
+    Success(OrderResponseSuccess),
+    Failure(OrderResponseFailure),
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    const ORDER_RESPONSE: &str = r#"{
+    const ORDER_RESPONSE_SUCCESS: &str = r#"{
          "symbol":"BNBUSD",
          "orderId":93961452,
          "orderListId":-1,
@@ -98,13 +133,16 @@ mod test {
     }"#;
 
     #[test]
-    fn test_order_response() {
-        let order_response: OrderResponse = match serde_json::from_str(ORDER_RESPONSE) {
-            Ok(response) => response,
-            Err(e) => panic!("Error processing response: e={}", e),
-        };
+    fn test_order_response_success() {
+        let mut order_response: OrderResponseSuccess =
+            match serde_json::from_str(ORDER_RESPONSE_SUCCESS) {
+                Ok(response) => response,
+                Err(e) => panic!("Error processing response: e={}", e),
+            };
+        order_response.query = "a_query".to_owned();
         // println!("order_response={:#?}", order_response);
         assert_eq!(order_response.test, false);
+        assert_eq!(order_response.query, "a_query");
         assert_eq!(order_response.symbol, "BNBUSD");
         assert_eq!(order_response.order_id, 93961452);
         assert_eq!(order_response.order_list_id, -1);
@@ -123,5 +161,23 @@ mod test {
         assert_eq!(order_response.fills[0].commission, 0.00002250);
         assert_eq!(order_response.fills[0].commission_asset, "BNB");
         assert_eq!(order_response.fills[0].trade_id, 2813236);
+    }
+
+    #[test]
+    fn test_order_response_failure() {
+        const ORDER_RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
+
+        let order_response: OrderResponseFailure =
+            match OrderResponseFailure::new(false, 400, "a_query", ORDER_RESPONSE_FAILURE_BODY) {
+                Ok(response) => response,
+                Err(e) => panic!("Error processing response: e={}", e),
+            };
+
+        // println!("order_response={:#?}", order_response);
+        assert_eq!(order_response.test, false);
+        assert_eq!(order_response.query, "a_query");
+        assert_eq!(order_response.status, 400);
+        assert_eq!(order_response.code, -1121);
+        assert_eq!(order_response.msg, "Invalid symbol.");
     }
 }

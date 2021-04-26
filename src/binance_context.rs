@@ -1,5 +1,7 @@
 // Using structopt and clap v2
+use std::fs::{File, OpenOptions};
 use structopt::{clap::AppSettings, StructOpt};
+//use std::io::prelude::*;
 
 // When I tried clap version 3.0.0-beta.2
 // "optional" string parameters such as:
@@ -65,6 +67,7 @@ pub struct Opts {
 
 pub struct BinanceContext {
     pub opts: Opts,
+    pub order_log_file: File,
     pub scheme: String,
     pub domain: String,
 }
@@ -73,6 +76,15 @@ impl BinanceContext {
     pub fn new() -> Self {
         Self {
             opts: Opts::from_args(),
+            order_log_file: match OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(true)
+                .open("data/order_logger.txt")
+            {
+                Ok(file) => file,
+                Err(e) => panic!("Could not create order_logger.txt e: {}", e),
+            },
             //opts: Opts::parse(),
             scheme: "https".to_string(),
             domain: "binance.us".to_string(),

@@ -1,6 +1,7 @@
+use std::io::Write;
 use strum_macros::IntoStaticStr;
 
-use crate::order_response::OrderResponse;
+use crate::order_response::{OrderResponse, OrderResponseFailure, OrderResponseSuccess};
 
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 
@@ -32,7 +33,7 @@ pub enum Side {
 }
 
 pub async fn binance_new_order_or_test(
-    ctx: BinanceContext,
+    mut ctx: BinanceContext,
     symbol: &str,
     side: Side,
     order_type: OrderType,
@@ -75,7 +76,7 @@ pub async fn binance_new_order_or_test(
     append_signature(&mut query, signature);
 
     // Convert to a string
-    let query_string = String::from_utf8(query).unwrap();
+    let query_string = String::from_utf8(query)?;
     if DEBUG {
         println!("query_string={}", &query_string);
     }
@@ -94,7 +95,7 @@ pub async fn binance_new_order_or_test(
         .build()?
         .post(url)
         .header("X-MBX-APIKEY", api_key)
-        .body(query_string);
+        .body(query_string.clone());
     if DEBUG {
         println!("req_builder={:#?}", req_builder);
     }
@@ -106,28 +107,42 @@ pub async fn binance_new_order_or_test(
     }
     let response_status = response.status();
     let response_body = response.text().await?;
+
+    // Log the response
     if response_status == 200 {
         if DEBUG {
             println!("response_body={}", response_body);
         }
-        let mut order_resp = OrderResponse::default();
+        let mut order_resp_success = OrderResponseSuccess::default();
         if !test {
-            order_resp = serde_json::from_str(&&response_body)?;
+            order_resp_success = serde_json::from_str(&&response_body)?;
         } else {
-            order_resp.test = true;
+            order_resp_success.test = true;
         }
+        order_resp_success.query = query_string;
+        let order_resp = OrderResponse::Success(order_resp_success);
         if DEBUG {
             println!(
                 "binance_market_order_or_test: symbol={} side={} test={} order_response={:#?}",
                 symbol, side_str, test, order_resp
             );
         }
+        serde_json::to_writer(&ctx.order_log_file, &order_resp)?;
+        ctx.order_log_file.write_all(b"\n")?;
         Ok(order_resp)
     } else {
-        return Err(format!(
-            "Error response status={} symbol={} side={} body={}",
-            response_status, symbol, side_str, response_body
-        )
-        .into());
+        let order_resp_failure: OrderResponseFailure = match OrderResponseFailure::new(
+            test,
+            response_status.as_u16(),
+            &query_string,
+            &response_body,
+        ) {
+            Ok(response) => response,
+            Err(e) => panic!("Error processing response: e={}", e),
+        };
+        let order_resp = OrderResponse::Failure(order_resp_failure);
+        serde_json::to_writer(&ctx.order_log_file, &order_resp)?;
+        ctx.order_log_file.write_all(b"\n")?;
+        Ok(order_resp)
     }
 }
