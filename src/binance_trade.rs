@@ -1,4 +1,3 @@
-use std::io::Write;
 use strum_macros::IntoStaticStr;
 
 use crate::order_response::{OrderResponse, OrderResponseFailure, OrderResponseSuccess};
@@ -127,9 +126,7 @@ pub async fn binance_new_order_or_test(
                 symbol, side_str, test, order_resp
             );
         }
-        serde_json::to_writer(&ctx.order_log_file, &order_resp)?;
-        ctx.order_log_file.write_all(b"\n")?;
-        Ok(order_resp)
+        Ok(ctx.log_order_response(order_resp)?)
     } else {
         let order_resp_failure: OrderResponseFailure = match OrderResponseFailure::new(
             test,
@@ -140,9 +137,7 @@ pub async fn binance_new_order_or_test(
             Ok(response) => response,
             Err(e) => panic!("Error processing response: e={}", e),
         };
-        let order_resp = OrderResponse::Failure(order_resp_failure);
-        serde_json::to_writer(&ctx.order_log_file, &order_resp)?;
-        ctx.order_log_file.write_all(b"\n")?;
-        Ok(order_resp)
+        let order_response = OrderResponse::Failure(order_resp_failure);
+        Ok(ctx.log_order_response(order_response)?)
     }
 }

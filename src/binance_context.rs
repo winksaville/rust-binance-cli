@@ -1,6 +1,11 @@
 // Using structopt and clap v2
-use std::fs::{File, OpenOptions};
+use std::{
+    fs::{File, OpenOptions},
+    io::Write,
+};
 use structopt::{clap::AppSettings, StructOpt};
+
+use crate::order_response::OrderResponse;
 //use std::io::prelude::*;
 
 // When I tried clap version 3.0.0-beta.2
@@ -99,6 +104,16 @@ impl BinanceContext {
         };
 
         format!("{}://{}{}{}", self.scheme, sd, self.domain, full_path)
+    }
+
+    pub fn log_order_response(
+        &mut self,
+        order_response: OrderResponse,
+    ) -> Result<OrderResponse, Box<dyn std::error::Error>> {
+        serde_json::to_writer(&self.order_log_file, &order_response)?;
+        self.order_log_file.write_all(b"\n")?;
+
+        Ok(order_response)
     }
 }
 
