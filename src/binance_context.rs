@@ -2,6 +2,7 @@
 use std::{
     fs::{File, OpenOptions},
     io::Write,
+    path::PathBuf,
 };
 use structopt::{clap::AppSettings, StructOpt};
 
@@ -39,6 +40,17 @@ pub struct Opts {
     //#[clap(short, long, required = false, env = "SECRET_KEY", default_value)]
     #[structopt(short, long, required = false, env = "API_KEY", default_value)]
     pub api_key: String,
+
+    /// Order log full path
+    //#[clap(short, long, required = false, env = "ORDER_LOG_PATH", default_value="data/order_log.txt")]
+    #[structopt(
+        short = "O",
+        long,
+        required = false,
+        env = "ORDER_LOG_PATH",
+        default_value = "data/order_log.txt"
+    )]
+    pub order_log_path: PathBuf,
 
     /// Symbol name such as; BNBUSD
     #[structopt(short = "S", long, required = false, default_value)]
@@ -79,18 +91,26 @@ pub struct BinanceContext {
 
 impl BinanceContext {
     pub fn new() -> Self {
+        let opts = Opts::from_args();
+
+        let order_log_path = opts.order_log_path.clone();
+        if let Some(prefix) = order_log_path.parent() {
+            if let Err(e) = std::fs::create_dir_all(prefix) {
+                panic!("Error creating {:?} e={}", order_log_path, e);
+            }
+        }
+
         Self {
-            opts: Opts::from_args(),
+            opts,
             order_log_file: match OpenOptions::new()
                 .create(true)
                 .write(true)
                 .append(true)
-                .open("data/order_logger.txt")
+                .open(&order_log_path)
             {
                 Ok(file) => file,
-                Err(e) => panic!("Could not create order_logger.txt e: {}", e),
+                Err(e) => panic!("Could not create {:?} e: {}", order_log_path, e),
             },
-            //opts: Opts::parse(),
             scheme: "https".to_string(),
             domain: "binance.us".to_string(),
         }
