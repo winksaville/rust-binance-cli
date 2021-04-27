@@ -62,6 +62,7 @@ pub fn utc_now_to_time_ms() -> i64 {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::time::Instant;
 
     #[test]
     fn test_timestamp_ms_to_secs_nsecs() {
@@ -92,20 +93,34 @@ mod test {
 
     #[test]
     fn test_utc_now_to_time_ms() {
-        let start = utc_now_to_time_ns();
-        let next_ms_in_ns = start + 1_000_000;
+        let start = Instant::now();
+
+        // Because we use integer arithmetic we must
+        // see 2 milli-second time ticks to see a minimum
+        // duration of > 1ms.
         let tms1 = utc_now_to_time_ms();
-        let mut now = i64::MIN;
-        while now <= next_ms_in_ns {
-            now = utc_now_to_time_ns();
+        let mut tms2 = tms1;
+        while tms2 < (tms1 + 2) {
+            tms2 = utc_now_to_time_ms();
         }
-        let tms2 = utc_now_to_time_ms();
+        let done = Instant::now();
+        let duration = done.duration_since(start);
 
-        #[allow(unused)]
-        let done = utc_now_to_time_ns();
-        // println!("done: {} - start {} = {}", done, start, done - start);
+        // println!(
+        //     "tms1: {} tms2: {} done: {:?} - start {:?} = {}ns or {}ms",
+        //     tms1,
+        //     tms2,
+        //     done,
+        //     start,
+        //     duration.as_nanos(),
+        //     duration.as_millis()
+        // );
 
-        assert!(tms1 != 0);
-        assert!(tms2 == (tms1 + 1));
+        assert!(tms2 >= (tms1 + 2));
+        assert!(duration.as_millis() >= 1);
+
+        // Usually duration.as_millis will be < 2ms. But with Tarpaulin
+        // I've seen durations as high as 7ms, so we can't do this test!
+        // assert!(duration.as_millis() < 2);
     }
 }
