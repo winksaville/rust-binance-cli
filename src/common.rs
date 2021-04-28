@@ -50,13 +50,8 @@ pub fn time_ms_to_utc(timestamp_ms: i64) -> DateTime<Utc> {
     DateTime::from_utc(naive_datetime, Utc)
 }
 
-pub fn utc_now_to_time_ns() -> i64 {
-    let now = Utc::now();
-    now.timestamp_nanos()
-}
-
 pub fn utc_now_to_time_ms() -> i64 {
-    utc_now_to_time_ns() / 1_000_000
+    (Utc::now().timestamp_nanos() + 500_000) / 1_000_000
 }
 
 #[cfg(test)]
@@ -79,16 +74,6 @@ mod test {
         assert_eq!(timestamp_ms_to_secs_nsecs(1), (0i64, 1_000_000u32));
         assert_eq!(timestamp_ms_to_secs_nsecs(999), (0i64, 999_000_000u32));
         assert_eq!(timestamp_ms_to_secs_nsecs(1000), (1i64, 0u32));
-    }
-
-    #[test]
-    fn test_utc_now_to_time_ns() {
-        let tns1 = utc_now_to_time_ns();
-        let tns2 = utc_now_to_time_ns();
-        let tns3 = utc_now_to_time_ns();
-        assert!(tns1 != 0);
-        assert!(tns2 >= tns1);
-        assert!(tns3 > tns1);
     }
 
     #[test]
@@ -120,7 +105,7 @@ mod test {
         assert!(duration.as_millis() >= 1);
 
         // Usually duration.as_millis will be < 2ms. But with Tarpaulin
-        // I've seen durations as high as 7ms, so we can't do this test!
-        // assert!(duration.as_millis() < 2);
+        // I've seen durations just over 2m so assert <= 2.
+        assert!(duration.as_millis() <= 2);
     }
 }
