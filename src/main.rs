@@ -1,41 +1,20 @@
-//use clap::{AppSettings, Clap};
 use log::trace;
 
-#[allow(unused)]
-use serde::{Deserialize, Serialize};
-
-mod de_string_or_number;
-#[allow(unused)]
-use de_string_or_number::{
-    de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
-};
-
-mod de_vec_to_hashmap;
-#[allow(unused)]
-use de_vec_to_hashmap::de_vec_to_hashmap;
-
-mod binance_context;
-use binance_context::BinanceContext;
-
-mod binance_exchange_info;
-use binance_exchange_info::get_exchange_info;
-
 mod binance_account_info;
-use binance_account_info::get_account_info;
-
-mod binance_order_response;
-#[allow(unused)]
-use binance_order_response::OrderResponse;
-
-mod binance_trade;
-use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Side};
-
 mod binance_avg_price;
-use binance_avg_price::{get_avg_price, AvgPrice};
-
+mod binance_context;
+mod binance_exchange_info;
+mod binance_order_response;
 mod binance_signature;
-
+mod binance_trade;
 mod common;
+mod de_string_or_number;
+
+use binance_account_info::get_account_info;
+use binance_avg_price::{get_avg_price, AvgPrice};
+use binance_context::BinanceContext;
+use binance_exchange_info::get_exchange_info;
+use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Side};
 use common::time_ms_to_utc;
 
 #[tokio::main]
