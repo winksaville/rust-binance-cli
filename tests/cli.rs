@@ -35,12 +35,7 @@ fn test_req_params() -> Result<(), Box<dyn Error>> {
     cmd.arg("-s=secret_key");
     cmd.arg("-a").arg("api key");
 
-    cmd.assert()
-        .code(predicate::eq(0))
-        .stdout(predicate::str::contains(
-            "sec_key=secret key is never displayed",
-        ))
-        .stdout(predicate::str::contains("api_key=api key"));
+    cmd.assert().code(predicate::eq(0));
 
     Ok(())
 }
@@ -53,10 +48,6 @@ fn test_req_params_as_env_vars() -> Result<(), Box<dyn Error>> {
 
     cmd.assert()
         .code(predicate::eq(0))
-        .stdout(predicate::str::contains(
-            "sec_key=secret key is never displayed",
-        ))
-        .stdout(predicate::str::contains("api_key=api key"))
         .stdout(predicate::str::contains("Usage:"));
 
     Ok(())

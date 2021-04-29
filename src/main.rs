@@ -20,11 +20,8 @@ use binance_context::BinanceContext;
 mod exchange_info;
 use exchange_info::ExchangeInfo;
 
-mod account_info;
-use account_info::AccountInfo;
-
-mod binance_signature;
-use binance_signature::{append_signature, binance_signature, query_vec_u8};
+mod binance_account_info;
+use binance_account_info::get_account_info;
 
 mod order_response;
 #[allow(unused)]
@@ -36,72 +33,10 @@ use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Si
 mod binance_avg_price;
 use binance_avg_price::{get_avg_price, AvgPrice};
 
+mod binance_signature;
+
 mod common;
-use common::{time_ms_to_utc, utc_now_to_time_ms};
-
-async fn get_account_info<'e>(
-    ctx: &BinanceContext,
-) -> Result<AccountInfo, Box<dyn std::error::Error>> {
-    trace!("get_account_info: +");
-
-    let sig_key = ctx.opts.secret_key.as_bytes();
-    let api_key = ctx.opts.api_key.as_bytes();
-
-    let mut params = vec![];
-    let ts_string: String = format!("{}", utc_now_to_time_ms());
-    params.append(&mut vec![("timestamp", ts_string.as_str())]);
-
-    let mut query = query_vec_u8(&params);
-
-    // Calculate the signature using sig_key and the data in qs and query as body
-    let signature = binance_signature(&sig_key, &[], &query);
-
-    // Append the signature to query
-    append_signature(&mut query, signature);
-
-    // Convert to a string
-    let query_string = String::from_utf8(query)?;
-    trace!("query_string={}", &query_string);
-
-    let url = ctx.make_url("api", &format!("/api/v3/account?{}", &query_string));
-    trace!("get_exchange_info: url={}", url);
-
-    // Build request
-    let client = reqwest::Client::builder();
-    let req_builder = client
-        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
-        .build()?
-        .get(url)
-        .header("X-MBX-APIKEY", api_key);
-    trace!("req_builder={:#?}", req_builder);
-
-    // Send and get response
-    let response = req_builder.send().await?;
-    trace!("response={:#?}", response);
-    let response_status = response.status();
-    let response_body = response.text().await?;
-    let account_info: AccountInfo = if response_status == 200 {
-        let ai: AccountInfo = match serde_json::from_str(&response_body) {
-            Ok(info) => info,
-            Err(e) => {
-                let err = format!(
-                    "Error converting body to AccountInfo: e={} body={}",
-                    e, response_body
-                );
-                trace!("get_account_info: err: {}", err);
-                return Err(err.into());
-            }
-        };
-        ai
-    } else {
-        let err = format!("response status={} body={}", response_status, response_body);
-        trace!("get_account_info: err: {}", err);
-        return Err(err.into());
-    };
-
-    trace!("get_account_info: err: -");
-    Ok(account_info)
-}
+use common::time_ms_to_utc;
 
 async fn get_exchange_info<'e>(
     ctx: &BinanceContext,
@@ -124,21 +59,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     trace!("main: +");
 
     let ctx = BinanceContext::new();
-
-    // For now we'll always do this so we pass our tests
-    #[allow(unused)]
-    let sec_key: Vec<u8> = ctx.opts.secret_key.as_bytes().to_vec();
-    let api_key: Vec<u8> = ctx.opts.api_key.as_bytes().to_vec();
-    if !sec_key.is_empty() || !api_key.is_empty() {
-        println!(
-            "sec_key=secret key is never displayed api_key={}",
-            if api_key.is_empty() {
-                "len is 0"
-            } else {
-                std::str::from_utf8(&api_key).unwrap()
-            }
-        );
-    }
 
     if std::env::args().len() == 1 {
         let args: Vec<String> = std::env::args().collect();
