@@ -1,7 +1,7 @@
 use log::trace;
 use strum_macros::IntoStaticStr;
 
-use crate::common::BinanceResponseError;
+use crate::common::{BinanceError, ResponseErrorRec};
 
 use crate::order_response::{OrderResponse, OrderResponseSuccess};
 
@@ -124,13 +124,14 @@ pub async fn binance_new_order_or_test(
 
         Ok(order_resp)
     } else {
-        let order_resp_failure: BinanceResponseError = BinanceResponseError::new(
+        let response_error_rec = ResponseErrorRec::new(
             test,
             response_status.as_u16(),
             &query_string,
             &response_body,
         );
-        let order_resp = OrderResponse::Failure(order_resp_failure.clone());
+        let binance_error_response = BinanceError::Response(response_error_rec);
+        let order_resp = OrderResponse::Failure(binance_error_response.clone());
         ctx.log_order_response(&order_resp)?;
 
         trace!(
@@ -141,9 +142,7 @@ pub async fn binance_new_order_or_test(
             )
         );
 
-        // TODO: Is there a better way? I'd like to do something like:
-        //   Err(order_resp_failure.into())
-        Err(format!("{}", &order_resp_failure).into())
+        Err(binance_error_response.into())
     };
 
     result

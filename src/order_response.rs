@@ -4,7 +4,7 @@ use crate::de_string_or_number::{
     de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
 };
 
-use crate::common::BinanceResponseError;
+use crate::common::BinanceError;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,7 +77,7 @@ impl Default for OrderResponseSuccess {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum OrderResponse {
     Success(OrderResponseSuccess),
-    Failure(BinanceResponseError),
+    Failure(BinanceError),
 }
 
 #[cfg(test)]

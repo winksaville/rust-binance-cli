@@ -2,7 +2,7 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 
 use crate::binance_context::BinanceContext;
-use crate::common::BinanceResponseError;
+use crate::common::{BinanceError, ResponseErrorRec};
 use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -30,15 +30,17 @@ pub async fn get_avg_price<'e>(
         trace!("get_avg_price: avg_price={:?}", avg_price);
         Ok(avg_price)
     } else {
-        let resp_failure =
-            BinanceResponseError::new(false, response_status.as_u16(), &url, &response_body);
-        let err_string = format!(
+        let response_error_rec =
+            ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
+        let binance_error_response = BinanceError::Response(response_error_rec);
+
+        trace!(
             "get_avg_price: error symbol={} resp_failure={:?}",
-            symbol, resp_failure,
+            symbol,
+            binance_error_response,
         );
 
-        trace!("{}", err_string);
-        Err(err_string.into())
+        Err(binance_error_response.into())
     };
 
     result

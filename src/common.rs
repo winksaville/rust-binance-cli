@@ -1,11 +1,13 @@
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 
+use std::error::Error;
 use std::fmt::{self, Debug, Display};
+
 //use reqwest::Response;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Deserialize, Serialize)]
-pub struct BinanceResponseError {
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ResponseErrorRec {
     #[serde(default)]
     pub test: bool,
     #[serde(default)]
@@ -16,7 +18,7 @@ pub struct BinanceResponseError {
     pub msg: String,
 }
 
-impl BinanceResponseError {
+impl ResponseErrorRec {
     pub fn new(
         test: bool,
         status: u16,
@@ -46,19 +48,24 @@ impl BinanceResponseError {
     }
 }
 
-impl Display for BinanceResponseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "BinanceResponseError: test={} status={} code={} msg={} query={}",
-            self.test, self.status, self.code, self.msg, self.query
-        )
-    }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum BinanceError {
+    Response(ResponseErrorRec),
 }
 
-impl Debug for BinanceResponseError {
+impl Error for BinanceError {}
+
+impl Display for BinanceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{{ file: {}, line: {} }} {}", file!(), line!(), self)
+        match &*self {
+            BinanceError::Response(rec) => {
+                write!(
+                    f,
+                    "BinanceError::Response: test={} status={} code={} msg={} query={}",
+                    rec.test, rec.status, rec.code, rec.msg, rec.query
+                )
+            }
+        }
     }
 }
 
@@ -122,10 +129,10 @@ mod test {
     use std::time::Instant;
 
     #[test]
-    fn test_binance_response_failure() {
+    fn test_binance_response_error_rec() {
         const RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
 
-        let response = BinanceResponseError::new(false, 400, "a_query", RESPONSE_FAILURE_BODY);
+        let response = ResponseErrorRec::new(false, 400, "a_query", RESPONSE_FAILURE_BODY);
 
         assert_eq!(response.test, false);
         assert_eq!(response.query, "a_query");
@@ -135,10 +142,10 @@ mod test {
     }
 
     #[test]
-    fn test_binance_response_failure_bad_body() {
+    fn test_binance_response_error_rec_bad_body() {
         const RESPONSE_FAILURE_BODY: &str = "An unexpected error";
 
-        let response = BinanceResponseError::new(false, 505, "a_query", RESPONSE_FAILURE_BODY);
+        let response = ResponseErrorRec::new(false, 505, "a_query", RESPONSE_FAILURE_BODY);
 
         assert_eq!(response.test, false);
         assert_eq!(response.query, "a_query");
@@ -146,6 +153,10 @@ mod test {
         assert_eq!(response.code, 0);
         assert_eq!(response.msg, "An unexpected error");
     }
+
+    //fn test_binance_response_failure_as_Error() {
+    //    assert!(get_binance_response_failure().is_err());
+    //}
 
     #[test]
     fn test_timestamp_ms_to_secs_nsecs() {
