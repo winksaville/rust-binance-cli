@@ -16,9 +16,13 @@ Hello, world!
 ## Prerequisites
 
 Along with the normal rust tools installed via `rustup` and `cargo install`.
+
+> Note: rustup must be 1.24.1 as I'm using `rust-toolchain.toml` for rustup
+> configuration.
 (Add more specific docs here)
 
-You must install a version >= `0.18.0-alpha1`, currently I'm installing with:
+You must install a version of Tarpaulin >= `0.18.0-alpha1` as I'm using the
+--follow-exec option, currently I'm installing with:
 ```
 $ cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
 ```
