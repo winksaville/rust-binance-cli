@@ -4,6 +4,8 @@ use crate::de_string_or_number::{
     de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
 };
 
+use crate::common::BinanceResponseError;
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Fill {
@@ -73,35 +75,9 @@ impl Default for OrderResponseSuccess {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct OrderResponseFailure {
-    #[serde(default)]
-    pub test: bool,
-    #[serde(default)]
-    pub query: String,
-    #[serde(default)]
-    pub status: u16,
-    pub code: i64,
-    pub msg: String,
-}
-
-impl OrderResponseFailure {
-    pub fn new(
-        test: bool,
-        status: u16,
-        query: &str,
-        body: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut order_response_failure: OrderResponseFailure = serde_json::from_str(body)?;
-        order_response_failure.test = test;
-        order_response_failure.query = query.to_string();
-        order_response_failure.status = status;
-        Ok(order_response_failure)
-    }
-}
-#[derive(Debug, Deserialize, Serialize)]
 pub enum OrderResponse {
     Success(OrderResponseSuccess),
-    Failure(OrderResponseFailure),
+    Failure(BinanceResponseError),
 }
 
 #[cfg(test)]
@@ -161,23 +137,5 @@ mod test {
         assert_eq!(order_response.fills[0].commission, 0.00002250);
         assert_eq!(order_response.fills[0].commission_asset, "BNB");
         assert_eq!(order_response.fills[0].trade_id, 2813236);
-    }
-
-    #[test]
-    fn test_order_response_failure() {
-        const ORDER_RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
-
-        let order_response: OrderResponseFailure =
-            match OrderResponseFailure::new(false, 400, "a_query", ORDER_RESPONSE_FAILURE_BODY) {
-                Ok(response) => response,
-                Err(e) => panic!("Error processing response: e={}", e),
-            };
-
-        // println!("order_response={:#?}", order_response);
-        assert_eq!(order_response.test, false);
-        assert_eq!(order_response.query, "a_query");
-        assert_eq!(order_response.status, 400);
-        assert_eq!(order_response.code, -1121);
-        assert_eq!(order_response.msg, "Invalid symbol.");
     }
 }

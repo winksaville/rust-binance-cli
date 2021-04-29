@@ -22,27 +22,21 @@ use crate::order_response::OrderResponse;
 //   note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 //use clap::{AppSettings, Clap};
 
-//#[derive(Debug, Clap)]
-//#[clap(version = env!("CARGO_PKG_VERSION"), setting = AppSettings::ColoredHelp)]
 #[derive(Debug, StructOpt)]
-//#[structopt(version = env!("CARGO_PKG_VERSION"), setting = AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp)]
 #[structopt(
     global_settings = &[ AppSettings::ArgRequiredElseHelp, AppSettings::ColoredHelp ],
     version = env!("CARGO_PKG_VERSION"),
 )]
 pub struct Opts {
     /// SECRET key
-    //#[clap(short, long, required = false, env = "SECRET_KEY", default_value)]
     #[structopt(short, long, required = false, env = "SECRET_KEY", default_value)]
     pub secret_key: String,
 
     /// API key
-    //#[clap(short, long, required = false, env = "SECRET_KEY", default_value)]
     #[structopt(short, long, required = false, env = "API_KEY", default_value)]
     pub api_key: String,
 
     /// Order log full path
-    //#[clap(short, long, required = false, env = "ORDER_LOG_PATH", default_value="data/order_log.txt")]
     #[structopt(
         short = "O",
         long,
@@ -58,27 +52,26 @@ pub struct Opts {
 
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short, long, parse(from_occurrences))]
-    //#[clap(short, long, parse(from_occurrences))]
     pub verbose: u8,
 
     /// Get exchange info and display parts of it
     #[structopt(short = "E", long)]
-    //#[clap(short, long)]
     pub get_exchange_info: bool,
 
     /// Get account info and display it
     #[structopt(short = "A", long)]
-    //#[clap(short, long)]
     pub get_account_info: bool,
+
+    /// Get average price and display it, --P=BTCUSD
+    #[structopt(short = "P", long, required = false, default_value)]
+    pub get_avg_price: String,
 
     /// Sell Symbol, --sell=BNDUSD
     #[structopt(long, required = false, default_value)]
-    //#[clap(long)]
     pub sell: String,
 
     /// Quantity to buy or sell
     #[structopt(long, required = false, default_value)]
-    //#[clap(long)]
     pub quantity: f64,
 }
 
@@ -128,12 +121,12 @@ impl BinanceContext {
 
     pub fn log_order_response(
         &mut self,
-        order_response: OrderResponse,
-    ) -> Result<OrderResponse, Box<dyn std::error::Error>> {
-        serde_json::to_writer(&self.order_log_file, &order_response)?;
+        order_response: &OrderResponse,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        serde_json::to_writer(&self.order_log_file, order_response)?;
         self.order_log_file.write_all(b"\n")?;
 
-        Ok(order_response)
+        Ok(())
     }
 }
 

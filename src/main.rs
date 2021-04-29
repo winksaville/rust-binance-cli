@@ -33,6 +33,9 @@ use order_response::OrderResponse;
 mod binance_trade;
 use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Side};
 
+mod binance_avg_price;
+use binance_avg_price::{get_avg_price, AvgPrice};
+
 mod common;
 use common::{time_ms_to_utc, utc_now_to_time_ms};
 
@@ -188,6 +191,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
         }
+    }
+
+    if !ctx.opts.get_avg_price.is_empty() {
+        let ap: AvgPrice = get_avg_price(&ctx, &ctx.opts.get_avg_price).await?;
+        println!("ap: mins={} price={}", ap.mins, ap.price);
     }
 
     if !ctx.opts.sell.is_empty() {
