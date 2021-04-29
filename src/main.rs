@@ -72,20 +72,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if balance.free > 0.0 || balance.locked > 0.0 {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
-                    let ap: AvgPrice = get_avg_price(&ctx, &sym).await?;
-                    ap.price
+                    let price = match get_avg_price(&ctx, &sym).await {
+                        Ok(avgprice) => avgprice.price,
+                        Err(_) => {
+                            // This happens only on BCHA
+                            if true {
+                                // Ignore and just return price of 0
+                                0.0f64
+                            } else {
+                                // Try getting a BNB price
+                                let bnbusd: f64 = get_avg_price(&ctx, "BNBUSD").await?.price;
+                                let bnbsym = balance.asset.clone() + "BNB";
+                                let bnb_derived_price = match get_avg_price(&ctx, &bnbsym).await {
+                                    Ok(avp) => avp.price * bnbusd,
+                                    // Ignore if still no price
+                                    Err(_) => {
+                                        println!("No price found for {}", balance.asset);
+                                        0.0f64
+                                    }
+                                };
+                                bnb_derived_price
+                            }
+                        }
+                    };
+                    price
                 } else {
                     1.0
                 };
                 let value = price * (balance.free + balance.locked);
                 println!(
-                    "  {}: value: {} free: {} locked: {}",
+                    "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
                     balance.asset, value, balance.free, balance.locked
                 );
                 total_value += value;
             }
         }
-        println!("total: {}", total_value);
+        println!("total: ${:.2}", total_value);
     }
 
     if !ctx.opts.get_avg_price.is_empty() {
