@@ -183,14 +183,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(" taker_commission: {}", ai.taker_commission);
         println!("      update_time: {}", time_ms_to_utc(ai.update_time));
         println!("      permissions: {:?}", ai.permissions);
+        let mut total_value = 0.0f64;
         for balance in ai.balances {
             if balance.free > 0.0 || balance.locked > 0.0 {
+                let price = if balance.asset != "USD" {
+                    let sym = balance.asset.clone() + "USD";
+                    let ap: AvgPrice = get_avg_price(&ctx, &sym).await?;
+                    ap.price
+                } else {
+                    1.0
+                };
+                let value = price * (balance.free + balance.locked);
                 println!(
-                    "{}: free: {} locked: {}",
-                    balance.asset, balance.free, balance.locked
+                    "  {}: value: {} free: {} locked: {}",
+                    balance.asset, value, balance.free, balance.locked
                 );
+                total_value += value;
             }
         }
+        println!("total: {}", total_value);
     }
 
     if !ctx.opts.get_avg_price.is_empty() {
