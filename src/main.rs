@@ -17,8 +17,8 @@ use de_vec_to_hashmap::de_vec_to_hashmap;
 mod binance_context;
 use binance_context::BinanceContext;
 
-mod exchange_info;
-use exchange_info::ExchangeInfo;
+mod binance_exchange_info;
+use binance_exchange_info::get_exchange_info;
 
 mod binance_account_info;
 use binance_account_info::get_account_info;
@@ -37,21 +37,6 @@ mod binance_signature;
 
 mod common;
 use common::time_ms_to_utc;
-
-async fn get_exchange_info<'e>(
-    ctx: &BinanceContext,
-) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
-    trace!("get_exchange_info: +");
-
-    let url = ctx.make_url("api", "/api/v3/exchangeInfo");
-    trace!("get_exchange_info: url={}", url);
-
-    let resp = reqwest::Client::new().get(url).send().await?.text().await?;
-    let exchange_info: ExchangeInfo = serde_json::from_str(&resp)?;
-
-    trace!("get_exchange_info: -");
-    Ok(exchange_info)
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

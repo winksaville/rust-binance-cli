@@ -1,8 +1,10 @@
+use log::trace;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 //use serde_json::value::Value;
 
 use std::collections::HashMap;
 
+use crate::binance_context::BinanceContext;
 #[allow(unused)]
 use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
 
@@ -545,6 +547,21 @@ impl ExchangeInfo {
     pub fn get_symbol(&self, symbol: &str) -> Option<&Symbol> {
         self.symbols_map.get(symbol)
     }
+}
+
+pub async fn get_exchange_info<'e>(
+    ctx: &BinanceContext,
+) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
+    trace!("get_exchange_info: +");
+
+    let url = ctx.make_url("api", "/api/v3/exchangeInfo");
+    trace!("get_exchange_info: url={}", url);
+
+    let resp = reqwest::Client::new().get(url).send().await?.text().await?;
+    let exchange_info: ExchangeInfo = serde_json::from_str(&resp)?;
+
+    trace!("get_exchange_info: -");
+    Ok(exchange_info)
 }
 
 #[cfg(test)]
