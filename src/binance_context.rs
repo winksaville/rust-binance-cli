@@ -6,7 +6,7 @@ use std::{
 };
 use structopt::{clap::AppSettings, StructOpt};
 
-use crate::order_response::OrderResponse;
+use crate::binance_order_response::OrderResponse;
 //use std::io::prelude::*;
 
 // When I tried clap version 3.0.0-beta.2

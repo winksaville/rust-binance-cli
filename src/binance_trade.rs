@@ -3,7 +3,7 @@ use strum_macros::IntoStaticStr;
 
 use crate::common::{BinanceError, ResponseErrorRec};
 
-use crate::order_response::{OrderResponse, OrderResponseSuccess};
+use crate::binance_order_response::{OrderResponse, OrderResponseSuccess};
 
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 

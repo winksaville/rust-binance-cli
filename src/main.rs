@@ -23,9 +23,9 @@ use binance_exchange_info::get_exchange_info;
 mod binance_account_info;
 use binance_account_info::get_account_info;
 
-mod order_response;
+mod binance_order_response;
 #[allow(unused)]
-use order_response::OrderResponse;
+use binance_order_response::OrderResponse;
 
 mod binance_trade;
 use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Side};
