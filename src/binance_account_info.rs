@@ -141,7 +141,7 @@ pub async fn get_account_info<'e>(
         return Err(err.into());
     };
 
-    trace!("get_account_info: err: -");
+    trace!("get_account_info: -");
     Ok(account_info)
 }
 #[cfg(test)]
