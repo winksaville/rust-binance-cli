@@ -28,44 +28,44 @@ pub struct SizeRec {
 pub struct PriceFilterRec {
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minPrice")]
-    min_price: f64,
+    pub min_price: f64,
 
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "maxPrice")]
-    max_price: f64,
+    pub max_price: f64,
 
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "tickSize")]
-    tick_size: f64,
+    pub tick_size: f64,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct PercentPriceRec {
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "multiplierUp")]
-    mulitplier_up: f64,
+    pub mulitplier_up: f64,
 
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "multiplierDown")]
-    multiplier_down: f64,
+    pub multiplier_down: f64,
 
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     #[serde(rename = "avgPriceMins")]
-    avg_price_mins: u64,
+    pub avg_price_mins: u64,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct MinNotionalRec {
     #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minNotional")]
-    min_notional: f64,
+    pub min_notional: f64,
 
     #[serde(rename = "applyToMarket")]
-    apply_to_market: bool,
+    pub apply_to_market: bool,
 
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     #[serde(rename = "avgPriceMins")]
-    avg_price_mins: u64,
+    pub avg_price_mins: u64,
 }
 
 // Accessing this requires a match and isn't pretty, IMHO.
