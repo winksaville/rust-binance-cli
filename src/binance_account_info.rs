@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use log::trace;
 
-use serde::{Deserialize, Serialize};
+use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 
 use crate::{
     common::utc_now_to_time_ms,
@@ -10,6 +12,42 @@ use crate::{
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 
 use crate::binance_context::BinanceContext;
+
+// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
+// TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
+pub fn de_vec_balances_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, Balance>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ItemsVisitor;
+
+    impl<'de> Visitor<'de> for ItemsVisitor {
+        type Value = HashMap<String, Balance>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a sequence of items")
+        }
+
+        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, Balance>, V::Error>
+        where
+            V: SeqAccess<'de>,
+        {
+            let mut map: HashMap<String, Balance> =
+                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+
+            while let Some(item) = seq.next_element::<Balance>()? {
+                // println!("item={:#?}", item);
+                map.insert(item.asset.clone(), item);
+            }
+
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(ItemsVisitor)
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Balance {
@@ -38,7 +76,9 @@ pub struct AccountInfo {
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub update_time: i64,
     pub permissions: Vec<String>,
-    pub balances: Vec<Balance>,
+    #[serde(deserialize_with = "de_vec_balances_to_hashmap")]
+    #[serde(rename = "balances")]
+    pub balances_map: HashMap<String, Balance>,
 }
 
 pub async fn get_account_info<'e>(
@@ -141,11 +181,13 @@ mod test {
         assert_eq!(1616461066366, account_info.update_time);
         assert_eq!("SPOT", account_info.account_type);
         assert_eq!("SPOT", account_info.permissions[0]);
-        assert_eq!("BTC", account_info.balances[0].asset);
-        assert_eq!(0f64, account_info.balances[0].free);
-        assert_eq!(0f64, account_info.balances[0].locked);
-        assert_eq!("ETH", account_info.balances[1].asset);
-        assert_eq!(0f64, account_info.balances[1].free);
-        assert_eq!(0f64, account_info.balances[1].locked);
+        let balance = account_info.balances_map.get("BTC").unwrap();
+        assert_eq!("BTC", balance.asset);
+        assert_eq!(0f64, balance.free);
+        assert_eq!(0f64, balance.locked);
+        let balance = account_info.balances_map.get("ETH").unwrap();
+        assert_eq!("ETH", balance.asset);
+        assert_eq!(0f64, balance.free);
+        assert_eq!(0f64, balance.locked);
     }
 }

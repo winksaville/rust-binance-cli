@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("      update_time: {}", time_ms_to_utc(ai.update_time));
         println!("      permissions: {:?}", ai.permissions);
         let mut total_value = 0.0f64;
-        for balance in ai.balances {
+        for (_, balance) in ai.balances_map {
             if balance.free > 0.0 || balance.locked > 0.0 {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
