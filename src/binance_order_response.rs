@@ -4,7 +4,7 @@ use crate::de_string_or_number::{
     de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
 };
 
-use crate::common::BinanceError;
+use crate::common::{BinanceError, OrderType};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,7 +22,7 @@ pub struct Fill {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OrderResponseSuccess {
+pub struct FullTradeResponseRec {
     #[serde(default)]
     pub test: bool,
     #[serde(default)]
@@ -46,14 +46,14 @@ pub struct OrderResponseSuccess {
     pub status: String,        // add enum
     pub time_in_force: String, // add enum TimeInForce
     #[serde(rename = "type")]
-    pub order_type: String, // add enum OrderType
-    pub side: String,          // add enum Side (it's currently defined in main.rs)
+    pub order_type: OrderType,
+    pub side: String, // add enum Side (it's currently defined in main.rs)
     pub fills: Vec<Fill>,
 }
 
-impl Default for OrderResponseSuccess {
-    fn default() -> OrderResponseSuccess {
-        OrderResponseSuccess {
+impl Default for FullTradeResponseRec {
+    fn default() -> FullTradeResponseRec {
+        FullTradeResponseRec {
             test: false,
             query: "".to_string(),
             symbol: "".to_string(),
@@ -67,7 +67,7 @@ impl Default for OrderResponseSuccess {
             cummulative_quote_qty: 0f64,
             status: "".to_string(),
             time_in_force: "".to_string(),
-            order_type: "".to_string(),
+            order_type: OrderType::MARKET,
             side: "".to_string(),
             fills: vec![],
         }
@@ -75,16 +75,19 @@ impl Default for OrderResponseSuccess {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub enum OrderResponse {
-    Success(OrderResponseSuccess),
+pub enum TradeResponse {
+    SuccessFull(FullTradeResponseRec),
+    // TODO: SuccessResult(ResultTradeResponseRec),
+    // TODO: SuccessAck(AckTradeResponseRec),
     Failure(BinanceError),
 }
 
 #[cfg(test)]
 mod test {
+
     use super::*;
 
-    const ORDER_RESPONSE_SUCCESS: &str = r#"{
+    const FULL_TRADE_RESPONSE_REC_SUCCESS_FULL: &str = r#"{
          "symbol":"BNBUSD",
          "orderId":93961452,
          "orderListId":-1,
@@ -110,8 +113,8 @@ mod test {
 
     #[test]
     fn test_order_response_success() {
-        let mut order_response: OrderResponseSuccess =
-            match serde_json::from_str(ORDER_RESPONSE_SUCCESS) {
+        let mut order_response: FullTradeResponseRec =
+            match serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL) {
                 Ok(response) => response,
                 Err(e) => panic!("Error processing response: e={}", e),
             };
@@ -130,7 +133,7 @@ mod test {
         assert_eq!(order_response.cummulative_quote_qty, 12.5346);
         assert_eq!(order_response.status, "FILLED");
         assert_eq!(order_response.time_in_force, "GTC");
-        assert_eq!(order_response.order_type, "MARKET");
+        assert_eq!(order_response.order_type, OrderType::MARKET);
         assert_eq!(order_response.side, "BUY");
         assert_eq!(order_response.fills[0].price, 417.8216);
         assert_eq!(order_response.fills[0].qty, 0.03);

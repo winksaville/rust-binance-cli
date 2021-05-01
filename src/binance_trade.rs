@@ -1,23 +1,20 @@
 use log::trace;
-use strum_macros::IntoStaticStr;
 
 use crate::common::{BinanceError, ResponseErrorRec};
 
-use crate::binance_order_response::{OrderResponse, OrderResponseSuccess};
+use crate::binance_order_response::{FullTradeResponseRec, TradeResponse};
 
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 
 use crate::binance_context::BinanceContext;
 
-use crate::common::utc_now_to_time_ms;
-
+use crate::common::{utc_now_to_time_ms, Side};
 pub enum MarketQuantityType {
     Quantity(f64),
     //QuoteOrderQty(f64),
 }
 
-#[derive(IntoStaticStr)]
-pub enum OrderType {
+pub enum TradeOrderType {
     Market(MarketQuantityType),
     // Limit,
     // StopLoss,
@@ -27,20 +24,13 @@ pub enum OrderType {
     // LimitMaker,
 }
 
-#[derive(IntoStaticStr)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum Side {
-    BUY,
-    SELL,
-}
-
 pub async fn binance_new_order_or_test(
     mut ctx: BinanceContext,
     symbol: &str,
     side: Side,
-    order_type: OrderType,
+    order_type: TradeOrderType,
     test: bool,
-) -> Result<OrderResponse, Box<dyn std::error::Error>> {
+) -> Result<TradeResponse, Box<dyn std::error::Error>> {
     let sig_key = ctx.opts.secret_key.as_bytes();
     let api_key = ctx.opts.api_key.as_bytes();
 
@@ -53,7 +43,7 @@ pub async fn binance_new_order_or_test(
 
     let astring: String;
     match order_type {
-        OrderType::Market(MarketQuantityType::Quantity(qty)) => {
+        TradeOrderType::Market(MarketQuantityType::Quantity(qty)) => {
             params.push(("type", "MARKET"));
             astring = format!("{}", qty);
             params.push(("quantity", &astring));
@@ -104,14 +94,14 @@ pub async fn binance_new_order_or_test(
     // Log the response
     let result = if response_status == 200 {
         trace!("response_body={}", response_body);
-        let mut order_resp_success = OrderResponseSuccess::default();
+        let mut order_resp_success = FullTradeResponseRec::default();
         if !test {
             order_resp_success = serde_json::from_str(&&response_body)?;
         } else {
             order_resp_success.test = true;
         }
         order_resp_success.query = query_string;
-        let order_resp = OrderResponse::Success(order_resp_success);
+        let order_resp = TradeResponse::SuccessFull(order_resp_success);
         trace!(
             "binance_market_order_or_test: symbol={} side={} test={} order_response={:#?}",
             symbol,
@@ -131,7 +121,7 @@ pub async fn binance_new_order_or_test(
             &response_body,
         );
         let binance_error_response = BinanceError::Response(response_error_rec);
-        let order_resp = OrderResponse::Failure(binance_error_response.clone());
+        let order_resp = TradeResponse::Failure(binance_error_response.clone());
         ctx.log_order_response(&order_resp)?;
 
         trace!(

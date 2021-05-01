@@ -6,7 +6,7 @@ use std::{
 };
 use structopt::{clap::AppSettings, StructOpt};
 
-use crate::binance_order_response::OrderResponse;
+use crate::binance_order_response::TradeResponse;
 //use std::io::prelude::*;
 
 // When I tried clap version 3.0.0-beta.2
@@ -121,7 +121,7 @@ impl BinanceContext {
 
     pub fn log_order_response(
         &mut self,
-        order_response: &OrderResponse,
+        order_response: &TradeResponse,
     ) -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_writer(&self.order_log_file, order_response)?;
         self.order_log_file.write_all(b"\n")?;

@@ -2,9 +2,32 @@ use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
+use strum_macros::IntoStaticStr;
 
-//use reqwest::Response;
 use serde::{Deserialize, Serialize};
+
+use crate::de_string_or_number::de_string_or_number_to_i64;
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, IntoStaticStr)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum OrderType {
+    MARKET,
+    LIMIT,
+    STOP_LOSS,
+    STOP_LOSS_LIMIT,
+    TAKE_PROFIT,
+    TAKE_PROFIT_LIMIT,
+    LIMIT_MAKER,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, IntoStaticStr)]
+#[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum Side {
+    BUY,
+    SELL,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ResponseErrorRec {
@@ -14,6 +37,7 @@ pub struct ResponseErrorRec {
     pub status: u16,
     #[serde(default)]
     pub query: String,
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub code: i64,
     pub msg: String,
 }

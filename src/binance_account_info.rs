@@ -106,7 +106,7 @@ pub async fn get_account_info<'e>(
     trace!("query_string={}", &query_string);
 
     let url = ctx.make_url("api", &format!("/api/v3/account?{}", &query_string));
-    trace!("get_exchange_info: url={}", url);
+    trace!("get_account_info: url={}", url);
 
     // Build request
     let client = reqwest::Client::builder();

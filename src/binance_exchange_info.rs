@@ -5,7 +5,7 @@ use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 
 use crate::binance_context::BinanceContext;
-#[allow(unused)]
+use crate::common::OrderType;
 use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
 
 use strum_macros::IntoStaticStr;
@@ -261,7 +261,7 @@ pub struct Symbol {
     pub quote_precision: u64,
     pub status: String, // +enum TRADING?
     pub permissions: Vec<String>,
-    pub order_types: Vec<String>,
+    pub order_types: Vec<OrderType>, // +HashSet<OrderType>?
     #[serde(deserialize_with = "de_vec_symbol_filters_to_hashmap")]
     #[serde(rename = "filters")]
     pub filters_map: HashMap<String, SymbolFilters>,
@@ -597,16 +597,27 @@ mod test {
         assert_eq!(btcusd.quote_precision, 4);
         assert_eq!(btcusd.status, "TRADING");
         assert_eq!(btcusd.permissions, ["SPOT"]);
+
+        // Test order_types in bulk
         assert_eq!(
             btcusd.order_types,
             [
-                "LIMIT",
-                "LIMIT_MAKER",
-                "MARKET",
-                "STOP_LOSS_LIMIT",
-                "TAKE_PROFIT_LIMIT",
+                OrderType::LIMIT,
+                OrderType::LIMIT_MAKER,
+                OrderType::MARKET,
+                OrderType::STOP_LOSS_LIMIT,
+                OrderType::TAKE_PROFIT_LIMIT,
             ]
         );
+
+        // Test order_types one at a time
+        assert!(btcusd.order_types.contains(&OrderType::LIMIT));
+        assert!(btcusd.order_types.contains(&OrderType::LIMIT_MAKER));
+        assert!(btcusd.order_types.contains(&OrderType::MARKET));
+        assert!(btcusd.order_types.contains(&OrderType::STOP_LOSS_LIMIT));
+        assert!(btcusd.order_types.contains(&OrderType::TAKE_PROFIT_LIMIT));
+        assert!(!btcusd.order_types.contains(&OrderType::STOP_LOSS));
+        assert!(!btcusd.order_types.contains(&OrderType::TAKE_PROFIT));
 
         // Verify we get None when a symbol isn't found
         assert!(ei.symbols_map.get("NOT-A-SYMBOL").is_none());

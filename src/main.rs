@@ -4,6 +4,7 @@ mod binance_account_info;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
+//mod binance_open_orders;
 mod binance_order_response;
 mod binance_signature;
 mod binance_trade;
@@ -14,8 +15,8 @@ use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
-use binance_trade::{binance_new_order_or_test, MarketQuantityType, OrderType, Side};
-use common::time_ms_to_utc;
+use binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType};
+use common::{time_ms_to_utc, Side};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,6 +78,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(_) => {
                             // This happens only on BCHA
                             if true {
+                                // println!("unable to get_avg_price({})", sym);
+
                                 // Ignore and just return price of 0
                                 0.0f64
                             } else {
@@ -286,7 +289,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ctx,
             &symbol_name,
             Side::SELL,
-            OrderType::Market(MarketQuantityType::Quantity(quantity)),
+            TradeOrderType::Market(MarketQuantityType::Quantity(quantity)),
             true,
         )
         .await?;
