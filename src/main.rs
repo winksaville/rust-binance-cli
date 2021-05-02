@@ -4,7 +4,7 @@ mod binance_account_info;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
-//mod binance_open_orders;
+mod binance_open_orders;
 mod binance_order_response;
 mod binance_signature;
 mod binance_trade;
@@ -15,6 +15,7 @@ use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
+use binance_open_orders::{get_open_orders, OpenOrders};
 use binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType};
 use common::{time_ms_to_utc, Side};
 
@@ -116,6 +117,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !ctx.opts.get_avg_price.is_empty() {
         let ap: AvgPrice = get_avg_price(&ctx, &ctx.opts.get_avg_price).await?;
         println!("ap: mins={} price={}", ap.mins, ap.price);
+    }
+
+    if ctx.opts.get_open_orders.is_some() {
+        let symbol = match ctx.opts.get_open_orders.clone().unwrap() {
+            Some(s) => s.clone(),
+            None => "".to_string(),
+        };
+
+        let oo: OpenOrders = get_open_orders(&ctx, &symbol).await?;
+        println!("oo: {:#?}", oo);
     }
 
     if !ctx.opts.sell.is_empty() {
@@ -227,7 +238,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         // Verify the maximum number of orders isn't exceeded.
-        // TODO: implement get_open_order
+        // TODO: implement get_open_orders
         //   let open_orders = get_open_orders(&ctx, &symbol_name).await?
         let current_orders = 1u64; // open_orders.len()
         if let Some(max_num_orders) = symbol.get_max_num_orders() {

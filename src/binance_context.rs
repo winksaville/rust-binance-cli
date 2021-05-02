@@ -38,7 +38,7 @@ pub struct Opts {
 
     /// Order log full path
     #[structopt(
-        short = "O",
+        short = "L",
         long,
         required = false,
         env = "ORDER_LOG_PATH",
@@ -62,9 +62,13 @@ pub struct Opts {
     #[structopt(short = "A", long)]
     pub get_account_info: bool,
 
-    /// Get average price and display it, --P=BTCUSD
+    /// Get average price and display it, -P=BTCUSD
     #[structopt(short = "P", long, required = false, default_value)]
     pub get_avg_price: String,
+
+    /// Get opend orders and display it, -O <Optional SYMBOL> if none return all open orders>
+    #[structopt(short = "O", long)]
+    pub get_open_orders: Option<Option<String>>,
 
     /// Sell Symbol, --sell=BNDUSD
     #[structopt(long, required = false, default_value)]
