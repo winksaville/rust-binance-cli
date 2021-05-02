@@ -557,8 +557,29 @@ pub async fn get_exchange_info<'e>(
     let url = ctx.make_url("api", "/api/v3/exchangeInfo");
     trace!("get_exchange_info: url={}", url);
 
-    let resp = reqwest::Client::new().get(url).send().await?.text().await?;
-    let exchange_info: ExchangeInfo = serde_json::from_str(&resp)?;
+    let response_body: String;
+    // Build request
+    let client = reqwest::Client::builder();
+    let req_builder = client
+        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
+        .build()?
+        .get(url);
+    trace!("req_builder={:#?}", req_builder);
+
+    // Send
+    let response = req_builder.send().await?;
+    trace!("response={:#?}", response);
+
+    // Get response
+    let response_status = response.status();
+    response_body = response.text().await?;
+    if response_status != 200 {
+        let err = format!("error  status={} body={}", response_status, response_body);
+        trace!("get_account_info: err: {}", err);
+        return Err(err.into());
+    }
+
+    let exchange_info: ExchangeInfo = serde_json::from_str(&response_body)?;
 
     trace!("get_exchange_info: -");
     Ok(exchange_info)
