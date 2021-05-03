@@ -3,10 +3,7 @@ use rust_decimal::prelude::*;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 
-use crate::{
-    common::utc_now_to_time_ms,
-    de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_i64},
-};
+use crate::{common::utc_now_to_time_ms, de_string_or_number::de_string_or_number_to_i64};
 
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 
@@ -62,14 +59,10 @@ pub struct AccountInfo {
     pub can_deposit: bool,
     pub can_trade: bool,
     pub can_withdraw: bool,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub buyer_commission: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub maker_commission: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub seller_commission: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub taker_commission: f64,
+    pub buyer_commission: Decimal,
+    pub maker_commission: Decimal,
+    pub seller_commission: Decimal,
+    pub taker_commission: Decimal,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub update_time: i64,
     pub permissions: Vec<String>,
@@ -170,10 +163,10 @@ mod test {
             Err(e) => panic!("Error processing response: e={}", e),
         };
         // println!("account_info={:#?}", account_info);
-        assert_eq!(10f64, account_info.maker_commission);
-        assert_eq!(10f64, account_info.taker_commission);
-        assert_eq!(0f64, account_info.buyer_commission);
-        assert_eq!(0f64, account_info.seller_commission);
+        assert_eq!(dec!(10), account_info.maker_commission);
+        assert_eq!(dec!(10), account_info.taker_commission);
+        assert_eq!(dec!(0), account_info.buyer_commission);
+        assert_eq!(dec!(0), account_info.seller_commission);
         assert_eq!(true, account_info.can_trade);
         assert_eq!(true, account_info.can_deposit);
         assert_eq!(1616461066366, account_info.update_time);
