@@ -238,9 +238,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         // Verify the maximum number of orders isn't exceeded.
-        // TODO: implement get_open_orders
-        //   let open_orders = get_open_orders(&ctx, &symbol_name).await?
-        let current_orders = 1u64; // open_orders.len()
+        let open_orders = get_open_orders(&ctx, &symbol_name).await?;
+        let current_orders: u64 = open_orders.orders.len() as u64;
         if let Some(max_num_orders) = symbol.get_max_num_orders() {
             if current_orders > max_num_orders {
                 return Err(format!(

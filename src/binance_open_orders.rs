@@ -42,7 +42,7 @@ pub struct OpenOrderRec {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenOrders {
-    orders: Vec<OpenOrderRec>,
+    pub orders: Vec<OpenOrderRec>,
 }
 
 pub async fn get_open_orders(
