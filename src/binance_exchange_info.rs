@@ -55,9 +55,8 @@ pub struct PercentPriceRec {
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct MinNotionalRec {
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minNotional")]
-    pub min_notional: f64,
+    pub min_notional: Decimal,
 
     #[serde(rename = "applyToMarket")]
     pub apply_to_market: bool,
@@ -711,7 +710,7 @@ mod test {
         let mnr = btcusd.get_min_notional();
         assert!(mnr.is_some(), "Should always succeed");
         let mnr = mnr.unwrap();
-        assert_eq!(mnr.min_notional, 0.001);
+        assert_eq!(mnr.min_notional, dec!(0.001));
         assert_eq!(mnr.apply_to_market, true);
         assert_eq!(mnr.avg_price_mins, 5);
 

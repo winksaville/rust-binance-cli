@@ -166,7 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match symbol.get_min_notional() {
             Some(mnr) => {
                 let ap: AvgPrice = get_avg_price(&ctx, &symbol_name).await?;
-                let min_notional_quantity = Decimal::from_f64(mnr.min_notional).unwrap() / ap.price;
+                let min_notional_quantity = mnr.min_notional / ap.price;
                 if quantity < min_notional_quantity {
                     return Err(format!(
                         "quantity: {} must be >= {} so value is >= {}",
