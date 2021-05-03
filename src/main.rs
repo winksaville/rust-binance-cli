@@ -232,7 +232,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             None => {
-                trace!("quantity ok, No market_lot_size for {}", symbol.base_asset);
+                trace!("quantity ok, No market_lot_size for {}", symbol.symbol);
                 quantity
             }
         };
@@ -256,7 +256,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
         } else {
-            trace!("There was no get_max_num_orders for {}", symbol.base_asset);
+            trace!("There was no get_max_num_orders for {}", symbol.symbol);
         }
 
         // Verify MaxPosition
@@ -286,7 +286,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 max_position
             );
         } else {
-            trace!("There was no get_max_position for {}", symbol.base_asset);
+            trace!("There was no get_max_position for {}", symbol.symbol);
         }
 
         // Verify balance.fre is ok
