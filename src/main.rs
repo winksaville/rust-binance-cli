@@ -133,7 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if !ctx.opts.sell.is_empty() {
         let symbol_name = ctx.opts.sell.clone();
-        let mut quantity = Decimal::from_f64(ctx.opts.quantity).unwrap();
+        let mut quantity = ctx.opts.quantity;
         if quantity <= dec!(0.0) {
             return Err(format!("Can't sell {} quantity", quantity).into());
         }

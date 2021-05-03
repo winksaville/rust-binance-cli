@@ -6,6 +6,8 @@ use std::{
 };
 use structopt::{clap::AppSettings, StructOpt};
 
+use rust_decimal::prelude::*;
+
 use crate::binance_order_response::TradeResponse;
 //use std::io::prelude::*;
 
@@ -76,7 +78,7 @@ pub struct Opts {
 
     /// Quantity to buy or sell
     #[structopt(long, required = false, default_value)]
-    pub quantity: f64,
+    pub quantity: Decimal,
 }
 
 pub struct BinanceContext {
