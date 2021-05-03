@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
                     let price = match get_avg_price(&ctx, &sym).await {
-                        Ok(avgprice) => Decimal::from_f64(avgprice.price).unwrap(),
+                        Ok(avgprice) => avgprice.price,
                         Err(_) => {
                             // This happens only on BCHA
                             if true {
@@ -87,10 +87,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 dec!(0)
                             } else {
                                 // Try getting a BNB price
-                                let bnbusd: f64 = get_avg_price(&ctx, "BNBUSD").await?.price;
+                                let bnbusd: Decimal = get_avg_price(&ctx, "BNBUSD").await?.price;
                                 let bnbsym = balance.asset.clone() + "BNB";
                                 let bnb_derived_price = match get_avg_price(&ctx, &bnbsym).await {
-                                    Ok(avp) => Decimal::from_f64(avp.price * bnbusd).unwrap(),
+                                    Ok(avp) => avp.price * bnbusd,
                                     // Ignore if still no price
                                     Err(_) => {
                                         println!("No price found for {}", balance.asset);
@@ -166,13 +166,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match symbol.get_min_notional() {
             Some(mnr) => {
                 let ap: AvgPrice = get_avg_price(&ctx, &symbol_name).await?;
-                let min_notional_quantity = Decimal::from_f64(mnr.min_notional / ap.price).unwrap();
+                let min_notional_quantity = Decimal::from_f64(mnr.min_notional).unwrap() / ap.price;
                 if quantity < min_notional_quantity {
                     return Err(format!(
                         "quantity: {} must be >= {} so value is >= {}",
                         quantity,
                         min_notional_quantity,
-                        min_notional_quantity * Decimal::from_f64(ap.price).unwrap(),
+                        min_notional_quantity * ap.price,
                     )
                     .into());
                 }

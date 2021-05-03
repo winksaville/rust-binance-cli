@@ -1,16 +1,14 @@
 use log::trace;
+use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::binance_context::BinanceContext;
 use crate::common::{BinanceError, ResponseErrorRec};
-use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AvgPrice {
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub mins: u64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub price: f64,
+    pub mins: Decimal,
+    pub price: Decimal,
 }
 
 pub async fn get_avg_price<'e>(
