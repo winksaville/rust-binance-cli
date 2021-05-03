@@ -21,6 +21,8 @@ sha2 = "0.9.3"
 hex-literal = "0.3.1"
 chrono = "0.4.19"
 hex = "0.4.3"
+rust_decimal = { version = "1.12.4", features = ["serde-arbitrary-precision"] }
+rust_decimal_macros = "1.12.4"
 #clap = "3.0.0-beta.2" # 3.0.0-beta.2 didn't with sec_key and api_key optional
 
 [dev-dependencies]

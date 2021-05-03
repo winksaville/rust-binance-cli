@@ -1,4 +1,6 @@
 use log::trace;
+use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 
 mod binance_account_info;
 mod binance_avg_price;
@@ -131,8 +133,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if !ctx.opts.sell.is_empty() {
         let symbol_name = ctx.opts.sell.clone();
-        let quantity = ctx.opts.quantity;
-        if quantity <= 0.0 {
+        let mut quantity = Decimal::from_f64(ctx.opts.quantity).unwrap();
+        if quantity <= dec!(0.0) {
             return Err(format!("Can't sell {} quantity", quantity).into());
         }
         trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
@@ -164,13 +166,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match symbol.get_min_notional() {
             Some(mnr) => {
                 let ap: AvgPrice = get_avg_price(&ctx, &symbol_name).await?;
-                let min_notional_quantity = mnr.min_notional / ap.price;
+                let min_notional_quantity = Decimal::from_f64(mnr.min_notional / ap.price).unwrap();
                 if quantity < min_notional_quantity {
                     return Err(format!(
                         "quantity: {} must be >= {} so value is >= {}",
                         quantity,
                         min_notional_quantity,
-                        min_notional_quantity * ap.price
+                        min_notional_quantity * Decimal::from_f64(ap.price).unwrap(),
                     )
                     .into());
                 }
@@ -186,12 +188,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Verify the quantity meets the MarketLotSize criteria
-        match symbol.get_market_lot_size() {
+        quantity = match symbol.get_market_lot_size() {
             Some(mls) => {
                 trace!("mls: {:?}", mls);
-                if mls.step_size > 0.0 {
-                    let adj_qty = quantity - (quantity % mls.step_size);
-                    trace!("adj_qty: {}", adj_qty);
+                let mut mls = *mls;
+                mls.step_size = dec!(0.000001);
+                if mls.step_size > dec!(0.0) {
+                    // Round to nearest step_size
+                    let rq = quantity + (mls.step_size / dec!(2));
+                    let rq_mss = rq % mls.step_size;
+                    let adj_qty = rq - rq_mss;
+                    //let adj_qty = (quantity + (mls.step_size / dec!(2))) % mls.step_size;
+                    println!("quantity: {} adj_qty: {}", quantity, adj_qty);
                     if adj_qty < mls.min_qty {
                         return Err(format!(
                             "quanitity: {} must be >= {} MarketLotSize minimum quantity",
@@ -216,24 +224,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         adj_qty,
                         mls.max_qty
                     );
-                    if adj_qty > quantity {
-                        return Err(format!(
-                            "quantity: {} should be {} to meet MarketLotSize step size",
-                            quantity, adj_qty,
-                        )
-                        .into());
-                    }
-                    trace!(
-                        "quantity ok, adj_qty: {} <= quantity: {}",
-                        adj_qty,
-                        quantity
-                    );
+                    //assert_eq!((adj_qty - mls.min_qty) % mls.step_size, dec!(0.0));
+                    adj_qty
                 } else {
                     trace!("quantity ok, as mls.step_size: {} <= 0.0", mls.step_size);
+                    quantity
                 }
             }
             None => {
                 trace!("quantity ok, No market_lot_size for {}", symbol.base_asset);
+                quantity
             }
         };
 
@@ -262,8 +262,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Verify MaxPosition
         if let Some(max_position) = symbol.get_max_position() {
             // TODO: Iterate over open_orders summing buy orders
-            let sum_buy_orders = 0.0; // open_orders.iter().map(|x| if x.buy {x.quantity} else { 0.0 }).sum();
-            let current_holdings = balance.free + balance.locked;
+            let sum_buy_orders = dec!(0.0); // open_orders.iter().map(|x| if x.buy {x.quantity} else { 0.0 }).sum();
+            let current_holdings = Decimal::from_f64(balance.free + balance.locked).unwrap();
 
             let new_position = quantity + current_holdings + sum_buy_orders;
             trace!(
@@ -273,7 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 current_holdings,
                 sum_buy_orders
             );
-            if new_position > max_position {
+            if new_position > Decimal::from_f64(max_position).unwrap() {
                 return Err(format!(
                     "The quantity: {} + current_holdings {} + sum_by_order: {} > max_position: {}",
                     quantity, current_holdings, sum_buy_orders, max_position
@@ -290,7 +290,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Verify balance.fre is ok
-        if quantity > balance.free {
+        if quantity > Decimal::from_f64(balance.free).unwrap() {
             return Err(
                 format!("quantity: {} is > balance.free: {}", quantity, balance.free).into(),
             );
@@ -300,7 +300,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ctx,
             &symbol_name,
             Side::SELL,
-            TradeOrderType::Market(MarketQuantityType::Quantity(quantity)),
+            TradeOrderType::Market(MarketQuantityType::Quantity(quantity.to_f64().unwrap())),
             true,
         )
         .await?;

@@ -19,6 +19,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
 name = "assert_cmd"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -69,6 +75,8 @@ dependencies = [
  "log",
  "predicates",
  "reqwest",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "serde_json",
  "sha2",
@@ -969,6 +977,28 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg",
+]
+
+[[package]]
+name = "rust_decimal"
+version = "1.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3358e4d417d8f4ae6b972d8c2bf4d5d9a39bda57d00a968af06f10e3fed400fd"
+dependencies = [
+ "arrayvec",
+ "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "rust_decimal_macros"
+version = "1.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e63d738edc034a16a55e98214dabc42be114c6623fe10d56f9e0cb30f02b941"
+dependencies = [
+ "quote",
+ "rust_decimal",
 ]
 
 [[package]]

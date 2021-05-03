@@ -2,6 +2,8 @@ use log::trace;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 //use serde_json::value::Value;
 
+use rust_decimal::prelude::*;
+
 use std::collections::HashMap;
 
 use crate::binance_context::BinanceContext;
@@ -11,17 +13,17 @@ use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number
 use strum_macros::IntoStaticStr;
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct SizeRec {
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    //#[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minQty")]
-    pub min_qty: f64,
+    pub min_qty: Decimal,
 
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    //#[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "maxQty")]
-    pub max_qty: f64,
+    pub max_qty: Decimal,
 
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
+    //#[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "stepSize")]
-    pub step_size: f64,
+    pub step_size: Decimal,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -588,6 +590,7 @@ pub async fn get_exchange_info<'e>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn test_exchange_info() {
@@ -700,14 +703,14 @@ mod test {
         assert_eq!(ppr.mulitplier_up, 5.0);
 
         let btcusd_ls = btcusd.get_lot_size().unwrap();
-        assert_eq!(0.000001, btcusd_ls.min_qty);
-        assert_eq!(9000.0, btcusd_ls.max_qty);
-        assert_eq!(0.000001, btcusd_ls.step_size);
+        assert_eq!(dec!(0.000001), btcusd_ls.min_qty);
+        assert_eq!(dec!(9000.0), btcusd_ls.max_qty);
+        assert_eq!(dec!(0.000001), btcusd_ls.step_size);
 
         let btcusd_ls = btcusd.get_market_lot_size().unwrap();
-        assert_eq!(0.1, btcusd_ls.min_qty);
-        assert_eq!(3200.0, btcusd_ls.max_qty);
-        assert_eq!(0.01, btcusd_ls.step_size);
+        assert_eq!(dec!(0.1), btcusd_ls.min_qty);
+        assert_eq!(dec!(3200.0), btcusd_ls.max_qty);
+        assert_eq!(dec!(0.01), btcusd_ls.step_size);
 
         let mnr = btcusd.get_min_notional();
         assert!(mnr.is_some(), "Should always succeed");
