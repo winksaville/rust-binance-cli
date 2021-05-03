@@ -71,30 +71,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(" taker_commission: {}", ai.taker_commission);
         println!("      update_time: {}", time_ms_to_utc(ai.update_time));
         println!("      permissions: {:?}", ai.permissions);
-        let mut total_value = 0.0f64;
+        let mut total_value = dec!(0);
         for (_, balance) in ai.balances_map {
-            if balance.free > 0.0 || balance.locked > 0.0 {
+            if balance.free > dec!(0.0) || balance.locked > dec!(0.0) {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
                     let price = match get_avg_price(&ctx, &sym).await {
-                        Ok(avgprice) => avgprice.price,
+                        Ok(avgprice) => Decimal::from_f64(avgprice.price).unwrap(),
                         Err(_) => {
                             // This happens only on BCHA
                             if true {
                                 // println!("unable to get_avg_price({})", sym);
 
                                 // Ignore and just return price of 0
-                                0.0f64
+                                dec!(0)
                             } else {
                                 // Try getting a BNB price
                                 let bnbusd: f64 = get_avg_price(&ctx, "BNBUSD").await?.price;
                                 let bnbsym = balance.asset.clone() + "BNB";
                                 let bnb_derived_price = match get_avg_price(&ctx, &bnbsym).await {
-                                    Ok(avp) => avp.price * bnbusd,
+                                    Ok(avp) => Decimal::from_f64(avp.price * bnbusd).unwrap(),
                                     // Ignore if still no price
                                     Err(_) => {
                                         println!("No price found for {}", balance.asset);
-                                        0.0f64
+                                        dec!(0)
                                     }
                                 };
                                 bnb_derived_price
@@ -103,9 +103,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     price
                 } else {
-                    1.0
+                    dec!(1.0)
                 };
-                let value = price * (balance.free + balance.locked);
+                let value = price * balance.free + balance.locked;
                 println!(
                     "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
                     balance.asset, value, balance.free, balance.locked
@@ -263,7 +263,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(max_position) = symbol.get_max_position() {
             // TODO: Iterate over open_orders summing buy orders
             let sum_buy_orders = dec!(0.0); // open_orders.iter().map(|x| if x.buy {x.quantity} else { 0.0 }).sum();
-            let current_holdings = Decimal::from_f64(balance.free + balance.locked).unwrap();
+            let current_holdings = balance.free + balance.locked;
 
             let new_position = quantity + current_holdings + sum_buy_orders;
             trace!(
@@ -290,7 +290,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Verify balance.fre is ok
-        if quantity > Decimal::from_f64(balance.free).unwrap() {
+        if quantity > balance.free {
             return Err(
                 format!("quantity: {} is > balance.free: {}", quantity, balance.free).into(),
             );

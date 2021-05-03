@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use log::trace;
-
+use rust_decimal::prelude::*;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
 
 use crate::{
     common::utc_now_to_time_ms,
@@ -52,10 +51,8 @@ where
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Balance {
     pub asset: String,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub free: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub locked: f64,
+    pub free: Decimal,
+    pub locked: Decimal,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -147,6 +144,7 @@ pub async fn get_account_info<'e>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use rust_decimal_macros::dec;
 
     const ACCOUNT_INFO_DATA: &str = r#"{
         "makerCommission":10,
@@ -183,11 +181,11 @@ mod test {
         assert_eq!("SPOT", account_info.permissions[0]);
         let balance = account_info.balances_map.get("BTC").unwrap();
         assert_eq!("BTC", balance.asset);
-        assert_eq!(0f64, balance.free);
-        assert_eq!(0f64, balance.locked);
+        assert_eq!(dec!(0), balance.free);
+        assert_eq!(dec!(0), balance.locked);
         let balance = account_info.balances_map.get("ETH").unwrap();
         assert_eq!("ETH", balance.asset);
-        assert_eq!(0f64, balance.free);
-        assert_eq!(0f64, balance.locked);
+        assert_eq!(dec!(0), balance.free);
+        assert_eq!(dec!(0), balance.locked);
     }
 }
