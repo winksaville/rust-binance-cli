@@ -30,6 +30,7 @@ pub fn de_string_or_number_to_u64<'de, D: Deserializer<'de>>(
 }
 
 // Convert a string or number to f64
+#[allow(unused)]
 pub fn de_string_or_number_to_f64<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<f64, D::Error> {

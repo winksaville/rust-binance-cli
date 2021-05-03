@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::de_string_or_number::{
-    de_string_or_number_to_f64, de_string_or_number_to_i64, de_string_or_number_to_u64,
-};
+use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
+
+use crate::de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64};
 
 use crate::common::{BinanceError, OrderType};
 
@@ -10,12 +11,9 @@ use crate::common::{BinanceError, OrderType};
 #[serde(rename_all = "camelCase")]
 pub struct Fill {
     pub commission_asset: String,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub commission: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub price: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub qty: f64,
+    pub commission: Decimal,
+    pub price: Decimal,
+    pub qty: Decimal,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub trade_id: u64,
 }
@@ -35,14 +33,10 @@ pub struct FullTradeResponseRec {
     pub order_list_id: i64,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub transact_time: u64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub price: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub orig_qty: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub executed_qty: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub cummulative_quote_qty: f64,
+    pub price: Decimal,
+    pub orig_qty: Decimal,
+    pub executed_qty: Decimal,
+    pub cummulative_quote_qty: Decimal,
     pub status: String,        // add enum
     pub time_in_force: String, // add enum TimeInForce
     #[serde(rename = "type")]
@@ -61,10 +55,10 @@ impl Default for FullTradeResponseRec {
             order_id: 0,
             order_list_id: -1,
             transact_time: 0,
-            price: 0f64,
-            orig_qty: 0f64,
-            executed_qty: 0f64,
-            cummulative_quote_qty: 0f64,
+            price: dec!(0),
+            orig_qty: dec!(0),
+            executed_qty: dec!(0),
+            cummulative_quote_qty: dec!(0),
             status: "".to_string(),
             time_in_force: "".to_string(),
             order_type: OrderType::MARKET,
@@ -127,17 +121,17 @@ mod test {
         assert_eq!(order_response.order_list_id, -1);
         assert_eq!(order_response.client_order_id, "ekDlCDqC8WT5jOLOKgTkjo");
         assert_eq!(order_response.transact_time, 1617910570364);
-        assert_eq!(order_response.price, 0.0);
-        assert_eq!(order_response.orig_qty, 0.03);
-        assert_eq!(order_response.executed_qty, 0.03);
-        assert_eq!(order_response.cummulative_quote_qty, 12.5346);
+        assert_eq!(order_response.price, dec!(0.0));
+        assert_eq!(order_response.orig_qty, dec!(0.03));
+        assert_eq!(order_response.executed_qty, dec!(0.03));
+        assert_eq!(order_response.cummulative_quote_qty, dec!(12.5346));
         assert_eq!(order_response.status, "FILLED");
         assert_eq!(order_response.time_in_force, "GTC");
         assert_eq!(order_response.order_type, OrderType::MARKET);
         assert_eq!(order_response.side, "BUY");
-        assert_eq!(order_response.fills[0].price, 417.8216);
-        assert_eq!(order_response.fills[0].qty, 0.03);
-        assert_eq!(order_response.fills[0].commission, 0.00002250);
+        assert_eq!(order_response.fills[0].price, dec!(417.8216));
+        assert_eq!(order_response.fills[0].qty, dec!(0.03));
+        assert_eq!(order_response.fills[0].commission, dec!(0.00002250));
         assert_eq!(order_response.fills[0].commission_asset, "BNB");
         assert_eq!(order_response.fills[0].trade_id, 2813236);
     }
