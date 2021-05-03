@@ -118,9 +118,8 @@ pub enum SymbolFilters {
 
     #[serde(rename = "MAX_POSITION")]
     MaxPosition {
-        #[serde(deserialize_with = "de_string_or_number_to_f64")]
         #[serde(rename = "maxPosition")]
-        max_position: f64,
+        max_position: Decimal,
     },
 }
 
@@ -228,7 +227,7 @@ impl SymbolFilters {
         }
     }
 
-    pub fn get_max_position(&self) -> Option<f64> {
+    pub fn get_max_position(&self) -> Option<Decimal> {
         match self {
             SymbolFilters::MaxPosition { max_position } => Some(*max_position),
             _ => None,
@@ -343,7 +342,7 @@ impl Symbol {
             .get_max_num_algo_orders()
     }
 
-    pub fn get_max_position(&self) -> Option<f64> {
+    pub fn get_max_position(&self) -> Option<Decimal> {
         self.filters_map.get("MaxPosition")?.get_max_position()
     }
 }
@@ -739,7 +738,7 @@ mod test {
         let mp = btcusd.get_max_position();
         assert!(mp.is_some(), "Should always succeed");
         let mp = mp.unwrap();
-        assert_eq!(mp, 10.0);
+        assert_eq!(mp, dec!(10));
     }
 
     #[allow(unused)]

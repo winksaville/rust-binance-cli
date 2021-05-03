@@ -273,7 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 current_holdings,
                 sum_buy_orders
             );
-            if new_position > Decimal::from_f64(max_position).unwrap() {
+            if new_position > max_position {
                 return Err(format!(
                     "The quantity: {} + current_holdings {} + sum_by_order: {} > max_position: {}",
                     quantity, current_holdings, sum_buy_orders, max_position
