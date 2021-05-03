@@ -13,15 +13,12 @@ use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number
 use strum_macros::IntoStaticStr;
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct SizeRec {
-    //#[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minQty")]
     pub min_qty: Decimal,
 
-    //#[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "maxQty")]
     pub max_qty: Decimal,
 
-    //#[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "stepSize")]
     pub step_size: Decimal,
 }
