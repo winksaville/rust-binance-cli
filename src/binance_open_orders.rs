@@ -1,12 +1,14 @@
 use log::trace;
 use serde::{Deserialize, Serialize};
 
+use rust_decimal::prelude::*;
+
 use crate::{
     binance_context::BinanceContext,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::utc_now_to_time_ms,
     common::{BinanceError, ResponseErrorRec},
-    de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_i64},
+    de_string_or_number::de_string_or_number_to_i64,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -18,30 +20,23 @@ pub struct OpenOrderRec {
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub order_list_id: i64, //Unless OCO, the value will always be -1
     pub client_order_id: String,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub price: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub orig_qty: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub executed_qty: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub cummulative_quote_qty: f64,
+    pub price: Decimal,
+    pub orig_qty: Decimal,
+    pub executed_qty: Decimal,
+    pub cummulative_quote_qty: Decimal,
     pub status: String,        // "NEW" change to enum
     pub time_in_force: String, // "GTC", change to enum
     #[serde(rename = "type")]
     pub order_type: String, // "LIMIT", enum
     pub side: String,          // "BUY", enum
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub stop_price: f64,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub iceberg_qty: f64,
+    pub stop_price: Decimal,
+    pub iceberg_qty: Decimal,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub time: i64, // Consider being chrono::Utc or creating a Utc
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub update_time: i64, // Utc
     is_working: bool,
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
-    pub orig_quote_order_qty: f64,
+    pub orig_quote_order_qty: Decimal,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
