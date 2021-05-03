@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::binance_context::BinanceContext;
 use crate::common::OrderType;
-use crate::de_string_or_number::{de_string_or_number_to_f64, de_string_or_number_to_u64};
+use crate::de_string_or_number::de_string_or_number_to_u64;
 
 use strum_macros::IntoStaticStr;
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -25,28 +25,23 @@ pub struct SizeRec {
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct PriceFilterRec {
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "minPrice")]
-    pub min_price: f64,
+    pub min_price: Decimal,
 
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "maxPrice")]
-    pub max_price: f64,
+    pub max_price: Decimal,
 
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "tickSize")]
-    pub tick_size: f64,
+    pub tick_size: Decimal,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct PercentPriceRec {
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "multiplierUp")]
-    pub mulitplier_up: f64,
+    pub mulitplier_up: Decimal,
 
-    #[serde(deserialize_with = "de_string_or_number_to_f64")]
     #[serde(rename = "multiplierDown")]
-    pub multiplier_down: f64,
+    pub multiplier_down: Decimal,
 
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     #[serde(rename = "avgPriceMins")]
@@ -687,15 +682,15 @@ mod test {
         let pfr = btcusd.get_price_filter();
         assert!(pfr.is_some(), "Should always succeed");
         let pfr = pfr.unwrap();
-        assert_eq!(pfr.min_price, 0.01);
-        assert_eq!(pfr.max_price, 100000.0);
-        assert_eq!(pfr.tick_size, 0.01);
+        assert_eq!(pfr.min_price, dec!(0.01));
+        assert_eq!(pfr.max_price, dec!(100000.0));
+        assert_eq!(pfr.tick_size, dec!(0.01));
 
         let ppr = btcusd.get_percent_price();
         assert!(ppr.is_some(), "Should always succeed");
         let ppr = ppr.unwrap();
-        assert_eq!(ppr.multiplier_down, 0.2);
-        assert_eq!(ppr.mulitplier_up, 5.0);
+        assert_eq!(ppr.multiplier_down, dec!(0.2));
+        assert_eq!(ppr.mulitplier_up, dec!(5.0));
 
         let btcusd_ls = btcusd.get_lot_size().unwrap();
         assert_eq!(dec!(0.000001), btcusd_ls.min_qty);
