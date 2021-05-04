@@ -10,9 +10,14 @@ mod binance_open_orders;
 mod binance_order_response;
 mod binance_signature;
 mod binance_trade;
+mod binance_verify_order;
 mod common;
 mod de_string_or_number;
 
+use crate::binance_verify_order::{
+    adj_quantity_verify_market_lot_size, verify_max_position, verify_min_notional,
+    verify_open_orders, verify_quanity_is_greater_than_free,
+};
 use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
@@ -128,7 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let oo: OpenOrders = get_open_orders(&ctx, &symbol).await?;
-        println!("oo: {:#?}", oo);
+        println!("oo: {:#?}\nsum_buy_orders: {}", oo, oo.sum_buy_orders());
     }
 
     if !ctx.opts.sell.is_empty() {
@@ -151,149 +156,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ai = get_account_info(&ctx).await?;
         trace!("Got AccountInfo");
 
-        let balance = match ai.balances_map.get(&symbol.base_asset) {
-            Some(b) => b,
-            None => {
-                return Err(format!("No Balance for {}", symbol.base_asset).into());
-            }
-        };
-        trace!(
-            "Selling is possible as there is a balance for {}",
-            balance.asset
-        );
-
-        // Verify the quantity meets the min_notional criteria
-        match symbol.get_min_notional() {
-            Some(mnr) => {
-                let ap: AvgPrice = get_avg_price(&ctx, &symbol_name).await?;
-                let min_notional_quantity = mnr.min_notional / ap.price;
-                if quantity < min_notional_quantity {
-                    return Err(format!(
-                        "quantity: {} must be >= {} so value is >= {}",
-                        quantity,
-                        min_notional_quantity,
-                        min_notional_quantity * ap.price,
-                    )
-                    .into());
-                }
-                trace!(
-                    "quantity: {} >= min_notional_quantity: {}",
-                    quantity,
-                    min_notional_quantity
-                );
-            }
-            None => {
-                trace!("No min_notional for {}", symbol_name);
-            }
-        }
-
-        // Verify the quantity meets the MarketLotSize criteria
-        quantity = match symbol.get_market_lot_size() {
-            Some(mls) => {
-                trace!("mls: {:?}", mls);
-                let mut mls = *mls;
-                mls.step_size = dec!(0.000001);
-                if mls.step_size > dec!(0.0) {
-                    // Round to nearest step_size
-                    let rq = quantity + (mls.step_size / dec!(2));
-                    let rq_mss = rq % mls.step_size;
-                    let adj_qty = rq - rq_mss;
-                    //let adj_qty = (quantity + (mls.step_size / dec!(2))) % mls.step_size;
-                    println!("quantity: {} adj_qty: {}", quantity, adj_qty);
-                    if adj_qty < mls.min_qty {
-                        return Err(format!(
-                            "quanitity: {} must be >= {} MarketLotSize minimum quantity",
-                            quantity, mls.min_qty,
-                        )
-                        .into());
-                    }
-                    trace!(
-                        "quantity ok, adj_qty: {} >= mls.min_qty: {}",
-                        adj_qty,
-                        mls.min_qty
-                    );
-                    if adj_qty > mls.max_qty {
-                        return Err(format!(
-                            "quantity: {} must be <= {} MarketLotSize maximum quantity",
-                            quantity, mls.max_qty,
-                        )
-                        .into());
-                    }
-                    trace!(
-                        "Quantity ok, adj_qty: {} <= mls.min_qty: {}",
-                        adj_qty,
-                        mls.max_qty
-                    );
-                    //assert_eq!((adj_qty - mls.min_qty) % mls.step_size, dec!(0.0));
-                    adj_qty
-                } else {
-                    trace!("quantity ok, as mls.step_size: {} <= 0.0", mls.step_size);
-                    quantity
-                }
-            }
-            None => {
-                trace!("quantity ok, No market_lot_size for {}", symbol.symbol);
-                quantity
-            }
-        };
+        let open_orders = get_open_orders(&ctx, &symbol.symbol).await?;
 
         // Verify the maximum number of orders isn't exceeded.
-        let open_orders = get_open_orders(&ctx, &symbol_name).await?;
-        let current_orders: u64 = open_orders.orders.len() as u64;
-        if let Some(max_num_orders) = symbol.get_max_num_orders() {
-            if current_orders > max_num_orders {
-                return Err(format!(
-                    "The number of current orders is {} and thats > the maximum {}",
-                    current_orders, max_num_orders,
-                )
-                .into());
-            } else {
-                trace!(
-                    "current_orders: {} <= max_num_orders: {}",
-                    current_orders,
-                    max_num_orders
-                );
-            }
-        } else {
-            trace!("There was no get_max_num_orders for {}", symbol.symbol);
-        }
+        verify_open_orders(&open_orders, symbol)?;
+
+        // Adjust quantity and verify the quantity meets the MarketLotSize criteria
+        quantity = adj_quantity_verify_market_lot_size(symbol, quantity)?;
+
+        // Verify the quantity meets the min_notional criteria
+        let avg_price: AvgPrice = get_avg_price(&ctx, &symbol.symbol).await?;
+        verify_min_notional(&avg_price, symbol, quantity)?;
 
         // Verify MaxPosition
-        if let Some(max_position) = symbol.get_max_position() {
-            // TODO: Iterate over open_orders summing buy orders
-            let sum_buy_orders = dec!(0.0); // open_orders.iter().map(|x| if x.buy {x.quantity} else { 0.0 }).sum();
-            let current_holdings = balance.free + balance.locked;
+        verify_max_position(&ai, &open_orders, symbol, quantity)?;
 
-            let new_position = quantity + current_holdings + sum_buy_orders;
-            trace!(
-                "new_position: {} = quantity: {} current_holdings: {} sum_buy_orders: {}",
-                new_position,
-                quantity,
-                current_holdings,
-                sum_buy_orders
-            );
-            if new_position > max_position {
-                return Err(format!(
-                    "The quantity: {} + current_holdings {} + sum_by_order: {} > max_position: {}",
-                    quantity, current_holdings, sum_buy_orders, max_position
-                )
-                .into());
-            }
-            trace!(
-                "new_position: {} <= max_position: {}",
-                new_position,
-                max_position
-            );
-        } else {
-            trace!("There was no get_max_position for {}", symbol.symbol);
-        }
-
-        // Verify balance.fre is ok
-        if quantity > balance.free {
-            return Err(
-                format!("quantity: {} is > balance.free: {}", quantity, balance.free).into(),
-            );
-        }
+        verify_quanity_is_greater_than_free(&ai, symbol, quantity)?;
 
         let response = binance_new_order_or_test(
             ctx,

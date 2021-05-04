@@ -168,6 +168,13 @@ impl SymbolFilters {
         }
     }
 
+    pub fn get_mut_market_lot_size(&mut self) -> Option<&mut SizeRec> {
+        match self {
+            SymbolFilters::MarketLotSize(sr) => Some(sr),
+            _ => None,
+        }
+    }
+
     pub fn get_price_filter(&self) -> Option<&PriceFilterRec> {
         match self {
             SymbolFilters::PriceFilter(pfr) => Some(pfr),
@@ -229,7 +236,7 @@ impl SymbolFilters {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 //pub struct Symbol<'a> {
 pub struct Symbol {
@@ -302,6 +309,12 @@ impl Symbol {
 
     pub fn get_market_lot_size(&self) -> Option<&SizeRec> {
         self.filters_map.get("MarketLotSize")?.get_market_lot_size()
+    }
+
+    pub fn get_mut_market_lot_size(&mut self) -> Option<&mut SizeRec> {
+        self.filters_map
+            .get_mut("MarketLotSize")?
+            .get_mut_market_lot_size()
     }
 
     pub fn get_price_filter(&self) -> Option<&PriceFilterRec> {

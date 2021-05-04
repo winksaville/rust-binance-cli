@@ -1,4 +1,5 @@
 use log::trace;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
@@ -7,7 +8,7 @@ use crate::{
     binance_context::BinanceContext,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::utc_now_to_time_ms,
-    common::{BinanceError, ResponseErrorRec},
+    common::{self, BinanceError, ResponseErrorRec},
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -43,6 +44,25 @@ pub struct OpenOrderRec {
 #[serde(rename_all = "camelCase")]
 pub struct OpenOrders {
     pub orders: Vec<OpenOrderRec>,
+}
+
+impl OpenOrders {
+    pub fn sum_buy_orders(&self) -> Decimal {
+        let sum_buy_orders: Decimal = self
+            .orders
+            .iter()
+            .map(|x| {
+                if x.side.eq(common::Side::BUY.into()) {
+                    trace!("x.orig_qty: {}", x.orig_qty);
+                    x.orig_qty
+                } else {
+                    dec!(0)
+                }
+            })
+            .sum();
+
+        sum_buy_orders
+    }
 }
 
 pub async fn get_open_orders(
