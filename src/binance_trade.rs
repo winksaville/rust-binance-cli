@@ -1,5 +1,7 @@
 use log::trace;
 
+use rust_decimal::prelude::*;
+
 use crate::common::{BinanceError, ResponseErrorRec};
 
 use crate::binance_order_response::{FullTradeResponseRec, TradeResponse};
@@ -10,8 +12,8 @@ use crate::binance_context::BinanceContext;
 
 use crate::common::{utc_now_to_time_ms, Side};
 pub enum MarketQuantityType {
-    Quantity(f64),
-    //QuoteOrderQty(f64),
+    Quantity(Decimal),
+    //QuoteOrderQty(Decimal),
 }
 
 pub enum TradeOrderType {
@@ -25,7 +27,7 @@ pub enum TradeOrderType {
 }
 
 pub async fn binance_new_order_or_test(
-    mut ctx: BinanceContext,
+    ctx: &mut BinanceContext,
     symbol: &str,
     side: Side,
     order_type: TradeOrderType,
