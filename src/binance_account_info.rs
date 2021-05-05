@@ -76,7 +76,7 @@ pub async fn get_account_info<'e>(
 ) -> Result<AccountInfo, Box<dyn std::error::Error>> {
     trace!("get_account_info: +");
 
-    let sig_key = ctx.opts.secret_key.as_bytes();
+    let secret_key = ctx.opts.secret_key.as_bytes();
     let api_key = ctx.opts.api_key.as_bytes();
 
     let mut params = vec![];
@@ -86,7 +86,7 @@ pub async fn get_account_info<'e>(
     let mut query = query_vec_u8(&params);
 
     // Calculate the signature using sig_key and the data in qs and query as body
-    let signature = binance_signature(&sig_key, &[], &query);
+    let signature = binance_signature(&secret_key, &[], &query);
 
     // Append the signature to query
     append_signature(&mut query, signature);

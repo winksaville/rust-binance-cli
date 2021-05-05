@@ -31,11 +31,11 @@ use crate::binance_order_response::TradeResponse;
 )]
 pub struct Opts {
     /// SECRET key
-    #[structopt(short, long, required = false, env = "SECRET_KEY", default_value)]
+    #[structopt(long, required = false, env = "SECRET_KEY", default_value)]
     pub secret_key: String,
 
-    /// API key
-    #[structopt(short, long, required = false, env = "API_KEY", default_value)]
+    /// API Key
+    #[structopt(long, required = false, env = "API_KEY", default_value)]
     pub api_key: String,
 
     /// Order log full path

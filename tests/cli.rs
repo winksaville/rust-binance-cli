@@ -32,8 +32,8 @@ fn test_help() -> Result<(), Box<dyn Error>> {
 #[cfg(not(tarpaulin_include))]
 fn test_req_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
-    cmd.arg("-s=secret_key");
-    cmd.arg("-a").arg("api key");
+    cmd.arg("--secret-key=secret_key");
+    cmd.arg("--api-key").arg("api key");
 
     cmd.assert().code(predicate::eq(0));
 
