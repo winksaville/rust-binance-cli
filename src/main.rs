@@ -4,6 +4,7 @@ use rust_decimal_macros::dec;
 
 mod binance_account_info;
 mod binance_avg_price;
+mod binance_config_auto_sell_all;
 mod binance_context;
 mod binance_exchange_info;
 mod binance_open_orders;
