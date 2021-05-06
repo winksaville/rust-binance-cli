@@ -79,6 +79,10 @@ pub struct Opts {
     /// Quantity to buy or sell
     #[structopt(long, required = false, default_value)]
     pub quantity: Decimal,
+
+    /// Auto Sell using config file, --auto-sell=data/wink-config-auto-sell.toml
+    #[structopt(long, required = false, default_value)]
+    pub auto_sell: String,
 }
 
 pub struct BinanceContext {

@@ -1,3 +1,4 @@
+use log::trace;
 use std::collections::HashMap;
 
 use rust_decimal::prelude::*;
@@ -5,6 +6,8 @@ use serde::{
     de::{SeqAccess, Visitor},
     Deserialize, Deserializer,
 };
+
+use crate::binance_context::BinanceContext;
 
 fn default_min() -> Decimal {
     Decimal::MAX
@@ -73,6 +76,17 @@ where
     }
 
     deserializer.deserialize_seq(ItemsVisitor)
+}
+
+pub async fn auto_sell(
+    ctx: &BinanceContext,
+    config_file: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!("auto_sell:+ config_file: {}", config_file);
+    assert!(ctx.opts.auto_sell.eq(config_file));
+
+    trace!("auto_sell:- config_file: {}", config_file);
+    Ok(())
 }
 
 #[cfg(test)]

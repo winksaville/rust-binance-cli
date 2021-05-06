@@ -1,8 +1,8 @@
 use log::trace;
 
 mod binance_account_info;
+mod binance_auto_sell;
 mod binance_avg_price;
-mod binance_config_auto_sell;
 mod binance_context;
 mod binance_exchange_info;
 mod binance_open_orders;
@@ -20,6 +20,8 @@ use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
 use binance_open_orders::{get_open_orders, OpenOrders};
 use binance_sell_market::sell_market;
+
+use crate::binance_auto_sell::auto_sell;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,6 +42,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         println!("Usage: {} -h or --help", name);
         return Ok(());
+    }
+
+    if !ctx.opts.auto_sell.is_empty() {
+        let config_file = &ctx.opts.auto_sell;
+        auto_sell(ctx, config_file).await?;
     }
 
     if ctx.opts.get_exchange_info {
