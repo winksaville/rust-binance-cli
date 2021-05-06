@@ -89,14 +89,24 @@ pub async fn auto_sell(
 
     // Get the file contents and deserialize to ConfigAutoSell
     let config_string: String = fs::read_to_string(config_file).await?;
-    let _config: ConfigAutoSell = toml::from_str(&config_string)?;
+    let config: ConfigAutoSell = toml::from_str(&config_string)?;
     // println!("auto_sell: config:\n{:#?}", config);
 
     let ai = get_account_info(ctx).await?;
     // ai.print(ctx).await;
     for balance in ai.balances_map.values() {
-        if balance.free != dec!(0) || balance.locked != dec!(0) {
-            println!("{:?}", balance);
+        let owned_qty = balance.free + balance.locked;
+        if owned_qty > dec!(0) {
+            if let Some(keeping) = config.keep.get(&balance.asset) {
+                let sell_qty = owned_qty - keeping.min;
+                if sell_qty > dec!(0) {
+                    println!("selling: {} of {:?}", sell_qty, balance);
+                } else {
+                    println!("keeping: {:?} based on {:?}", balance, keeping);
+                }
+            } else {
+                println!("selling: {} of {:?}", balance.free, balance);
+            }
         }
     }
 
