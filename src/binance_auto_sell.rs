@@ -1,5 +1,5 @@
 use log::trace;
-use std::collections::HashMap;
+use std::{collections::HashMap, fs};
 
 use rust_decimal::prelude::*;
 use serde::{
@@ -35,7 +35,7 @@ pub struct ConfigAutoSell {
     pub api_key: String,
 
     #[serde(default)]
-    pub default_sell_to_assert: String,
+    pub default_sell_to_asset: String,
 
     #[serde(deserialize_with = "de_vec_keep_rec_to_hashmap")]
     #[serde(default)]
@@ -85,6 +85,12 @@ pub async fn auto_sell(
     trace!("auto_sell:+ config_file: {}", config_file);
     assert!(ctx.opts.auto_sell.eq(config_file));
 
+    let config_string = fs::read_to_string(config_file)?;
+    //println!("auto_sell: config_string:\n{}", config_string);
+
+    let config: ConfigAutoSell = toml::from_str(&config_string)?;
+    println!("auto_sell: config:\n{:#?}", config);
+
     trace!("auto_sell:- config_file: {}", config_file);
     Ok(())
 }
@@ -99,7 +105,7 @@ mod test {
     const TOML_DATA: &str = r#"
         API_KEY = "api key"
         SECRET_KEY = "secret key"
-        default_sell_to_assert="USD"
+        default_sell_to_asset="USD"
 
         keep = [
             { name = "USD" },
@@ -117,7 +123,7 @@ mod test {
         // println!("{:#?}", config);
         assert_eq!(config.api_key, "api key");
         assert_eq!(config.secret_key, "secret key");
-        assert_eq!(config.default_sell_to_assert, "USD");
+        assert_eq!(config.default_sell_to_asset, "USD");
         assert_eq!(
             config.keep.get("USD").unwrap(),
             &KeepRec {
