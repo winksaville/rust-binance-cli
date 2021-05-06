@@ -1,9 +1,14 @@
 use log::trace;
 use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
-use crate::{common::utc_now_to_time_ms, de_string_or_number::de_string_or_number_to_i64};
+use crate::{
+    binance_avg_price::get_avg_price,
+    common::{time_ms_to_utc, utc_now_to_time_ms},
+    de_string_or_number::de_string_or_number_to_i64,
+};
 
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 
@@ -22,7 +27,7 @@ where
     impl<'de> Visitor<'de> for ItemsVisitor {
         type Value = HashMap<String, Balance>;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             formatter.write_str("a sequence of items")
         }
 
@@ -69,6 +74,45 @@ pub struct AccountInfo {
     #[serde(deserialize_with = "de_vec_balances_to_hashmap")]
     #[serde(rename = "balances")]
     pub balances_map: HashMap<String, Balance>,
+}
+
+impl AccountInfo {
+    pub async fn print(&self, ctx: &BinanceContext) {
+        println!("     account_type: {}", self.account_type);
+        println!("      can_deposit: {}", self.can_deposit);
+        println!("        can_trade: {}", self.can_trade);
+        println!("     can_withdraw: {}", self.can_withdraw);
+        println!(" buyer_commission: {}", self.buyer_commission);
+        println!(" maker_commission: {}", self.maker_commission);
+        println!("seller_commission: {}", self.seller_commission);
+        println!(" taker_commission: {}", self.taker_commission);
+        println!("      update_time: {}", time_ms_to_utc(self.update_time));
+        println!("      permissions: {:?}", self.permissions);
+        let mut total_value = dec!(0);
+        for balance in self.balances_map.values() {
+            if balance.free > dec!(0) || balance.locked > dec!(0) {
+                let price = if balance.asset != "USD" {
+                    let sym = balance.asset.clone() + "USD";
+                    let price = match get_avg_price(ctx, &sym).await {
+                        Ok(avgprice) => avgprice.price,
+                        Err(_) => {
+                            dec!(0)
+                        }
+                    };
+                    price
+                } else {
+                    dec!(1)
+                };
+                let value = price * balance.free + balance.locked;
+                println!(
+                    "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
+                    balance.asset, value, balance.free, balance.locked
+                );
+                total_value += value;
+            }
+        }
+        println!("total: ${:.2}", total_value);
+    }
 }
 
 pub async fn get_account_info<'e>(
@@ -134,6 +178,7 @@ pub async fn get_account_info<'e>(
     trace!("get_account_info: -");
     Ok(account_info)
 }
+
 #[cfg(test)]
 mod test {
     use super::*;
