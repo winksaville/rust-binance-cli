@@ -1,6 +1,11 @@
 use log::trace;
 
 use rust_decimal::prelude::*;
+use std::{
+    fs::{File, OpenOptions},
+    io::Write,
+    path::Path,
+};
 
 use crate::common::{BinanceError, ResponseErrorRec};
 
@@ -26,6 +31,79 @@ pub enum TradeOrderType {
     // LimitMaker,
 }
 
+struct OrderLogger {
+    file: File,
+}
+
+impl OrderLogger {
+    fn new(order_log_path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        if let Some(prefix) = order_log_path.parent() {
+            if let Err(e) = std::fs::create_dir_all(prefix) {
+                panic!("Error creating {:?} e={}", order_log_path, e);
+            }
+        }
+
+        let order_log_file: File = match OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open(order_log_path)
+        {
+            Ok(file) => file,
+            Err(e) => {
+                return Err(e.into());
+            }
+        };
+
+        Ok(OrderLogger {
+            file: order_log_file,
+        })
+    }
+
+    fn log_order_response(
+        &mut self,
+        order_response: &TradeResponse,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        serde_json::to_writer(&self.file, order_response)?;
+        self.file.write_all(b"\n")?;
+
+        Ok(())
+    }
+}
+
+// THIS DOES NOT Compile, but the above works fine, WHY?
+//     fn log_order_response(
+//         file: &mut File,
+//         order_resp: &TradeResponse,
+//     ) -> Result<(), Box<dyn std::error::Error>> {
+//         serde_json::to_writer(file, order_resp)?;
+//         file.write_all(b"\n")?;
+//         Ok(())
+//     }
+//
+// Here is the error:
+//
+//    wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+//    $ cargo check
+//        Checking binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+//    error[E0382]: borrow of moved value: `file`
+//      --> src/binance_trade.rs:73:5
+//       |
+//    69 |     file: &mut File,
+//       |     ---- move occurs because `file` has type `&mut std::fs::File`, which does not implement the `Copy` trait
+//    ...
+//    72 |     serde_json::to_writer(file, order_resp)?;
+//       |                           ---- value moved here
+//    73 |     file.write_all(b"\n")?;
+//       |     ^^^^ value borrowed here after move
+//
+//    error: aborting due to previous error
+//
+//    For more information about this error, try `rustc --explain E0382`.
+//    error: could not compile `binance-auto-sell`
+//
+//    To learn more, run the command again with --verbose.
+
 pub async fn binance_new_order_or_test(
     ctx: &mut BinanceContext,
     symbol: &str,
@@ -33,8 +111,10 @@ pub async fn binance_new_order_or_test(
     order_type: TradeOrderType,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    let secret_key = ctx.opts.secret_key.as_bytes();
-    let api_key = ctx.opts.api_key.as_bytes();
+    let mut ol = OrderLogger::new(&ctx.opts.order_log_path)?;
+
+    let secret_key = ctx.keys.secret_key.as_bytes();
+    let api_key = ctx.keys.api_key.as_bytes();
 
     let side_str: &str = side.into();
     let mut params = vec![
@@ -111,8 +191,8 @@ pub async fn binance_new_order_or_test(
             test,
             order_resp
         );
-        //Ok(ctx.log_order_response(&order_resp)?)
-        ctx.log_order_response(&order_resp)?;
+
+        ol.log_order_response(&order_resp)?;
 
         Ok(order_resp)
     } else {
@@ -124,7 +204,8 @@ pub async fn binance_new_order_or_test(
         );
         let binance_error_response = BinanceError::Response(response_error_rec);
         let order_resp = TradeResponse::Failure(binance_error_response.clone());
-        ctx.log_order_response(&order_resp)?;
+
+        ol.log_order_response(&order_resp)?;
 
         trace!(
             "{}",

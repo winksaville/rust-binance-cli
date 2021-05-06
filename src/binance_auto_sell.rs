@@ -92,6 +92,14 @@ pub async fn auto_sell(
     let config: ConfigAutoSell = toml::from_str(&config_string)?;
     // println!("auto_sell: config:\n{:#?}", config);
 
+    // Create a mutable clone so we can change the keys
+    // and then change it back to immutable
+    // TODO: Consider adding BinanceContext::set_keys?
+    let mut ctx: BinanceContext = (*ctx).clone();
+    ctx.keys.api_key = config.api_key.clone();
+    ctx.keys.secret_key = config.secret_key.clone();
+    let ctx = &ctx;
+
     let ai = get_account_info(ctx).await?;
     // ai.print(ctx).await;
     for balance in ai.balances_map.values() {
@@ -102,7 +110,8 @@ pub async fn auto_sell(
                 if sell_qty > dec!(0) {
                     println!("selling: {} of {:?}", sell_qty, balance);
                 } else {
-                    println!("keeping: {:?} based on {:?}", balance, keeping);
+                    //println!("keeping: {:?} based on {:?}", balance, keeping);
+                    println!("keeping: {:?}", balance);
                 }
             } else {
                 println!("selling: {} of {:?}", balance.free, balance);

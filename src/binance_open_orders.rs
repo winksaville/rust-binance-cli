@@ -69,8 +69,8 @@ pub async fn get_open_orders(
     ctx: &BinanceContext,
     symbol: &str,
 ) -> Result<OpenOrders, Box<dyn std::error::Error>> {
-    let secret_key = ctx.opts.secret_key.as_bytes();
-    let api_key = ctx.opts.api_key.as_bytes();
+    let secret_key = ctx.keys.secret_key.as_bytes();
+    let api_key = ctx.keys.api_key.as_bytes();
 
     let mut params = vec![("recvWindow", "5000")];
     if !symbol.is_empty() {
