@@ -1,5 +1,7 @@
 use log::trace;
-use std::{collections::HashMap, fs};
+use rust_decimal_macros::dec;
+use std::collections::HashMap;
+use tokio::fs;
 
 use rust_decimal::prelude::*;
 use serde::{
@@ -7,7 +9,7 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::binance_context::BinanceContext;
+use crate::{binance_account_info::get_account_info, binance_context::BinanceContext};
 
 fn default_min() -> Decimal {
     Decimal::MAX
@@ -85,11 +87,18 @@ pub async fn auto_sell(
     trace!("auto_sell:+ config_file: {}", config_file);
     assert!(ctx.opts.auto_sell.eq(config_file));
 
-    let config_string = fs::read_to_string(config_file)?;
-    //println!("auto_sell: config_string:\n{}", config_string);
+    // Get the file contents and deserialize to ConfigAutoSell
+    let config_string: String = fs::read_to_string(config_file).await?;
+    let _config: ConfigAutoSell = toml::from_str(&config_string)?;
+    // println!("auto_sell: config:\n{:#?}", config);
 
-    let config: ConfigAutoSell = toml::from_str(&config_string)?;
-    println!("auto_sell: config:\n{:#?}", config);
+    let ai = get_account_info(ctx).await?;
+    // ai.print(ctx).await;
+    for balance in ai.balances_map.values() {
+        if balance.free != dec!(0) || balance.locked != dec!(0) {
+            println!("{:?}", balance);
+        }
+    }
 
     trace!("auto_sell:- config_file: {}", config_file);
     Ok(())
