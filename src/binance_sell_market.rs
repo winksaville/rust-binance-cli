@@ -6,7 +6,7 @@ use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_context::BinanceContext,
-    binance_exchange_info::get_exchange_info,
+    binance_exchange_info::ExchangeInfo,
     binance_open_orders::get_open_orders,
     binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType},
     binance_verify_order::{
@@ -18,6 +18,7 @@ use crate::{
 
 pub async fn sell_market(
     ctx: &mut BinanceContext,
+    ei: &ExchangeInfo,
     symbol_name: &str,
     quantity: Decimal,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -27,7 +28,6 @@ pub async fn sell_market(
     }
     trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
-    let ei = get_exchange_info(ctx).await?;
     let symbol = match ei.get_symbol(&symbol_name) {
         Some(s) => s,
         None => {

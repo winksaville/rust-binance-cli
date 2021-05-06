@@ -42,20 +42,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    if ctx.opts.get_exchange_info || !ctx.opts.symbol.is_empty() {
+    if ctx.opts.get_exchange_info {
         let ei = get_exchange_info(ctx).await?;
+        println!("ei={:#?}", ei);
+    }
 
-        if ctx.opts.get_exchange_info {
-            println!("ei={:#?}", ei);
+    if !ctx.opts.symbol.is_empty() {
+        let ei = get_exchange_info(ctx).await?;
+        let sym = ei.get_symbol(&ctx.opts.symbol);
+        match sym {
+            Some(sym) => println!("{}: {:#?}", sym.symbol, sym),
+            None => println!("{} not found", ctx.opts.symbol),
         }
+    }
 
-        if !ctx.opts.symbol.is_empty() {
-            let sym = ei.get_symbol(&ctx.opts.symbol);
-            match sym {
-                Some(sym) => println!("{}={:#?}", sym.symbol, sym),
-                None => println!("{} not found", ctx.opts.symbol),
-            }
-        }
+    if !ctx.opts.sell.is_empty() {
+        let ei = &get_exchange_info(ctx).await?;
+        let symbol_name = &ctx.opts.sell.clone();
+        let quantity = ctx.opts.quantity;
+
+        sell_market(ctx, ei, symbol_name, quantity).await?;
     }
 
     if ctx.opts.get_account_info {
@@ -76,13 +82,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let oo: OpenOrders = get_open_orders(ctx, &symbol).await?;
         println!("oo: {:#?}\nsum_buy_orders: {}", oo, oo.sum_buy_orders());
-    }
-
-    if !ctx.opts.sell.is_empty() {
-        let symbol_name = ctx.opts.sell.clone();
-        let quantity = ctx.opts.quantity;
-
-        sell_market(ctx, &symbol_name, quantity).await?;
     }
 
     trace!("main: -");
