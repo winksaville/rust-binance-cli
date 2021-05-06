@@ -22,7 +22,7 @@ pub struct KeepRec {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ConfigAutoSellAll {
+pub struct ConfigAutoSell {
     #[serde(rename = "SECRET_KEY")]
     #[serde(default)]
     pub secret_key: String,
@@ -99,7 +99,7 @@ mod test {
 
     #[test]
     fn test_config_auto_sell_all() {
-        let config: ConfigAutoSellAll = toml::from_str(TOML_DATA).unwrap();
+        let config: ConfigAutoSell = toml::from_str(TOML_DATA).unwrap();
         // println!("{:#?}", config);
         assert_eq!(config.api_key, "api key");
         assert_eq!(config.secret_key, "secret key");

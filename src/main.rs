@@ -2,7 +2,7 @@ use log::trace;
 
 mod binance_account_info;
 mod binance_avg_price;
-mod binance_config_auto_sell_all;
+mod binance_config_auto_sell;
 mod binance_context;
 mod binance_exchange_info;
 mod binance_open_orders;
