@@ -50,11 +50,13 @@ where
     deserializer.deserialize_seq(ItemsVisitor)
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Clone, Ord, Eq, PartialEq, PartialOrd, Serialize)]
 pub struct Balance {
     pub asset: String,
     pub free: Decimal,
     pub locked: Decimal,
+    #[serde(skip)]
+    pub value: Decimal,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,6 +90,7 @@ impl AccountInfo {
         println!(" taker_commission: {}", self.taker_commission);
         println!("      update_time: {}", time_ms_to_utc(self.update_time));
         println!("      permissions: {:?}", self.permissions);
+        let mut vec_balance: Vec<Balance> = Vec::with_capacity(self.balances_map.len());
         let mut total_value = dec!(0);
         for balance in self.balances_map.values() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
@@ -104,12 +107,18 @@ impl AccountInfo {
                     dec!(1)
                 };
                 let value = price * balance.free + balance.locked;
-                println!(
-                    "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
-                    balance.asset, value, balance.free, balance.locked
-                );
+                let mut b = balance.clone();
+                b.value = value;
+                vec_balance.push(b);
                 total_value += value;
             }
+        }
+        vec_balance.sort();
+        for balance in vec_balance {
+            println!(
+                "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
+                balance.asset, balance.value, balance.free, balance.locked
+            );
         }
         println!("total: ${:.2}", total_value);
     }
