@@ -151,15 +151,17 @@ pub fn adj_quantity_verify_market_lot_size(
         Some(mls) => {
             trace!("mls: {:?}", mls);
             let adj_qty = if mls.step_size > dec!(0) {
-                let rq = quantity + (mls.step_size / dec!(2));
-                let rq_mod_step_size = rq % mls.step_size;
-                let aq = rq - rq_mod_step_size;
+                // We are NOT rounding:
+                //    (quantity + (mls.step_size / dec!2)) % mls.step_size
+                // because if we round up we could try sell more than we have
+                // causing an error or going below a mimimum!
+                let mod_step_size = quantity % mls.step_size;
+                let aq = quantity - mod_step_size;
                 trace!(
-                    "quantity: {} aq: {} rq: {} rq_mod_step_size: {}",
+                    "quantity: {} aq: {} mod_step_size: {}",
                     quantity,
                     aq,
-                    rq,
-                    rq_mod_step_size
+                    mod_step_size
                 );
                 aq
             } else {
@@ -219,7 +221,7 @@ mod test {
         let mut quantity = dec!(1.0000009);
         let mut adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
+        assert_eq!(adj_quantity, dec!(1.000000));
 
         quantity = dec!(1.000001);
         adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
@@ -231,50 +233,15 @@ mod test {
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(1.000001));
 
-        quantity = dec!(1.00000149);
+        quantity = dec!(1.0000019999999999999999999999); // OK
         adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
+        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity); // ""
         assert_eq!(adj_quantity, dec!(1.000001));
 
-        quantity = dec!(1.00000149999);
+        quantity = dec!(1.00000199999999999999999999999); // FAILS
         adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
-
-        quantity = dec!(1.0000014999999);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
-
-        quantity = dec!(1.00000149999999);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
-
-        quantity = dec!(1.000001499999999);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
-
-        quantity = dec!(1.0000014999999999);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
-
-        quantity = dec!(1.0000014999999999999999999999); // OK
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000001));
-
-        quantity = dec!(1.00000149999999999999999999999); // Fails
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000002)); // "unexpected" rounds up, but not unreasonable
-
-        quantity = dec!(1.0000015);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(1.000002));
+        assert_eq!(adj_quantity, dec!(1.000002)); // Unexpected but probably OK
 
         // Test max_qty
         fn set_market_lot_size_max_qty(symbol: &mut Symbol, max_qty: Decimal) {
@@ -294,20 +261,15 @@ mod test {
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(999999999999999999999.000001));
 
-        quantity = dec!(999999999999999999999.0000014);
+        quantity = dec!(999999999999999999999.0000019);
         adj_quantity = adj_quantity_verify_market_lot_size(&s, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(999999999999999999999.000001));
 
-        quantity = dec!(999999999999999999999.00000149); // "fails"
+        quantity = dec!(999999999999999999999.00000199); // FAILS
         adj_quantity = adj_quantity_verify_market_lot_size(&s, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(999999999999999999999.000002)); // "unexpected" rounds up, but not unreasonable!
-
-        quantity = dec!(999999999999999999999.0000015);
-        adj_quantity = adj_quantity_verify_market_lot_size(&s, quantity).unwrap();
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
-        assert_eq!(adj_quantity, dec!(999999999999999999999.000002));
+        assert_eq!(adj_quantity, dec!(999999999999999999999.000002)); // Unexpected but probably OK
     }
 
     const SYMBOL_DATA: &str = r#"{
