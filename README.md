@@ -33,6 +33,73 @@ $ cargo tarpaulin --help | grep 'follow-exe'
         --follow-exec            Follow executed processes capturing coverage information if they're part of your
 ```
 
+Install `cargo-precommit` into ~/.cargo/bin/
+
+## Before committing
+
+Run `cargo pre-commit` it runs cargo check, fmt, test, tarpaulin and clippy
+
+```
+$ cargo pre-commit
+check
+    Finished dev [unoptimized + debuginfo] target(s) in 0.04s
+fmt
+test
+   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+    Finished test [unoptimized + debuginfo] target(s) in 2.95s
+     Running target/debug/deps/binance_auto_sell-10c26e09c2475d07
+
+running 24 tests
+test binance_account_info::test::test_account_info ... ok
+test binance_signature::test::test_binance_example ... ok
+
+...
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+tarpaulin
+May 07 09:02:43.508  INFO cargo_tarpaulin: Running Tarpaulin
+May 07 09:02:43.508  INFO cargo_tarpaulin: Building project
+May 07 09:02:43.750  INFO cargo_tarpaulin::cargo: Cleaning project
+   Compiling autocfg v1.0.1
+
+...
+
+test binance_verify_order::test::test_adj_quantity_verify_market_lot_size ... ok
+test binance_exchange_info::test::test_exchange_info ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+May 07 09:03:13.315  INFO cargo_tarpaulin::report: Coverage Results:
+|| Tested/Total Lines:
+|| src/binance_account_info.rs: 27/100
+|| src/binance_auto_sell.rs: 46/70
+|| src/binance_avg_price.rs: 0/16
+|| src/binance_context.rs: 25/26
+|| src/binance_exchange_info.rs: 202/275
+|| src/binance_open_orders.rs: 0/49
+|| src/binance_order_response.rs: 24/38
+|| src/binance_sell_market.rs: 0/25
+|| src/binance_signature.rs: 114/114
+|| src/binance_trade.rs: 0/79
+|| src/binance_verify_order.rs: 91/145
+|| src/common.rs: 60/70
+|| src/de_string_or_number.rs: 52/55
+|| src/main.rs: 0/46
+|| 
+57.85% coverage, 641/1108 lines covered
+clean
+clippy
+   Compiling proc-macro2 v1.0.26
+
+...
+
+    Checking reqwest v0.11.3
+   Compiling rust_decimal_macros v1.12.4
+    Checking binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+    Finished dev [unoptimized + debuginfo] target(s) in 14.62s
+```
+
 ## Building and run
 
 ```
@@ -192,12 +259,6 @@ wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
 $ cargo build
     Finished dev [unoptimized + debuginfo] target(s) in 0.01s
 ```
-
-## TODO:
-
-Using nightly-2021-03-25 as that is the last rustfmt that works as
-shown at https://rust-lang.github.io/rustup-components-history/.
-Change this when rustfmt is fixed.
 
 ## License
 

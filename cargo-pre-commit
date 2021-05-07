@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+echo check ; cargo check
+echo fmt ; cargo fmt
+echo test ; cargo test
+echo tarpaulin ; cargo tarpaulin
+echo clean ; cargo clean
+echo clippy ; cargo clippy
