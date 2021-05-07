@@ -1,5 +1,7 @@
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use log::trace;
 
+use reqwest::{self, Response};
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
 use strum_macros::IntoStaticStr;
@@ -91,6 +93,42 @@ impl Display for BinanceError {
             }
         }
     }
+}
+
+pub async fn post_req_get_response(
+    api_key: &str,
+    url: &str,
+    body: &str,
+) -> Result<Response, Box<dyn std::error::Error>> {
+    let req_builder = reqwest::Client::builder()
+        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
+        .build()?
+        .post(url)
+        .header("X-MBX-APIKEY", api_key)
+        .body(body.to_owned());
+    trace!("req_builder={:#?}", req_builder);
+
+    let response = req_builder.send().await?;
+    trace!("response={:#?}", response);
+
+    Ok(response)
+}
+
+pub async fn get_req_get_response(
+    api_key: &str,
+    url: &str,
+) -> Result<Response, Box<dyn std::error::Error>> {
+    let req_builder = reqwest::Client::builder()
+        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
+        .build()?
+        .get(url)
+        .header("X-MBX-APIKEY", api_key);
+    trace!("req_builder={:#?}", req_builder);
+
+    let response = req_builder.send().await?;
+    trace!("response={:#?}", response);
+
+    Ok(response)
 }
 
 fn timestamp_ms_to_secs_nsecs(timestamp_ms: i64) -> (i64, u32) {

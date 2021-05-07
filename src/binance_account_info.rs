@@ -6,7 +6,7 @@ use std::{collections::HashMap, fmt};
 
 use crate::{
     binance_avg_price::get_avg_price,
-    common::{time_ms_to_utc, utc_now_to_time_ms},
+    common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -130,7 +130,7 @@ pub async fn get_account_info<'e>(
     trace!("get_account_info: +");
 
     let secret_key = ctx.keys.secret_key.as_bytes();
-    let api_key = ctx.keys.api_key.as_bytes();
+    let api_key = &ctx.keys.api_key;
 
     let mut params = vec![];
     let ts_string: String = format!("{}", utc_now_to_time_ms());
@@ -151,20 +151,11 @@ pub async fn get_account_info<'e>(
     let url = ctx.make_url("api", &format!("/api/v3/account?{}", &query_string));
     trace!("get_account_info: url={}", url);
 
-    // Build request
-    let client = reqwest::Client::builder();
-    let req_builder = client
-        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
-        .build()?
-        .get(url)
-        .header("X-MBX-APIKEY", api_key);
-    trace!("req_builder={:#?}", req_builder);
-
-    // Send and get response
-    let response = req_builder.send().await?;
+    let response = get_req_get_response(api_key, &url).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;
+
     let account_info: AccountInfo = if response_status == 200 {
         let ai: AccountInfo = match serde_json::from_str(&response_body) {
             Ok(info) => info,

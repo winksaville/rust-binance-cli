@@ -8,7 +8,7 @@ use crate::{
     binance_context::BinanceContext,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::utc_now_to_time_ms,
-    common::{self, BinanceError, ResponseErrorRec},
+    common::{self, get_req_get_response, BinanceError, ResponseErrorRec},
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -70,7 +70,7 @@ pub async fn get_open_orders(
     symbol: &str,
 ) -> Result<OpenOrders, Box<dyn std::error::Error>> {
     let secret_key = ctx.keys.secret_key.as_bytes();
-    let api_key = ctx.keys.api_key.as_bytes();
+    let api_key = &ctx.keys.api_key;
 
     let mut params = vec![("recvWindow", "5000")];
     if !symbol.is_empty() {
@@ -96,19 +96,8 @@ pub async fn get_open_orders(
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
-    // Build request
-    let client = reqwest::Client::builder();
-    let req_builder = client
-        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
-        .build()?
-        .get(url)
-        .header("X-MBX-APIKEY", api_key);
-    trace!("req_builder={:#?}", req_builder);
-
-    // Send and get response
-    let response = req_builder.send().await?;
-    trace!("response={:#?}", &response);
-
+    let response = get_req_get_response(api_key, &url).await?;
+    trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;
 

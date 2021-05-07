@@ -6,9 +6,9 @@ use rust_decimal::prelude::*;
 
 use std::collections::HashMap;
 
-use crate::binance_context::BinanceContext;
 use crate::common::OrderType;
 use crate::de_string_or_number::de_string_or_number_to_u64;
+use crate::{binance_context::BinanceContext, common::get_req_get_response};
 
 use strum_macros::IntoStaticStr;
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -562,22 +562,11 @@ pub async fn get_exchange_info<'e>(
     let url = ctx.make_url("api", "/api/v3/exchangeInfo");
     trace!("get_exchange_info: url={}", url);
 
-    let response_body: String;
-    // Build request
-    let client = reqwest::Client::builder();
-    let req_builder = client
-        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
-        .build()?
-        .get(url);
-    trace!("req_builder={:#?}", req_builder);
-
-    // Send
-    let response = req_builder.send().await?;
+    let response = get_req_get_response(&ctx.opts.api_key, &url).await?;
     trace!("response={:#?}", response);
 
-    // Get response
     let response_status = response.status();
-    response_body = response.text().await?;
+    let response_body = response.text().await?;
     if response_status != 200 {
         let err = format!("error  status={} body={}", response_status, response_body);
         trace!("get_account_info: err: {}", err);

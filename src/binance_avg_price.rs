@@ -2,8 +2,8 @@ use log::trace;
 use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::binance_context::BinanceContext;
 use crate::common::{BinanceError, ResponseErrorRec};
+use crate::{binance_context::BinanceContext, common::get_req_get_response};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AvgPrice {
@@ -18,7 +18,7 @@ pub async fn get_avg_price<'e>(
     let url = ctx.make_url("api", &format!("/api/v3/avgPrice?symbol={}", symbol));
     trace!("get_avg_price: url={}", url);
 
-    let response = reqwest::Client::new().get(url.clone()).send().await?;
+    let response = get_req_get_response(&ctx.opts.api_key, &url).await?;
     let response_status = response.status();
     let response_body = response.text().await?;
 

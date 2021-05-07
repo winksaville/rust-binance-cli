@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 
-use crate::common::{BinanceError, ResponseErrorRec};
+use crate::common::{post_req_get_response, BinanceError, ResponseErrorRec};
 
 use crate::binance_order_response::{FullTradeResponseRec, TradeResponse};
 
@@ -114,7 +114,7 @@ pub async fn binance_new_order_or_test(
     let mut ol = OrderLogger::new(&ctx.opts.order_log_path)?;
 
     let secret_key = ctx.keys.secret_key.as_bytes();
-    let api_key = ctx.keys.api_key.as_bytes();
+    let api_key = &ctx.keys.api_key;
 
     let side_str: &str = side.into();
     let mut params = vec![
@@ -156,20 +156,8 @@ pub async fn binance_new_order_or_test(
     };
     let url = "https://api.binance.us".to_string() + path;
 
-    // Build request
-    let client = reqwest::Client::builder();
-    let req_builder = client
-        //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
-        .build()?
-        .post(url)
-        .header("X-MBX-APIKEY", api_key)
-        .body(query_string.clone());
-    trace!("req_builder={:#?}", req_builder);
-
-    // Send and get response
-    let response = req_builder.send().await?;
-    trace!("response={:#?}", &response);
-
+    let response = post_req_get_response(api_key, &url, &query_string).await?;
+    trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;
 
