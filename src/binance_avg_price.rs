@@ -2,8 +2,11 @@ use log::trace;
 use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::common::{BinanceError, ResponseErrorRec};
-use crate::{binance_context::BinanceContext, common::get_req_get_response};
+use crate::{
+    binance_context::BinanceContext,
+    common::get_req_get_response,
+    common::{BinanceError, ResponseErrorRec},
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AvgPrice {
