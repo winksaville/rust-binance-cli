@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use log::trace;
 
 // Using structopt and clap v2
 use structopt::{clap::AppSettings, StructOpt};
@@ -18,7 +19,7 @@ use rust_decimal::prelude::*;
 //   note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 //use clap::{AppSettings, Clap};
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Default, StructOpt)]
 #[structopt(
     global_settings = &[ AppSettings::ArgRequiredElseHelp, AppSettings::ColoredHelp ],
     version = env!("CARGO_PKG_VERSION"),
@@ -95,7 +96,13 @@ pub struct BinanceContext {
 
 impl BinanceContext {
     pub fn new() -> Self {
-        let opts = Opts::from_args();
+        let opts = if cfg!(test) {
+            trace!("cfg: test");
+            Opts::default()
+        } else {
+            trace!("cfg: not testing");
+            Opts::from_args()
+        };
 
         let order_log_path = opts.order_log_path.clone();
         if let Some(prefix) = order_log_path.parent() {
@@ -131,6 +138,7 @@ impl BinanceContext {
 #[cfg(test)]
 mod test {
     use super::*;
+    use test_env_log::test;
 
     #[test]
     fn test_new() {
