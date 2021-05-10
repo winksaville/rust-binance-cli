@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use log::trace;
+use std::path::PathBuf;
 
 // Using structopt and clap v2
 use structopt::{clap::AppSettings, StructOpt};
