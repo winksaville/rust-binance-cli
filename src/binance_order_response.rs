@@ -44,7 +44,7 @@ pub struct FullTradeResponseRec {
     pub side: String, // add enum Side (it's currently defined in main.rs)
     pub fills: Vec<Fill>,
     #[serde(default)]
-    pub cost_basis_usd: Decimal,
+    pub value_usd: Decimal,
     #[serde(default)]
     pub commission_usd: Decimal,
 }
@@ -68,7 +68,7 @@ impl Default for FullTradeResponseRec {
             order_type: OrderType::MARKET,
             side: "".to_string(),
             fills: vec![],
-            cost_basis_usd: dec!(0),
+            value_usd: dec!(0),
             commission_usd: dec!(0),
         }
     }

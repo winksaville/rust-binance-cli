@@ -293,7 +293,7 @@ pub async fn binance_new_order_or_test(
         }
 
         order_resp_success.query = query_string;
-        order_resp_success.cost_basis_usd = convert(
+        order_resp_success.value_usd = convert(
             ctx,
             &ei_symbol.quote_asset,
             order_resp_success.cummulative_quote_qty,
