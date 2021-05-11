@@ -58,10 +58,11 @@ pub async fn sell_market(
 
     let response = binance_new_order_or_test(
         ctx,
+        ei,
         &symbol_name,
         Side::SELL,
         TradeOrderType::Market(MarketQuantityType::Quantity(quantity)),
-        true,
+        false,
     )
     .await?;
     println!("Sell reponse: {:#?}", response);

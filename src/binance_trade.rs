@@ -1,21 +1,23 @@
+//use chrono::Utc;
 use log::trace;
 
 use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 use std::{
     fs::{File, OpenOptions},
     io::Write,
     path::Path,
 };
 
-use crate::common::{post_req_get_response, BinanceError, ResponseErrorRec};
+use crate::{
+    binance_avg_price::get_avg_price,
+    binance_context::BinanceContext,
+    binance_exchange_info::ExchangeInfo,
+    binance_order_response::{FullTradeResponseRec, TradeResponse},
+    binance_signature::{append_signature, binance_signature, query_vec_u8},
+    common::{post_req_get_response, utc_now_to_time_ms, BinanceError, ResponseErrorRec, Side},
+};
 
-use crate::binance_order_response::{FullTradeResponseRec, TradeResponse};
-
-use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
-
-use crate::binance_context::BinanceContext;
-
-use crate::common::{utc_now_to_time_ms, Side};
 pub enum MarketQuantityType {
     Quantity(Decimal),
     //QuoteOrderQty(Decimal),
@@ -104,14 +106,132 @@ impl OrderLogger {
 //
 //    To learn more, run the command again with --verbose.
 
+#[allow(unused)]
+async fn convert(
+    ctx: &BinanceContext,
+    asset: &str,
+    value: Decimal,
+    other_asset: &str,
+) -> Result<Decimal, Box<dyn std::error::Error>> {
+    let other_value: Decimal = if asset == other_asset {
+        let new_value = value;
+        println!(
+            "convert: asset: {} value: {} to {}: {}",
+            asset, value, other_asset, new_value
+        );
+        new_value
+    } else {
+        // Try to directly convert it
+        let cvrt_asset_name = asset.to_string() + other_asset;
+        match get_avg_price(ctx, &cvrt_asset_name).await {
+            Ok(ap) => {
+                let new_value = ap.price * value;
+                println!(
+                    "convert: asset: {} value: {} to {}: {}",
+                    asset, value, other_asset, new_value
+                );
+                new_value
+            }
+            Err(_) => {
+                return Err(format!(
+                    "convert error, asset: {} not convertalbe to {}",
+                    asset, other_asset
+                )
+                .into());
+            }
+        }
+    };
+
+    Ok(other_value)
+}
+
+async fn convert_commission(
+    ctx: &BinanceContext,
+    order_response: &FullTradeResponseRec,
+    fee_asset: &str,
+) -> Result<Decimal, Box<dyn std::error::Error>> {
+    let mut commission_value = dec!(0);
+    for f in &order_response.fills {
+        commission_value += convert(&ctx, &f.commission_asset, f.commission, fee_asset).await?;
+    }
+    Ok(commission_value)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    const FULL_TRADE_RESPONSE_REC_SUCCESS_FULL: &str = r#"{
+        "symbol":"ADAUSD",
+        "clientOrderId":"2K956RjiRG7mJfk06skarQ",
+        "orderId":108342146,
+        "orderListId":-1,
+        "transactTime":1620435240708,
+        "price":"0.0000",
+        "origQty":"6.20000000",
+        "executedQty":"6.20000000",
+        "cummulativeQuoteQty":"10.1463",
+        "status":"FILLED",
+        "timeInForce":"GTC",
+        "type":"MARKET",
+        "side":"SELL",
+        "fills":[
+            {
+                "commissionAsset":"BNB",
+                "commission":"0.00001209",
+                "price":"1.6365",
+                "qty":"6.20000000",
+                "tradeId":5579228
+            }
+        ]
+    }"#;
+
+    #[tokio::test]
+    async fn test_convert() {
+        let ctx = BinanceContext::new();
+        let order_response: FullTradeResponseRec =
+            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
+        let mut commission_usd = dec!(0);
+        for f in order_response.fills {
+            commission_usd += convert(&ctx, &f.commission_asset, f.commission, "USD")
+                .await
+                .unwrap();
+        }
+
+        // TODO: Need to "mock" get_avg_price.
+        assert!(commission_usd > dec!(0));
+    }
+
+    #[tokio::test]
+    async fn test_convert_commission() {
+        let ctx = BinanceContext::new();
+        let order_response: FullTradeResponseRec =
+            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
+        let commission_usd = convert_commission(&ctx, &order_response, "USD")
+            .await
+            .unwrap();
+
+        // TODO: Need to "mock" get_avg_price.
+        assert!(commission_usd > dec!(0));
+    }
+}
+
 pub async fn binance_new_order_or_test(
     ctx: &mut BinanceContext,
+    ei: &ExchangeInfo,
     symbol: &str,
     side: Side,
     order_type: TradeOrderType,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
     let mut ol = OrderLogger::new(&ctx.opts.order_log_path)?;
+
+    let ei_symbol = match ei.get_symbol(symbol) {
+        Some(s) => s,
+        None => {
+            return Err(format!("{} was not found in exchange_info", symbol).into());
+        }
+    };
 
     let secret_key = ctx.keys.secret_key.as_bytes();
     let api_key = &ctx.keys.api_key;
@@ -159,18 +279,30 @@ pub async fn binance_new_order_or_test(
     let response = post_req_get_response(api_key, &url, &query_string).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
+    trace!("response_status={:#?}", response_status);
     let response_body = response.text().await?;
+    trace!("response_body={:#?}", response_body);
 
     // Log the response
     let result = if response_status == 200 {
-        trace!("response_body={}", response_body);
         let mut order_resp_success = FullTradeResponseRec::default();
         if !test {
             order_resp_success = serde_json::from_str(&&response_body)?;
         } else {
             order_resp_success.test = true;
         }
+
         order_resp_success.query = query_string;
+        order_resp_success.cost_basis_usd = convert(
+            ctx,
+            &ei_symbol.quote_asset,
+            order_resp_success.cummulative_quote_qty,
+            "USD",
+        )
+        .await?;
+        order_resp_success.commission_usd =
+            convert_commission(&ctx, &order_resp_success, "USD").await?;
+
         let order_resp = TradeResponse::SuccessFull(order_resp_success);
         trace!(
             "binance_market_order_or_test: symbol={} side={} test={} order_response={:#?}",
@@ -179,7 +311,6 @@ pub async fn binance_new_order_or_test(
             test,
             order_resp
         );
-
         ol.log_order_response(&order_resp)?;
 
         Ok(order_resp)
