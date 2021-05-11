@@ -33,78 +33,59 @@ pub enum TradeOrderType {
     // LimitMaker,
 }
 
-struct OrderLogger {
-    file: File,
-}
-
-impl OrderLogger {
-    fn new(order_log_path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
-        if let Some(prefix) = order_log_path.parent() {
-            if let Err(e) = std::fs::create_dir_all(prefix) {
-                panic!("Error creating {:?} e={}", order_log_path, e);
-            }
+fn order_log_file(order_log_path: &Path) -> Result<File, Box<dyn std::error::Error>> {
+    if let Some(prefix) = order_log_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(prefix) {
+            panic!("Error creating {:?} e={}", order_log_path, e);
         }
-
-        let order_log_file: File = match OpenOptions::new()
-            .create(true)
-            .write(true)
-            .append(true)
-            .open(order_log_path)
-        {
-            Ok(file) => file,
-            Err(e) => {
-                return Err(e.into());
-            }
-        };
-
-        Ok(OrderLogger {
-            file: order_log_file,
-        })
     }
 
-    fn log_order_response(
-        &mut self,
-        order_response: &TradeResponse,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        serde_json::to_writer(&self.file, order_response)?;
-        self.file.write_all(b"\n")?;
+    let order_log_file: File = match OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(order_log_path)
+    {
+        Ok(file) => file,
+        Err(e) => {
+            return Err(e.into());
+        }
+    };
 
-        Ok(())
-    }
+    Ok(order_log_file)
 }
 
-// THIS DOES NOT Compile, but the above works fine, WHY?
-//     fn log_order_response(
-//         file: &mut File,
-//         order_resp: &TradeResponse,
-//     ) -> Result<(), Box<dyn std::error::Error>> {
-//         serde_json::to_writer(file, order_resp)?;
-//         file.write_all(b"\n")?;
-//         Ok(())
-//     }
+fn log_order_response<W: Write>(
+    writer: &mut W,
+    order_response: &TradeResponse,
+) -> Result<(), Box<dyn std::error::Error>> {
+    serde_json::to_writer(writer, order_response)?;
+    //writer.write_all(b"\n")?;
+    Ok(())
+}
+
+// Enabling writer.write_all(b"\n")?; above fails instead
+// I have to have the write_all follow the log_order_resposne()
 //
-// Here is the error:
+// $ cargo c
+//     Checking binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+// error[E0382]: borrow of moved value: `writer`
+//   --> src/binance_trade.rs:63:5
+//    |
+// 59 |     writer: &mut W,
+//    |     ------ move occurs because `writer` has type `&mut W`, which does not implement the `Copy` trait
+// ...
+// 62 |     serde_json::to_writer(writer, order_response)?;
+//    |                           ------ value moved here
+// 63 |     writer.write_all(b"\n")?;
+//    |     ^^^^^^ value borrowed here after move
 //
-//    wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
-//    $ cargo check
-//        Checking binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
-//    error[E0382]: borrow of moved value: `file`
-//      --> src/binance_trade.rs:73:5
-//       |
-//    69 |     file: &mut File,
-//       |     ---- move occurs because `file` has type `&mut std::fs::File`, which does not implement the `Copy` trait
-//    ...
-//    72 |     serde_json::to_writer(file, order_resp)?;
-//       |                           ---- value moved here
-//    73 |     file.write_all(b"\n")?;
-//       |     ^^^^ value borrowed here after move
+// error: aborting due to previous error
 //
-//    error: aborting due to previous error
+// For more information about this error, try `rustc --explain E0382`.
+// error: could not compile `binance-auto-sell`
 //
-//    For more information about this error, try `rustc --explain E0382`.
-//    error: could not compile `binance-auto-sell`
-//
-//    To learn more, run the command again with --verbose.
+// To learn more, run the command again with --verbose.
 
 #[allow(unused)]
 async fn convert(
@@ -157,65 +138,6 @@ async fn convert_commission(
     Ok(commission_value)
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    const FULL_TRADE_RESPONSE_REC_SUCCESS_FULL: &str = r#"{
-        "symbol":"ADAUSD",
-        "clientOrderId":"2K956RjiRG7mJfk06skarQ",
-        "orderId":108342146,
-        "orderListId":-1,
-        "transactTime":1620435240708,
-        "price":"0.0000",
-        "origQty":"6.20000000",
-        "executedQty":"6.20000000",
-        "cummulativeQuoteQty":"10.1463",
-        "status":"FILLED",
-        "timeInForce":"GTC",
-        "type":"MARKET",
-        "side":"SELL",
-        "fills":[
-            {
-                "commissionAsset":"BNB",
-                "commission":"0.00001209",
-                "price":"1.6365",
-                "qty":"6.20000000",
-                "tradeId":5579228
-            }
-        ]
-    }"#;
-
-    #[tokio::test]
-    async fn test_convert() {
-        let ctx = BinanceContext::new();
-        let order_response: FullTradeResponseRec =
-            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
-        let mut commission_usd = dec!(0);
-        for f in order_response.fills {
-            commission_usd += convert(&ctx, &f.commission_asset, f.commission, "USD")
-                .await
-                .unwrap();
-        }
-
-        // TODO: Need to "mock" get_avg_price.
-        assert!(commission_usd > dec!(0));
-    }
-
-    #[tokio::test]
-    async fn test_convert_commission() {
-        let ctx = BinanceContext::new();
-        let order_response: FullTradeResponseRec =
-            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
-        let commission_usd = convert_commission(&ctx, &order_response, "USD")
-            .await
-            .unwrap();
-
-        // TODO: Need to "mock" get_avg_price.
-        assert!(commission_usd > dec!(0));
-    }
-}
-
 pub async fn binance_new_order_or_test(
     ctx: &mut BinanceContext,
     ei: &ExchangeInfo,
@@ -224,7 +146,8 @@ pub async fn binance_new_order_or_test(
     order_type: TradeOrderType,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    let mut ol = OrderLogger::new(&ctx.opts.order_log_path)?;
+    //let mut ol = OrderLogger::use_file(&ctx.opts.order_log_path)?;
+    let mut writer = order_log_file(&ctx.opts.order_log_path)?;
 
     let ei_symbol = match ei.get_symbol(symbol) {
         Some(s) => s,
@@ -311,7 +234,8 @@ pub async fn binance_new_order_or_test(
             test,
             order_resp
         );
-        ol.log_order_response(&order_resp)?;
+        log_order_response(&mut writer, &order_resp)?;
+        writer.write_all(b"\n")?;
 
         Ok(order_resp)
     } else {
@@ -324,7 +248,8 @@ pub async fn binance_new_order_or_test(
         let binance_error_response = BinanceError::Response(response_error_rec);
         let order_resp = TradeResponse::Failure(binance_error_response.clone());
 
-        ol.log_order_response(&order_resp)?;
+        log_order_response(&mut writer, &order_resp)?;
+        writer.write_all(b"\n")?;
 
         trace!(
             "{}",
@@ -338,4 +263,102 @@ pub async fn binance_new_order_or_test(
     };
 
     result
+}
+
+#[cfg(test)]
+mod test {
+    use std::io::{Read, Seek, SeekFrom};
+
+    use super::*;
+
+    const FULL_TRADE_RESPONSE_REC_SUCCESS_FULL: &str = r#"{
+        "symbol":"ADAUSD",
+        "clientOrderId":"2K956RjiRG7mJfk06skarQ",
+        "orderId":108342146,
+        "orderListId":-1,
+        "transactTime":1620435240708,
+        "price":"0.0000",
+        "origQty":"6.20000000",
+        "executedQty":"6.20000000",
+        "cummulativeQuoteQty":"10.1463",
+        "status":"FILLED",
+        "timeInForce":"GTC",
+        "type":"MARKET",
+        "side":"SELL",
+        "fills":[
+            {
+                "commissionAsset":"BNB",
+                "commission":"0.00001209",
+                "price":"1.6365",
+                "qty":"6.20000000",
+                "tradeId":5579228
+            }
+        ]
+    }"#;
+
+    #[tokio::test]
+    async fn test_convert() {
+        let ctx = BinanceContext::new();
+
+        // Expect to always return the value parameter
+        let value_usd = convert(&ctx, "USD", dec!(1234.5678), "USD").await.unwrap();
+        assert_eq!(value_usd, dec!(1234.5678));
+
+        // TODO: Need to "mock" get_avg_price so "BNB" asset always returns a specific value.
+        let value_usd = convert(&ctx, "BNB", dec!(1), "USD").await.unwrap();
+        // assert_eq!(value_usd, dec!(xxx))
+        assert!(value_usd > dec!(0));
+    }
+
+    #[tokio::test]
+    async fn test_convert_commission() {
+        let ctx = BinanceContext::new();
+        let order_response: FullTradeResponseRec =
+            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
+
+        // TODO: Need to "mock" get_avg_price so order_response.fills[0].commission_asset ("BNB") always returns a specific value.
+        let commission_usd = convert_commission(&ctx, &order_response, "USD")
+            .await
+            .unwrap();
+        // assert_eq!(commission_usd, dec!(xxx))
+        assert!(commission_usd > dec!(0));
+    }
+
+    #[tokio::test]
+    async fn test_log_order_response() {
+        let order_response: FullTradeResponseRec =
+            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
+        let order_resp = TradeResponse::SuccessFull(order_response);
+
+        // Create a cursor buffer and log to it
+        let mut buff = std::io::Cursor::new(vec![0; 100]);
+        log_order_response(&mut buff, &order_resp).unwrap();
+        buff.write_all(b"\n").unwrap();
+        let buff_len = buff.stream_position().unwrap();
+
+        // Convert to a string so we can inspect it easily, but we must seek to 0 first
+        let mut buff_string = String::with_capacity(100);
+        buff.seek(SeekFrom::Start(0)).unwrap();
+        let buff_string_len = buff
+            .read_to_string(&mut buff_string)
+            .unwrap()
+            .to_u64()
+            .unwrap();
+        //println!("buff: len: {} string: {}", buff_string_len, buff_string);
+
+        // The length of the string and buffer should be the same
+        assert_eq!(buff_len, buff_string_len);
+
+        // Check that it contains 1.6365.  This will assert if the rust_decimal
+        // feature, "serde-float", is enabled in Cargo.toml:
+        //   rust_decimal = { version = "1.12.4", features = ["serde-arbitrary-precision", "serde-float"] }
+        // As we see the following in buff_string:
+        //   "price":1.6364999999999998
+        //
+        // If "serde-float" is NOT enabled:
+        //   rust_decimal = { version = "1.12.4", features = ["serde-arbitrary-precision"] }
+        // then we see value "correct" price:
+        //   "price":"1.6364"
+        assert!(buff_string.contains("1.6365"));
+    }
 }
