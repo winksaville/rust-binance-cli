@@ -1,7 +1,11 @@
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use log::trace;
 
-use reqwest::{self, Response};
+use reqwest::{
+    self,
+    header::{HeaderMap, HeaderValue},
+    Response,
+};
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
 use strum_macros::IntoStaticStr;
@@ -95,17 +99,20 @@ impl Display for BinanceError {
     }
 }
 
-pub async fn post_req_get_response(
-    api_key: &str,
+/// A Low Level post req and get response
+pub async fn post_req_get_response_ll(
     url: &str,
+    headers_map: HeaderMap,
     body: &str,
 ) -> Result<Response, Box<dyn std::error::Error>> {
-    let req_builder = reqwest::Client::builder()
+    let mut req_builder = reqwest::Client::builder()
         //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
         .build()?
-        .post(url)
-        .header("X-MBX-APIKEY", api_key)
-        .body(body.to_owned());
+        .post(url);
+    if !headers_map.is_empty() {
+        req_builder = req_builder.headers(headers_map);
+    }
+    req_builder = req_builder.body(body.to_owned());
     trace!("req_builder={:#?}", req_builder);
 
     let response = req_builder.send().await?;
@@ -114,20 +121,48 @@ pub async fn post_req_get_response(
     Ok(response)
 }
 
-pub async fn get_req_get_response(
-    api_key: &str,
+/// A Low Level get req and get response
+pub async fn get_req_get_response_ll(
     url: &str,
+    headers_map: HeaderMap,
 ) -> Result<Response, Box<dyn std::error::Error>> {
-    let req_builder = reqwest::Client::builder()
+    let mut req_builder = reqwest::Client::builder()
         //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
         .build()?
-        .get(url)
-        .header("X-MBX-APIKEY", api_key);
-    trace!("req_builder={:#?}", req_builder);
+        .get(url);
+    if !headers_map.is_empty() {
+        req_builder = req_builder.headers(headers_map);
+    }
+    trace!("req_builder={:#?}", &req_builder);
 
     let response = req_builder.send().await?;
     trace!("response={:#?}", response);
 
+    Ok(response)
+}
+
+/// Binance post_req_get_response
+pub async fn post_req_get_response(
+    api_key: &str,
+    url: &str,
+    body: &str,
+) -> Result<Response, Box<dyn std::error::Error>> {
+    let mut headers = HeaderMap::new();
+    headers.insert("X-MBX-APIKEY", HeaderValue::from_str(api_key)?);
+
+    let response = post_req_get_response_ll(url, headers, body).await?;
+    Ok(response)
+}
+
+/// Binance get_req_get_response
+pub async fn get_req_get_response(
+    api_key: &str,
+    url: &str,
+) -> Result<Response, Box<dyn std::error::Error>> {
+    let mut headers = HeaderMap::new();
+    headers.insert("X-MBX-APIKEY", HeaderValue::from_str(api_key)?);
+
+    let response = get_req_get_response_ll(url, headers).await?;
     Ok(response)
 }
 
