@@ -358,7 +358,7 @@ mod test {
         // If "serde-float" is NOT enabled:
         //   rust_decimal = { version = "1.12.4", features = ["serde-arbitrary-precision"] }
         // then we see value "correct" price:
-        //   "price":"1.6364"
+        //   "price":"1.6365"
         assert!(buff_string.contains("1.6365"));
     }
 }
