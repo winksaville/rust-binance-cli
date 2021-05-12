@@ -16,25 +16,26 @@ use crate::{
     common::Side,
 };
 
-pub async fn sell_market(
+pub async fn market_order(
     ctx: &mut BinanceContext,
     ei: &ExchangeInfo,
     symbol_name: &str,
     quantity: Decimal,
+    side: Side,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut quantity = quantity;
     if quantity <= dec!(0.0) {
-        return Err(format!("Can't sell {} quantity", quantity).into());
+        return Err(format!("order {} quantity", quantity).into());
     }
     trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
     let symbol = match ei.get_symbol(&symbol_name) {
         Some(s) => s,
         None => {
-            return Err(format!("There is no asset named {} to sell", symbol_name).into());
+            return Err(format!("There is no asset named {}", symbol_name).into());
         }
     };
-    trace!("Got ei");
+    trace!("Got symbol");
 
     let ai = get_account_info(ctx).await?;
     trace!("Got AccountInfo");
@@ -54,18 +55,24 @@ pub async fn sell_market(
     // Verify MaxPosition
     verify_max_position(&ai, &open_orders, symbol, quantity)?;
 
-    verify_quanity_is_greater_than_free(&ai, symbol, quantity)?;
+    // Could use if matches!(side, Side::SELL) but this is safer is Side changes
+    match side {
+        Side::SELL => {
+            verify_quanity_is_greater_than_free(&ai, symbol, quantity)?;
+        }
+        Side::BUY => {}
+    }
 
     let response = binance_new_order_or_test(
         ctx,
         ei,
         &symbol_name,
-        Side::SELL,
+        side,
         TradeOrderType::Market(MarketQuantityType::Quantity(quantity)),
         false,
     )
     .await?;
-    println!("Sell reponse: {:#?}", response);
+    println!("market reponse: {:#?}", response);
 
     Ok(())
 }

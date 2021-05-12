@@ -5,10 +5,10 @@ mod binance_auto_sell;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
+mod binance_market;
 mod binance_my_trades;
 mod binance_order_response;
 mod binance_orders;
-mod binance_sell_market;
 mod binance_signature;
 mod binance_trade;
 mod binance_verify_order;
@@ -19,9 +19,10 @@ use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
+use binance_market::market_order;
 use binance_my_trades::{get_my_trades, Trades};
 use binance_orders::{get_all_orders, get_open_orders, Orders};
-use binance_sell_market::sell_market;
+use common::Side;
 
 use crate::binance_auto_sell::auto_sell;
 
@@ -65,12 +66,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    if !ctx.opts.sell.is_empty() {
+    if !ctx.opts.sell_market.is_empty() {
         let ei = &get_exchange_info(ctx).await?;
-        let symbol_name = &ctx.opts.sell.clone();
+        let symbol_name = &ctx.opts.sell_market.clone();
         let quantity = ctx.opts.quantity;
 
-        sell_market(ctx, ei, symbol_name, quantity).await?;
+        market_order(ctx, ei, symbol_name, quantity, Side::SELL).await?;
+    }
+
+    if !ctx.opts.buy_market.is_empty() {
+        let ei = &get_exchange_info(ctx).await?;
+        let symbol_name = &ctx.opts.buy_market.clone();
+        let quantity = ctx.opts.quantity;
+
+        market_order(ctx, ei, symbol_name, quantity, Side::BUY).await?;
     }
 
     if ctx.opts.get_account_info {

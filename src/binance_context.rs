@@ -43,7 +43,7 @@ pub struct Opts {
     )]
     pub order_log_path: PathBuf,
 
-    /// Symbol name such as; BNBUSD
+    /// Display the exchange info for -S SYMBOL
     #[structopt(short = "S", long, required = false, default_value)]
     pub symbol: String,
 
@@ -59,7 +59,7 @@ pub struct Opts {
     #[structopt(short = "A", long)]
     pub get_account_info: bool,
 
-    /// Get average price and display it, -P=BTCUSD
+    /// Get average price and display it, -P BTCUSD
     #[structopt(short = "P", long, required = false, default_value)]
     pub get_avg_price: String,
 
@@ -68,24 +68,28 @@ pub struct Opts {
     #[structopt(short = "O", long)]
     pub get_open_orders: Option<Option<String>>,
 
-    /// Get all orders, --all-orders <Optional SYMBOL>. If no SYMBOL
+    /// Get all orders, --get-all-orders <Optional SYMBOL>. If no SYMBOL
     /// return all orders (Expensive Weight: 5 * number of exchange symbols).
     #[structopt(long)]
     pub get_all_orders: Option<Option<String>>,
 
-    /// Get my trades, --my-trades SYMBOL.
+    /// Get my trades, -M SYMBOL.
     #[structopt(short = "M", long, required = false, default_value)]
     pub get_my_trades: String,
 
-    /// Sell Symbol, --sell=BNDUSD
+    /// Sell Symbol using MARKET order type, --sell-market BNDUSD
     #[structopt(long, required = false, default_value)]
-    pub sell: String,
+    pub sell_market: String,
+
+    /// Buy Symbol using MARKET order type, --buy-market BNDUSD
+    #[structopt(long, required = false, default_value)]
+    pub buy_market: String,
 
     /// Quantity to buy or sell
     #[structopt(long, required = false, default_value)]
     pub quantity: Decimal,
 
-    /// Auto Sell using config file, --auto-sell=data/wink-config-auto-sell.toml
+    /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
     #[structopt(long, required = false, default_value)]
     pub auto_sell: String,
 }
