@@ -5,11 +5,11 @@ use rust_decimal_macros::dec;
 
 use crate::{
     binance_account_info::AccountInfo, binance_avg_price::AvgPrice, binance_exchange_info::Symbol,
-    binance_open_orders::OpenOrders,
+    binance_orders::Orders,
 };
 
 pub fn verify_open_orders(
-    open_orders: &OpenOrders,
+    open_orders: &Orders,
     symbol: &Symbol,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("verify_open_orders");
@@ -72,7 +72,7 @@ pub fn verify_min_notional(
 
 pub fn verify_max_position(
     ai: &AccountInfo,
-    open_orders: &OpenOrders,
+    open_orders: &Orders,
     symbol: &Symbol,
     quantity: Decimal,
 ) -> Result<(), Box<dyn std::error::Error>> {

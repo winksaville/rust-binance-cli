@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenOrderRec {
+pub struct OrderRec {
     pub symbol: String,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub order_id: i64,
@@ -42,11 +42,11 @@ pub struct OpenOrderRec {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenOrders {
-    pub orders: Vec<OpenOrderRec>,
+pub struct Orders {
+    pub orders: Vec<OrderRec>,
 }
 
-impl OpenOrders {
+impl Orders {
     pub fn sum_buy_orders(&self) -> Decimal {
         let sum_buy_orders: Decimal = self
             .orders
@@ -68,7 +68,7 @@ impl OpenOrders {
 pub async fn get_open_orders(
     ctx: &BinanceContext,
     symbol: &str,
-) -> Result<OpenOrders, Box<dyn std::error::Error>> {
+) -> Result<Orders, Box<dyn std::error::Error>> {
     let secret_key = ctx.keys.secret_key.as_bytes();
     let api_key = &ctx.keys.api_key;
 
@@ -104,9 +104,9 @@ pub async fn get_open_orders(
     // Log the response
     let result = if response_status == 200 {
         trace!("response_body={}", response_body);
-        let orders: Vec<OpenOrderRec> = serde_json::from_str(&response_body)?;
+        let orders: Vec<OrderRec> = serde_json::from_str(&response_body)?;
 
-        let open_orders = OpenOrders { orders };
+        let open_orders = Orders { orders };
         trace!("open_orders={:?}", open_orders);
 
         Ok(open_orders)

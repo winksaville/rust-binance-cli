@@ -5,8 +5,8 @@ mod binance_auto_sell;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
-mod binance_open_orders;
 mod binance_order_response;
+mod binance_orders;
 mod binance_sell_market;
 mod binance_signature;
 mod binance_trade;
@@ -18,7 +18,7 @@ use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
-use binance_open_orders::{get_open_orders, OpenOrders};
+use binance_orders::{get_open_orders, Orders};
 use binance_sell_market::sell_market;
 
 use crate::binance_auto_sell::auto_sell;
@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None => "".to_string(),
         };
 
-        let oo: OpenOrders = get_open_orders(ctx, &symbol).await?;
+        let oo: Orders = get_open_orders(ctx, &symbol).await?;
         println!("oo: {:#?}\nsum_buy_orders: {}", oo, oo.sum_buy_orders());
     }
 

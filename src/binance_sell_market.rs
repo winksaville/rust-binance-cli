@@ -7,7 +7,7 @@ use crate::{
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_context::BinanceContext,
     binance_exchange_info::ExchangeInfo,
-    binance_open_orders::get_open_orders,
+    binance_orders::get_open_orders,
     binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType},
     binance_verify_order::{
         adj_quantity_verify_market_lot_size, verify_max_position, verify_min_notional,
