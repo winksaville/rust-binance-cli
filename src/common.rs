@@ -220,6 +220,10 @@ pub fn utc_now_to_time_ms() -> i64 {
     (Utc::now().timestamp_nanos() + 500_000) / 1_000_000
 }
 
+pub fn utc_to_time_ms(date_time: &DateTime<Utc>) -> i64 {
+    (date_time.timestamp_nanos() + 500_000) / 1_000_000
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -63,9 +63,15 @@ pub struct Opts {
     #[structopt(short = "P", long, required = false, default_value)]
     pub get_avg_price: String,
 
-    /// Get opend orders and display it, -O <Optional SYMBOL> if none return all open orders>
+    /// Get open orders, -O <Optional SYMBOL>. If no SYMBOL
+    /// return all open orders (Expensive Weight: 40).
     #[structopt(short = "O", long)]
     pub get_open_orders: Option<Option<String>>,
+
+    /// Get all orders, --all-orders <Optional SYMBOL>. If no SYMBOL
+    /// return all orders (Expensive Weight: 5 * number of exchange symbols).
+    #[structopt(long)]
+    pub get_all_orders: Option<Option<String>>,
 
     /// Sell Symbol, --sell=BNDUSD
     #[structopt(long, required = false, default_value)]

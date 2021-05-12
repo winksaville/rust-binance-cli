@@ -18,7 +18,7 @@ use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
-use binance_orders::{get_open_orders, Orders};
+use binance_orders::{get_all_orders, get_open_orders, Orders};
 use binance_sell_market::sell_market;
 
 use crate::binance_auto_sell::auto_sell;
@@ -89,6 +89,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let oo: Orders = get_open_orders(ctx, &symbol).await?;
         println!("oo: {:#?}\nsum_buy_orders: {}", oo, oo.sum_buy_orders());
+    }
+
+    if ctx.opts.get_all_orders.is_some() {
+        // TODO: Add support for getting order_id, start_date_time, end_date_time and limit
+        let symbol = match ctx.opts.get_all_orders.clone().unwrap() {
+            Some(s) => s.clone(),
+            None => "".to_string(),
+        };
+
+        if symbol.is_empty() {
+            let ei = get_exchange_info(ctx).await?;
+            for symbol in ei.symbols_map.values() {
+                let o: Orders = get_all_orders(ctx, &symbol.symbol, None, None, None, None).await?;
+                println!("o: {:#?}", o);
+            }
+        } else {
+            let o: Orders = get_all_orders(ctx, &symbol, None, None, None, None).await?;
+            println!("o: {:#?}", o);
+        }
     }
 
     trace!("main: -");

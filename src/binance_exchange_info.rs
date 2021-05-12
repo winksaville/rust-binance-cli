@@ -520,7 +520,7 @@ pub struct ExchangeInfo {
     pub rate_limits: HashMap<String, RateLimit>,
     #[serde(deserialize_with = "de_vec_symbols_to_hashmap")]
     #[serde(rename = "symbols")]
-    symbols_map: HashMap<String, Symbol>,
+    pub symbols_map: HashMap<String, Symbol>,
 }
 
 #[allow(unused)]

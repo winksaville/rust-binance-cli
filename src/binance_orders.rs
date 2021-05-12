@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use log::trace;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -7,8 +8,8 @@ use rust_decimal::prelude::*;
 use crate::{
     binance_context::BinanceContext,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::utc_now_to_time_ms,
     common::{self, get_req_get_response, BinanceError, ResponseErrorRec},
+    common::{utc_now_to_time_ms, utc_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -65,17 +66,15 @@ impl Orders {
     }
 }
 
-pub async fn get_open_orders(
+async fn orders_get_req_and_response(
     ctx: &BinanceContext,
-    symbol: &str,
+    cmd: &str,
+    mut params: Vec<(&str, &str)>,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
     let secret_key = ctx.keys.secret_key.as_bytes();
     let api_key = &ctx.keys.api_key;
 
-    let mut params = vec![("recvWindow", "5000")];
-    if !symbol.is_empty() {
-        params.push(("symbol", symbol));
-    }
+    params.push(("recvWindow", "5000"));
 
     let ts_string: String = format!("{}", utc_now_to_time_ms());
     params.push(("timestamp", ts_string.as_str()));
@@ -92,7 +91,7 @@ pub async fn get_open_orders(
     let query_string = String::from_utf8(query)?;
     trace!("query_string={}", &query_string);
 
-    let mut url = ctx.make_url("api", "/api/v3/openOrders?");
+    let mut url = ctx.make_url("api", &format!("/api/v3/{}?", cmd));
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
@@ -122,8 +121,8 @@ pub async fn get_open_orders(
         trace!(
             "{}",
             format!(
-                "binance_market_order_or_test: symbol={} order_resp={:#?}",
-                symbol, &binance_error_response
+                "binance_market_order_or_test: order_resp={:#?}",
+                &binance_error_response
             )
         );
 
@@ -131,6 +130,60 @@ pub async fn get_open_orders(
     };
 
     result
+}
+
+pub async fn get_all_orders(
+    ctx: &BinanceContext,
+    symbol: &str,
+    order_id: Option<u64>,
+    start_date_time: Option<DateTime<Utc>>,
+    end_date_time: Option<DateTime<Utc>>,
+    limit: Option<i64>,
+) -> Result<Orders, Box<dyn std::error::Error>> {
+    let mut params: Vec<(&str, &str)> = Vec::new();
+
+    if !symbol.is_empty() {
+        params.push(("symbol", symbol));
+    }
+
+    let id_string: String;
+    if let Some(id) = order_id {
+        id_string = id.to_string();
+        params.push(("orderId", &id_string));
+    }
+
+    let stms_string: String;
+    if let Some(sdt) = start_date_time {
+        stms_string = utc_to_time_ms(&sdt).to_string();
+        params.push(("startTime", &stms_string));
+    }
+
+    let etms_string: String;
+    if let Some(edt) = end_date_time {
+        etms_string = utc_to_time_ms(&edt).to_string();
+        params.push(("endTime", &etms_string));
+    }
+
+    let limit_string: String;
+    if let Some(l) = limit {
+        limit_string = l.to_string();
+        params.push(("limit", &limit_string));
+    }
+
+    orders_get_req_and_response(ctx, "allOrders", params).await
+}
+
+pub async fn get_open_orders(
+    ctx: &BinanceContext,
+    symbol: &str,
+) -> Result<Orders, Box<dyn std::error::Error>> {
+    let mut params: Vec<(&str, &str)> = Vec::new();
+
+    if !symbol.is_empty() {
+        params.push(("symbol", symbol));
+    }
+
+    orders_get_req_and_response(ctx, "openOrders", params).await
 }
 
 // TODO: Add some tests
