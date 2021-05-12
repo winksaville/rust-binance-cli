@@ -140,14 +140,14 @@ pub fn verify_quanity_is_greater_than_free(
     Ok(())
 }
 
-/// Adjust the quantity to adhere to MARKET_LOT_SIZE.step_size and then
-/// verify the adjusted quantity meets the MARKET_LOT_SIZE min and max.
-pub fn adj_quantity_verify_market_lot_size(
+/// Adjust the quantity to adhere to LOT_SIZE.step_size and then
+/// verify the adjusted quantity meets the LOT_SIZE min and max.
+pub fn adj_quantity_verify_lot_size(
     symbol: &Symbol,
     quantity: Decimal,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
-    trace!("adj_quantity_verify_market_lot_size");
-    match symbol.get_market_lot_size() {
+    trace!("adj_quantity_verify_lot_size");
+    match symbol.get_lot_size() {
         Some(mls) => {
             trace!("mls: {:?}", mls);
             let adj_qty = if mls.step_size > dec!(0) {
@@ -176,7 +176,7 @@ pub fn adj_quantity_verify_market_lot_size(
 
             if adj_qty < mls.min_qty {
                 return Err(format!(
-                    "adj_qty: {} must be >= {} MarketLotSize minimum quantity",
+                    "adj_qty: {} must be >= {} LotSize minimum quantity",
                     adj_qty, mls.min_qty,
                 )
                 .into());
@@ -185,7 +185,7 @@ pub fn adj_quantity_verify_market_lot_size(
 
             if adj_qty > mls.max_qty {
                 return Err(format!(
-                    "adj_qty: {} must be <= {} MarketLotSize maximum quantity",
+                    "adj_qty: {} must be <= {} LotSize maximum quantity",
                     adj_qty, mls.max_qty,
                 )
                 .into());
@@ -201,7 +201,7 @@ pub fn adj_quantity_verify_market_lot_size(
             Ok(adj_qty)
         }
         None => {
-            trace!("quantity ok, No market_lot_size for {}", symbol.base_asset);
+            trace!("quantity ok, No lot_size for {}", symbol.base_asset);
             Ok(quantity)
         }
     }
@@ -215,37 +215,37 @@ mod test {
 
     /// More testing needed on the bounds of min_qty, max_qty and step_size
     #[test]
-    fn test_adj_quantity_verify_market_lot_size() {
+    fn test_adj_quantity_verify_lot_size() {
         let symbol: Symbol = serde_json::from_str(SYMBOL_DATA).unwrap();
         //println!("symbols: {:#?}", symbol);
         let mut quantity = dec!(1.0000009);
-        let mut adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
+        let mut adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(1.000000));
 
         quantity = dec!(1.000001);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(1.000001));
 
         quantity = dec!(1.0000014);
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(1.000001));
 
         quantity = dec!(1.0000019999999999999999999999); // OK
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity); // ""
         assert_eq!(adj_quantity, dec!(1.000001));
 
         quantity = dec!(1.00000199999999999999999999999); // FAILS
-        adj_quantity = adj_quantity_verify_market_lot_size(&symbol, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(1.000002)); // Unexpected but probably OK
 
         // Test max_qty
-        fn set_market_lot_size_max_qty(symbol: &mut Symbol, max_qty: Decimal) {
-            match symbol.get_mut_market_lot_size() {
+        fn set_lot_size_max_qty(symbol: &mut Symbol, max_qty: Decimal) {
+            match symbol.get_mut_lot_size() {
                 Some(sr) => {
                     sr.max_qty = max_qty;
                 }
@@ -254,20 +254,20 @@ mod test {
         }
 
         let mut s = symbol.clone();
-        set_market_lot_size_max_qty(&mut s, dec!(999999999999999999999999999));
+        set_lot_size_max_qty(&mut s, dec!(999999999999999999999999999));
         //quantity = dec!(9999999999999999999999.000001); //no ..999.000002
         quantity = dec!(999999999999999999999.000001); // ..999.000001
-        adj_quantity = adj_quantity_verify_market_lot_size(&s, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&s, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(999999999999999999999.000001));
 
         quantity = dec!(999999999999999999999.0000019);
-        adj_quantity = adj_quantity_verify_market_lot_size(&s, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&s, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(999999999999999999999.000001));
 
         quantity = dec!(999999999999999999999.00000199); // FAILS
-        adj_quantity = adj_quantity_verify_market_lot_size(&s, quantity).unwrap();
+        adj_quantity = adj_quantity_verify_lot_size(&s, quantity).unwrap();
         println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
         assert_eq!(adj_quantity, dec!(999999999999999999999.000002)); // Unexpected but probably OK
     }

@@ -168,9 +168,9 @@ impl SymbolFilters {
         }
     }
 
-    pub fn get_mut_market_lot_size(&mut self) -> Option<&mut SizeRec> {
+    pub fn get_mut_lot_size(&mut self) -> Option<&mut SizeRec> {
         match self {
-            SymbolFilters::MarketLotSize(sr) => Some(sr),
+            SymbolFilters::LotSize(sr) => Some(sr),
             _ => None,
         }
     }
@@ -311,10 +311,9 @@ impl Symbol {
         self.filters_map.get("MarketLotSize")?.get_market_lot_size()
     }
 
-    pub fn get_mut_market_lot_size(&mut self) -> Option<&mut SizeRec> {
-        self.filters_map
-            .get_mut("MarketLotSize")?
-            .get_mut_market_lot_size()
+    // Used for testing only
+    pub fn get_mut_lot_size(&mut self) -> Option<&mut SizeRec> {
+        self.filters_map.get_mut("LotSize")?.get_mut_lot_size()
     }
 
     pub fn get_price_filter(&self) -> Option<&PriceFilterRec> {

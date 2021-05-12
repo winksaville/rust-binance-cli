@@ -10,8 +10,8 @@ use crate::{
     binance_orders::get_open_orders,
     binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType},
     binance_verify_order::{
-        adj_quantity_verify_market_lot_size, verify_max_position, verify_min_notional,
-        verify_open_orders, verify_quanity_is_greater_than_free,
+        adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
+        verify_quanity_is_greater_than_free,
     },
     common::Side,
 };
@@ -45,8 +45,8 @@ pub async fn market_order(
     // Verify the maximum number of orders isn't exceeded.
     verify_open_orders(&open_orders, symbol)?;
 
-    // Adjust quantity and verify the quantity meets the MarketLotSize criteria
-    quantity = adj_quantity_verify_market_lot_size(symbol, quantity)?;
+    // Adjust quantity and verify the quantity meets the LotSize criteria
+    quantity = adj_quantity_verify_lot_size(symbol, quantity)?;
 
     // Verify the quantity meets the min_notional criteria
     let avg_price: AvgPrice = get_avg_price(ctx, &symbol.symbol).await?;
