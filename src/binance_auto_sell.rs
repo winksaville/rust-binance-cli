@@ -100,22 +100,58 @@ pub async fn auto_sell(
     ctx.keys.secret_key = config.secret_key.clone();
     let ctx = &ctx;
 
-    let ai = get_account_info(ctx).await?;
-    // ai.print(ctx).await;
+    let mut ai = get_account_info(ctx).await?;
+    ai.update_values(&ctx).await;
+    //ai.print().await;
+
+    #[derive(Default)]
+    struct KeepRec {
+        asset: String,
+        owned_qty: Decimal,
+        sell_value: Decimal,
+        sell_qty: Decimal,
+        keep_value: Decimal,
+        keep_qty: Decimal,
+    }
+
+    let mut vec_keep_rec = Vec::new();
     for balance in ai.balances_map.values() {
         let owned_qty = balance.free + balance.locked;
         if owned_qty > dec!(0) {
             if let Some(keeping) = config.keep.get(&balance.asset) {
-                let sell_qty = owned_qty - keeping.min;
-                if sell_qty > dec!(0) {
-                    println!("selling: {} of {:?}", sell_qty, balance);
+                let keep_qty = if keeping.min < Decimal::MAX {
+                    keeping.min
                 } else {
-                    //println!("keeping: {:?} based on {:?}", balance, keeping);
-                    println!("keeping: {:?}", balance);
-                }
+                    owned_qty
+                };
+                let sell_qty = owned_qty - keep_qty;
+                vec_keep_rec.push(KeepRec {
+                    asset: balance.asset.clone(),
+                    owned_qty,
+                    sell_value: (sell_qty / owned_qty) * balance.value,
+                    sell_qty,
+                    keep_value: (keep_qty / owned_qty) * balance.value,
+                    keep_qty,
+                });
             } else {
-                println!("selling: {} of {:?}", balance.free, balance);
+                println!(
+                    "Selling {:18.6} of {:6} worth ${:10.2} keeping none",
+                    owned_qty, balance.asset, balance.value
+                );
             }
+        }
+    }
+    for kr in vec_keep_rec {
+        if kr.sell_qty > dec!(0) {
+            println!(
+                "Keeping {:18.6} of {:6} worth ${:10.2} selling {} worth ${:10.2}",
+                kr.keep_qty, kr.asset, kr.keep_value, kr.sell_qty, kr.sell_value
+            );
+        } else {
+            println!(
+                "Keeping {:18.6} of {:6} worth ${:10.2} selling none",
+                kr.owned_qty, kr.asset, kr.keep_value
+            );
         }
     }
 

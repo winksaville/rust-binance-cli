@@ -72,8 +72,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if ctx.opts.get_account_info {
-        let ai = get_account_info(ctx).await?;
-        ai.print(ctx).await;
+        let mut ai = get_account_info(ctx).await?;
+        ai.update_and_print(ctx).await;
     }
 
     if !ctx.opts.get_avg_price.is_empty() {

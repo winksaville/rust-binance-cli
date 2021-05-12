@@ -2,7 +2,7 @@ use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 
 use crate::{
     binance_avg_price::get_avg_price,
@@ -18,25 +18,25 @@ use crate::binance_context::BinanceContext;
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
 pub fn de_vec_balances_to_hashmap<'de, D>(
     deserializer: D,
-) -> Result<HashMap<String, Balance>, D::Error>
+) -> Result<BTreeMap<String, Balance>, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct ItemsVisitor;
 
     impl<'de> Visitor<'de> for ItemsVisitor {
-        type Value = HashMap<String, Balance>;
+        type Value = BTreeMap<String, Balance>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             formatter.write_str("a sequence of items")
         }
 
-        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, Balance>, V::Error>
+        fn visit_seq<V>(self, mut seq: V) -> Result<BTreeMap<String, Balance>, V::Error>
         where
             V: SeqAccess<'de>,
         {
-            let mut map: HashMap<String, Balance> =
-                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+            let mut map: BTreeMap<String, Balance> = BTreeMap::new();
+            //BTreeMap::with_capacity(seq.size_hint().unwrap_or(0));
 
             while let Some(item) = seq.next_element::<Balance>()? {
                 // println!("item={:#?}", item);
@@ -75,24 +75,13 @@ pub struct AccountInfo {
     pub permissions: Vec<String>,
     #[serde(deserialize_with = "de_vec_balances_to_hashmap")]
     #[serde(rename = "balances")]
-    pub balances_map: HashMap<String, Balance>,
+    pub balances_map: BTreeMap<String, Balance>,
 }
 
 impl AccountInfo {
-    pub async fn print(&self, ctx: &BinanceContext) {
-        println!("     account_type: {}", self.account_type);
-        println!("      can_deposit: {}", self.can_deposit);
-        println!("        can_trade: {}", self.can_trade);
-        println!("     can_withdraw: {}", self.can_withdraw);
-        println!(" buyer_commission: {}", self.buyer_commission);
-        println!(" maker_commission: {}", self.maker_commission);
-        println!("seller_commission: {}", self.seller_commission);
-        println!(" taker_commission: {}", self.taker_commission);
-        println!("      update_time: {}", time_ms_to_utc(self.update_time));
-        println!("      permissions: {:?}", self.permissions);
-        let mut vec_balance: Vec<Balance> = Vec::with_capacity(self.balances_map.len());
+    pub async fn update_values(&mut self, ctx: &BinanceContext) -> Decimal {
         let mut total_value = dec!(0);
-        for balance in self.balances_map.values() {
+        for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
@@ -106,21 +95,45 @@ impl AccountInfo {
                 } else {
                     dec!(1)
                 };
-                let value = price * balance.free + balance.locked;
-                let mut b = balance.clone();
-                b.value = value;
-                vec_balance.push(b);
-                total_value += value;
+                balance.value = price * balance.free + balance.locked;
+                total_value += balance.value;
             }
         }
-        vec_balance.sort();
-        for balance in vec_balance {
-            println!(
-                "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
-                balance.asset, balance.value, balance.free, balance.locked
-            );
+
+        total_value
+    }
+
+    pub fn print_header_fields(&mut self) {
+        println!("     account_type: {}", self.account_type);
+        println!("      can_deposit: {}", self.can_deposit);
+        println!("        can_trade: {}", self.can_trade);
+        println!("     can_withdraw: {}", self.can_withdraw);
+        println!(" buyer_commission: {}", self.buyer_commission);
+        println!(" maker_commission: {}", self.maker_commission);
+        println!("seller_commission: {}", self.seller_commission);
+        println!(" taker_commission: {}", self.taker_commission);
+        println!("      update_time: {}", time_ms_to_utc(self.update_time));
+        println!("      permissions: {:?}", self.permissions);
+    }
+
+    pub async fn print(&mut self) {
+        self.print_header_fields();
+        let mut total_value = dec!(0);
+        for balance in self.balances_map.values() {
+            if balance.value > dec!(0) {
+                total_value += balance.value;
+                println!(
+                    "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
+                    balance.asset, balance.value, balance.free, balance.locked
+                );
+            }
         }
         println!("total: ${:.2}", total_value);
+    }
+
+    pub async fn update_and_print(&mut self, ctx: &BinanceContext) {
+        self.update_values(ctx).await;
+        self.print().await;
     }
 }
 
