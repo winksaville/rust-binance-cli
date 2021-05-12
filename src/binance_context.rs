@@ -73,6 +73,10 @@ pub struct Opts {
     #[structopt(long)]
     pub get_all_orders: Option<Option<String>>,
 
+    /// Get my trades, --my-trades SYMBOL.
+    #[structopt(short = "M", long, required = false, default_value)]
+    pub get_my_trades: String,
+
     /// Sell Symbol, --sell=BNDUSD
     #[structopt(long, required = false, default_value)]
     pub sell: String,

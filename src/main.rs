@@ -5,6 +5,7 @@ mod binance_auto_sell;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
+mod binance_my_trades;
 mod binance_order_response;
 mod binance_orders;
 mod binance_sell_market;
@@ -18,6 +19,7 @@ use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::BinanceContext;
 use binance_exchange_info::get_exchange_info;
+use binance_my_trades::{get_my_trades, Trades};
 use binance_orders::{get_all_orders, get_open_orders, Orders};
 use binance_sell_market::sell_market;
 
@@ -108,6 +110,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let o: Orders = get_all_orders(ctx, &symbol, None, None, None, None).await?;
             println!("o: {:#?}", o);
         }
+    }
+
+    if !ctx.opts.get_my_trades.is_empty() {
+        let mt: Trades =
+            get_my_trades(ctx, &ctx.opts.get_my_trades, None, None, None, None).await?;
+        println!("mt: {:#?}", mt);
     }
 
     trace!("main: -");
