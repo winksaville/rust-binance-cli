@@ -92,6 +92,10 @@ pub struct Opts {
     /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
     #[structopt(long, required = false, default_value)]
     pub auto_sell: String,
+
+    /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
+    #[structopt(short = "D", long, required = false, default_value)]
+    pub display_order_log: String,
 }
 
 #[derive(Debug, Clone)]

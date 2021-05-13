@@ -1,3 +1,9 @@
+use std::{
+    fs::OpenOptions,
+    io::{BufRead, BufReader},
+    path::Path,
+};
+
 use log::trace;
 
 mod binance_account_info;
@@ -24,7 +30,7 @@ use binance_my_trades::{get_my_trades, Trades};
 use binance_orders::{get_all_orders, get_open_orders, Orders};
 use common::Side;
 
-use crate::binance_auto_sell::auto_sell;
+use crate::{binance_auto_sell::auto_sell, binance_order_response::TradeResponse};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -125,6 +131,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mt: Trades =
             get_my_trades(ctx, &ctx.opts.get_my_trades, None, None, None, None).await?;
         println!("mt: {:#?}", mt);
+    }
+
+    if !ctx.opts.display_order_log.is_empty() {
+        let log_file = Path::new(&ctx.opts.display_order_log);
+        let file = OpenOptions::new().read(true).open(log_file)?;
+        let reader = BufReader::new(&file);
+        for line in reader.lines() {
+            let tr: TradeResponse = serde_json::from_str(&line?)?;
+            println!("{:#?}", tr);
+        }
     }
 
     trace!("main: -");
