@@ -1,4 +1,3 @@
-//use chrono::Utc;
 use log::trace;
 
 use rust_decimal::prelude::*;
@@ -56,36 +55,13 @@ fn order_log_file(order_log_path: &Path) -> Result<File, Box<dyn std::error::Err
 }
 
 fn log_order_response<W: Write>(
-    writer: &mut W,
+    mut writer: &mut W,
     order_response: &TradeResponse,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    serde_json::to_writer(writer, order_response)?;
-    //writer.write_all(b"\n")?;
+    serde_json::to_writer(&mut writer, order_response)?;
+    writer.write_all(b"\n")?;
     Ok(())
 }
-
-// Enabling writer.write_all(b"\n")?; above fails instead
-// I have to have the write_all follow the log_order_resposne()
-//
-// $ cargo c
-//     Checking binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
-// error[E0382]: borrow of moved value: `writer`
-//   --> src/binance_trade.rs:63:5
-//    |
-// 59 |     writer: &mut W,
-//    |     ------ move occurs because `writer` has type `&mut W`, which does not implement the `Copy` trait
-// ...
-// 62 |     serde_json::to_writer(writer, order_response)?;
-//    |                           ------ value moved here
-// 63 |     writer.write_all(b"\n")?;
-//    |     ^^^^^^ value borrowed here after move
-//
-// error: aborting due to previous error
-//
-// For more information about this error, try `rustc --explain E0382`.
-// error: could not compile `binance-auto-sell`
-//
-// To learn more, run the command again with --verbose.
 
 #[allow(unused)]
 async fn convert(
@@ -146,7 +122,6 @@ pub async fn binance_new_order_or_test(
     order_type: TradeOrderType,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    //let mut ol = OrderLogger::use_file(&ctx.opts.order_log_path)?;
     let mut writer = order_log_file(&ctx.opts.order_log_path)?;
 
     let ei_symbol = match ei.get_symbol(symbol) {
@@ -235,7 +210,6 @@ pub async fn binance_new_order_or_test(
             order_resp
         );
         log_order_response(&mut writer, &order_resp)?;
-        writer.write_all(b"\n")?;
 
         Ok(order_resp)
     } else {
@@ -249,7 +223,6 @@ pub async fn binance_new_order_or_test(
         let order_resp = TradeResponse::Failure(binance_error_response.clone());
 
         log_order_response(&mut writer, &order_resp)?;
-        writer.write_all(b"\n")?;
 
         trace!(
             "{}",
@@ -333,7 +306,6 @@ mod test {
         // Create a cursor buffer and log to it
         let mut buff = std::io::Cursor::new(vec![0; 100]);
         log_order_response(&mut buff, &order_resp).unwrap();
-        buff.write_all(b"\n").unwrap();
         let buff_len = buff.stream_position().unwrap();
 
         // Convert to a string so we can inspect it easily, but we must seek to 0 first
