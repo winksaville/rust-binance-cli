@@ -2,10 +2,37 @@ use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
+use semver::Version;
 
 use crate::de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64};
 
 use crate::common::{BinanceError, OrderType};
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InternalErrorRec {
+    pub code: i64,
+    pub file: String,
+    pub line: String,
+    pub message: String,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeaderRec {
+    pub app_version: Version,
+    pub rec_version: Option<Version>,
+    #[serde(default)]
+    pub test: Option<bool>,
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub value_usd: Option<Decimal>,
+    #[serde(default)]
+    pub commission_usd: Option<Decimal>,
+    #[serde(default)]
+    pub internal_errors: Vec<String>,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -373,5 +400,122 @@ mod test {
         assert_eq!(order_response.query, "a_unknown_query");
         assert_eq!(order_response.response_body, "a body with unknown contents");
         assert_eq!(order_response.error_internal, "some error message");
+    }
+
+    #[test]
+    fn test_order_response_semver() {
+        let ver = Version::parse("1.2.3-alpha1+1234").unwrap();
+        println!("ver:         {:?}", ver);
+        let ver_json = serde_json::to_string(&ver).unwrap();
+        println!("ver_json:    {:?}", ver_json);
+        let ver_json_de: Version = serde_json::from_str(&ver_json).unwrap();
+        println!("ver_json_de: {:?}", ver_json_de);
+        assert_eq!(ver, ver_json_de);
+    }
+
+    const HEADER_REC_MIN: &str = r#"{
+        "appVersion":"1.2.3-alpha1+1234"
+    }"#;
+    //    "Version":"1.2.3-alpha1+1234",
+    //    pub rec_version: Option<Version>,
+    //    #[serde(default)]
+    //    pub test: Option<bool>,
+    //    #[serde(default)]
+    //    pub query: Option<String>,
+    //    #[serde(default)]
+    //    pub value_usd: Option<Decimal>,
+    //    #[serde(default)]
+    //    pub commission_usd: Option<Decimal>,
+    //    #[serde(default)]
+    //    pub internal_errors: Vec<String>,
+    //"#;
+
+    #[test]
+    fn test_order_response_header_rec_min() {
+        let hr: HeaderRec = serde_json::from_str(HEADER_REC_MIN).unwrap();
+        println!("hr: {:?}", hr);
+        println!("app_version: {:?}", hr.app_version);
+        let expected = Version::parse("1.2.3-alpha1+1234").unwrap();
+        println!("expected:    {:?}", expected);
+        assert!(expected == hr.app_version);
+        assert!(None == hr.rec_version);
+        assert!(None == hr.test);
+        assert!(None == hr.query);
+        assert!(None == hr.value_usd);
+        assert!(None == hr.commission_usd);
+        assert!(hr.internal_errors.is_empty());
+    }
+
+    const HEADER_REC_APP_REC_VERSIONS: &str = r#"{
+        "appVersion":"1.2.3-alpha1+1234",
+        "recVersion":"3.2.1-beta2+9e0cec6"
+    }"#;
+    //    pub rec_version: Option<Version>,
+    //    #[serde(default)]
+    //    pub test: Option<bool>,
+    //    #[serde(default)]
+    //    pub query: Option<String>,
+    //    #[serde(default)]
+    //    pub value_usd: Option<Decimal>,
+    //    #[serde(default)]
+    //    pub commission_usd: Option<Decimal>,
+    //    #[serde(default)]
+    //    pub internal_errors: Vec<String>,
+    //}"#;
+
+    #[test]
+    fn test_order_response_header_rec_app_rec_versions() {
+        let hr: HeaderRec = serde_json::from_str(HEADER_REC_APP_REC_VERSIONS).unwrap();
+        println!("hr: {:?}", hr);
+
+        println!("app_version: {:?}", hr.app_version);
+        let expected = Version::parse("1.2.3-alpha1+1234").unwrap();
+        println!("expected:    {:?}", expected);
+        assert!(expected == hr.app_version);
+
+        println!("rec_version: {:?}", hr.rec_version);
+        let expected = Some(Version::parse("3.2.1-beta2+9e0cec6").unwrap());
+        println!("expected:    {:?}", expected);
+        assert!(expected == hr.rec_version);
+        assert!(None == hr.test);
+        assert!(None == hr.query);
+        assert!(None == hr.value_usd);
+        assert!(None == hr.commission_usd);
+        assert!(hr.internal_errors.is_empty());
+    }
+
+    const HEADER_REC_MAX: &str = r#"{
+        "appVersion":"1.2.3-alpha1+1234",
+        "recVersion":"3.2.1-beta2+9e0cec6",
+        "test":false,
+        "query":"A query string",
+        "valueUsd":"123.456",
+        "commissionUsd":"1",
+        "internalErrors": [
+            "abc",
+            "def"
+        ]
+    }"#;
+
+    #[test]
+    fn test_order_response_header_rec_max() {
+        let hr: HeaderRec = serde_json::from_str(HEADER_REC_MAX).unwrap();
+        println!("hr: {:?}", hr);
+
+        let expected = Version::parse("1.2.3-alpha1+1234").unwrap();
+        assert!(expected == hr.app_version);
+
+        let expected = Some(Version::parse("3.2.1-beta2+9e0cec6").unwrap());
+        assert!(expected == hr.rec_version);
+        let expected = Some(false);
+        assert!(expected == hr.test);
+        let expected = Some("A query string".to_string());
+        assert!(expected == hr.query);
+        let expected = Some(dec!(123.456));
+        assert!(expected == hr.value_usd);
+        let expected = Some(dec!(1));
+        assert!(expected == hr.commission_usd);
+        let expected = vec!["abc", "def"];
+        assert!(expected == hr.internal_errors);
     }
 }
