@@ -12,7 +12,10 @@ use crate::{
     binance_avg_price::get_avg_price,
     binance_context::BinanceContext,
     binance_exchange_info::ExchangeInfo,
-    binance_order_response::{FullTradeResponseRec, TradeResponse},
+    binance_order_response::{
+        AckTradeResponseRec, FullTradeResponseRec, ResultTradeResponseRec, TradeResponse,
+        UnknownTradeResponseRec,
+    },
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{post_req_get_response, utc_now_to_time_ms, BinanceError, ResponseErrorRec, Side},
 };
@@ -139,6 +142,9 @@ pub async fn binance_new_order_or_test(
         ("recvWindow", "5000"),
         ("symbol", symbol),
         ("side", side_str),
+        ("newOrderRespType", "FULL"), // Manually tested, "FULL", "RESULT", "ACK" and "XYZ".
+                                      // making ADAUSD buys. "XYZ" generated an error which
+                                      // was handled properly.
     ];
 
     let astring: String;
@@ -183,25 +189,71 @@ pub async fn binance_new_order_or_test(
 
     // Log the response
     let result = if response_status == 200 {
-        let mut order_resp_success = FullTradeResponseRec::default();
-        if !test {
-            order_resp_success = serde_json::from_str(&&response_body)?;
-        } else {
-            order_resp_success.test = true;
-        }
+        let order_resp = match serde_json::from_str::<FullTradeResponseRec>(&response_body) {
+            Ok(mut full) => {
+                full.test = test;
+                full.query = query_string.clone();
+                full.value_usd = if full.cummulative_quote_qty > dec!(0) {
+                    // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
+                    convert(
+                        ctx,
+                        &ei_symbol.quote_asset,
+                        full.cummulative_quote_qty,
+                        "USD",
+                    )
+                    .await?
+                } else {
+                    dec!(0)
+                };
+                full.commission_usd = if !full.fills.is_empty() {
+                    // TODO: Erroring is wrong, maybe dec!(0) and an error alert sent to the programmer!
+                    convert_commission(&ctx, &full, "USD").await?
+                } else {
+                    dec!(0)
+                };
 
-        order_resp_success.query = query_string;
-        order_resp_success.value_usd = convert(
-            ctx,
-            &ei_symbol.quote_asset,
-            order_resp_success.cummulative_quote_qty,
-            "USD",
-        )
-        .await?;
-        order_resp_success.commission_usd =
-            convert_commission(&ctx, &order_resp_success, "USD").await?;
+                TradeResponse::SuccessFull(full)
+            }
+            Err(_) => match serde_json::from_str::<ResultTradeResponseRec>(&response_body) {
+                Ok(mut result) => {
+                    result.test = test;
+                    result.query = query_string.clone();
+                    result.value_usd = if result.status.eq("FILLED") {
+                        // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
+                        convert(
+                            ctx,
+                            &ei_symbol.quote_asset,
+                            result.cummulative_quote_qty,
+                            "USD",
+                        )
+                        .await?
+                    } else {
+                        dec!(0)
+                    };
+                    result.commission_usd = dec!(0);
 
-        let order_resp = TradeResponse::SuccessFull(order_resp_success);
+                    TradeResponse::SuccessResult(result)
+                }
+                Err(_) => match serde_json::from_str::<AckTradeResponseRec>(&response_body) {
+                    Ok(mut ack) => {
+                        ack.test = test;
+                        ack.query = query_string.clone();
+                        TradeResponse::SuccessAck(ack)
+                    }
+                    Err(e) => {
+                        let unknown = UnknownTradeResponseRec {
+                            test,
+                            query: query_string,
+                            response_body,
+                            error_internal: e.to_string(),
+                        };
+
+                        TradeResponse::SuccessUnknown(unknown)
+                    }
+                },
+            },
+        };
+
         trace!(
             "binance_market_order_or_test: symbol={} side={} test={} order_response={:#?}",
             symbol,
@@ -209,6 +261,7 @@ pub async fn binance_new_order_or_test(
             test,
             order_resp
         );
+        // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
         log_order_response(&mut writer, &order_resp)?;
 
         Ok(order_resp)
@@ -222,6 +275,7 @@ pub async fn binance_new_order_or_test(
         let binance_error_response = BinanceError::Response(response_error_rec);
         let order_resp = TradeResponse::Failure(binance_error_response.clone());
 
+        // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
         log_order_response(&mut writer, &order_resp)?;
 
         trace!(
@@ -244,7 +298,7 @@ mod test {
 
     use super::*;
 
-    const FULL_TRADE_RESPONSE_REC_SUCCESS_FULL: &str = r#"{
+    const SUCCESS_FULL: &str = r#"{
         "symbol":"ADAUSD",
         "clientOrderId":"2K956RjiRG7mJfk06skarQ",
         "orderId":108342146,
@@ -286,8 +340,7 @@ mod test {
     #[tokio::test]
     async fn test_convert_commission() {
         let ctx = BinanceContext::new();
-        let order_response: FullTradeResponseRec =
-            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
+        let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
 
         // TODO: Need to "mock" get_avg_price so order_response.fills[0].commission_asset ("BNB") always returns a specific value.
         let commission_usd = convert_commission(&ctx, &order_response, "USD")
@@ -299,8 +352,7 @@ mod test {
 
     #[tokio::test]
     async fn test_log_order_response() {
-        let order_response: FullTradeResponseRec =
-            serde_json::from_str(FULL_TRADE_RESPONSE_REC_SUCCESS_FULL).unwrap();
+        let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
         let order_resp = TradeResponse::SuccessFull(order_response);
 
         // Create a cursor buffer and log to it
