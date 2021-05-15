@@ -28,7 +28,7 @@ use binance_exchange_info::get_exchange_info;
 use binance_market::market_order;
 use binance_my_trades::{get_my_trades, Trades};
 use binance_orders::{get_all_orders, get_open_orders, Orders};
-use common::{InternalErrorRec, Side};
+use common::Side;
 
 extern crate function_name;
 use function_name::named;
@@ -127,8 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(sym_name) = &ctx.opts.get_my_trades {
-        let mt: Trades =
-            get_my_trades(ctx, sym_name, None, None, None, None).await?;
+        let mt: Trades = get_my_trades(ctx, sym_name, None, None, None, None).await?;
         println!("mt: {:#?}", mt);
     }
 
@@ -141,7 +140,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let ie = ie_new!(0, "OK");
-    trace!("main: - {:?}", ie);
+    trace!("main: -");
     Ok(())
 }
