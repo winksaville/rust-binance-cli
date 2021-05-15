@@ -28,10 +28,14 @@ use binance_exchange_info::get_exchange_info;
 use binance_market::market_order;
 use binance_my_trades::{get_my_trades, Trades};
 use binance_orders::{get_all_orders, get_open_orders, Orders};
-use common::Side;
+use common::{InternalErrorRec, Side};
+
+extern crate function_name;
+use function_name::named;
 
 use crate::{binance_auto_sell::auto_sell, binance_order_response::TradeResponse};
 
+#[named]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -143,6 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    trace!("main: -");
+    let ie = ie_new!(0, "OK");
+    trace!("main: - {:?}", ie);
     Ok(())
 }

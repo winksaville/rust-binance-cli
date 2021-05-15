@@ -14,6 +14,36 @@ use serde::{Deserialize, Serialize};
 
 use crate::de_string_or_number::de_string_or_number_to_i64;
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InternalErrorRec {
+    pub code: u32,
+    pub line: u32,
+    pub fn_name: String,
+    pub file: String,
+    pub message: String,
+}
+
+impl InternalErrorRec {
+    #[allow(unused)]
+    pub fn new(code: u32, line: u32, fn_name: &str, file: &str, message: &str) -> Self {
+        InternalErrorRec {
+            code,
+            line,
+            fn_name: String::from(fn_name),
+            file: String::from(file),
+            message: String::from(message),
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! ie_new {
+    ( $c:expr, $m:expr ) => {
+        InternalErrorRec::new($c, std::line!(), function_name!(), std::file!(), $m);
+    };
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, IntoStaticStr)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
@@ -229,6 +259,8 @@ mod test {
     use super::*;
     use std::time::Instant;
 
+    use function_name::named;
+
     #[test]
     fn test_binance_response_error_rec() {
         const RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
@@ -307,5 +339,16 @@ mod test {
         // The duration.as_millis should be < 2ms. But with Tarpaulin
         // I've seen durations over 4ms so we skip this test.
         // assert!(duration.as_millis() < 2);
+    }
+
+    #[test]
+    #[named]
+    fn test_internal_error() {
+        let ie1 = ie_new!(1, "err 1");
+        println!("{:#?}", ie1);
+        assert_eq!(ie1.code, 1);
+        assert_eq!(ie1.line, line!() - 3);
+        assert_eq!(ie1.fn_name, "test_internal_error");
+        assert_eq!(ie1.file, file!());
     }
 }

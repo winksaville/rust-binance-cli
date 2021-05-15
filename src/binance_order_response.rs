@@ -8,15 +8,6 @@ use crate::de_string_or_number::{de_string_or_number_to_i64, de_string_or_number
 
 use crate::common::{BinanceError, OrderType};
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InternalErrorRec {
-    pub code: i64,
-    pub file: String,
-    pub line: String,
-    pub message: String,
-}
-
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeaderRec {
