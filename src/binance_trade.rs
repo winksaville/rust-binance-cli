@@ -118,7 +118,7 @@ async fn convert_commission(
 }
 
 pub async fn binance_new_order_or_test(
-    ctx: &mut BinanceContext,
+    ctx: &BinanceContext,
     ei: &ExchangeInfo,
     symbol: &str,
     side: Side,

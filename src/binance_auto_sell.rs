@@ -85,7 +85,6 @@ pub async fn auto_sell(
     config_file: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("auto_sell:+ config_file: {}", config_file);
-    assert!(ctx.opts.auto_sell.eq(config_file));
 
     // Get the file contents and deserialize to ConfigAutoSell
     let config_string: String = fs::read_to_string(config_file).await?;

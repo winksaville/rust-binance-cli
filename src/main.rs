@@ -41,11 +41,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     trace!("main: +");
 
-    let ctx = &mut BinanceContext::new();
+    let ctx = &BinanceContext::new();
 
     if std::env::args().len() == 1 {
         let args: Vec<String> = std::env::args().collect();
-        let prog_name = std::path::Path::new(&args[0]).file_name();
+        let prog_name = Path::new(&args[0]).file_name();
         let name = match prog_name {
             Some(pn) => match pn.to_str() {
                 Some(n) => n,
@@ -57,8 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    if !ctx.opts.auto_sell.is_empty() {
-        let config_file = &ctx.opts.auto_sell;
+    if let Some(config_file) = &ctx.opts.auto_sell {
         auto_sell(ctx, config_file).await?;
     }
 
@@ -67,29 +66,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("ei={:#?}", ei);
     }
 
-    if !ctx.opts.symbol.is_empty() {
+    if let Some(sym_name) = &ctx.opts.symbol {
         let ei = get_exchange_info(ctx).await?;
-        let sym = ei.get_symbol(&ctx.opts.symbol);
-        match sym {
-            Some(sym) => println!("{}: {:#?}", sym.symbol, sym),
-            None => println!("{} not found", ctx.opts.symbol),
+        if let Some(sym) = ei.get_symbol(sym_name) {
+            println!("{}: {:#?}", sym.symbol, sym);
+        } else {
+            println!("No such symbol {}", sym_name);
         }
     }
 
-    if !ctx.opts.sell_market.is_empty() {
+    if let Some(sym_name) = &ctx.opts.sell_market {
         let ei = &get_exchange_info(ctx).await?;
-        let symbol_name = &ctx.opts.sell_market.clone();
         let quantity = ctx.opts.quantity;
-
-        market_order(ctx, ei, symbol_name, quantity, Side::SELL).await?;
+        market_order(ctx, ei, &sym_name, quantity, Side::SELL).await?;
     }
 
-    if !ctx.opts.buy_market.is_empty() {
+    if let Some(sym_name) = &ctx.opts.buy_market {
         let ei = &get_exchange_info(ctx).await?;
-        let symbol_name = &ctx.opts.buy_market.clone();
         let quantity = ctx.opts.quantity;
-
-        market_order(ctx, ei, symbol_name, quantity, Side::BUY).await?;
+        market_order(ctx, ei, sym_name, quantity, Side::BUY).await?;
     }
 
     if ctx.opts.get_account_info {
@@ -97,8 +92,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ai.update_and_print(ctx).await;
     }
 
-    if !ctx.opts.get_avg_price.is_empty() {
-        let ap: AvgPrice = get_avg_price(ctx, &ctx.opts.get_avg_price).await?;
+    if let Some(sym_name) = &ctx.opts.get_avg_price {
+        let ap: AvgPrice = get_avg_price(ctx, sym_name).await?;
         println!("ap: mins={} price={}", ap.mins, ap.price);
     }
 
@@ -131,15 +126,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    if !ctx.opts.get_my_trades.is_empty() {
+    if let Some(sym_name) = &ctx.opts.get_my_trades {
         let mt: Trades =
-            get_my_trades(ctx, &ctx.opts.get_my_trades, None, None, None, None).await?;
+            get_my_trades(ctx, sym_name, None, None, None, None).await?;
         println!("mt: {:#?}", mt);
     }
 
-    if !ctx.opts.display_order_log.is_empty() {
-        let log_file = Path::new(&ctx.opts.display_order_log);
-        let file = OpenOptions::new().read(true).open(log_file)?;
+    if let Some(log_file_path) = &ctx.opts.display_order_log {
+        let file = OpenOptions::new().read(true).open(log_file_path)?;
         let reader = BufReader::new(&file);
         for line in reader.lines() {
             let tr: TradeResponse = serde_json::from_str(&line?)?;

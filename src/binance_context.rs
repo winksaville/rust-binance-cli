@@ -44,8 +44,8 @@ pub struct Opts {
     pub order_log_path: PathBuf,
 
     /// Display the exchange info for -S SYMBOL
-    #[structopt(short = "S", long, required = false, default_value)]
-    pub symbol: String,
+    #[structopt(short = "S", long)]
+    pub symbol: Option<String>,
 
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short, long, parse(from_occurrences))]
@@ -60,8 +60,8 @@ pub struct Opts {
     pub get_account_info: bool,
 
     /// Get average price and display it, -P BTCUSD
-    #[structopt(short = "P", long, required = false, default_value)]
-    pub get_avg_price: String,
+    #[structopt(short = "P", long)]
+    pub get_avg_price: Option<String>,
 
     /// Get open orders, -O <Optional SYMBOL>. If no SYMBOL
     /// return all open orders (Expensive Weight: 40).
@@ -74,28 +74,28 @@ pub struct Opts {
     pub get_all_orders: Option<Option<String>>,
 
     /// Get my trades, -M SYMBOL.
-    #[structopt(short = "M", long, required = false, default_value)]
-    pub get_my_trades: String,
+    #[structopt(short = "M", long)]
+    pub get_my_trades: Option<String>,
 
     /// Sell Symbol using MARKET order type, --sell-market BNDUSD
-    #[structopt(long, required = false, default_value)]
-    pub sell_market: String,
+    #[structopt(long)]
+    pub sell_market: Option<String>,
 
     /// Buy Symbol using MARKET order type, --buy-market BNDUSD
-    #[structopt(long, required = false, default_value)]
-    pub buy_market: String,
+    #[structopt(long)]
+    pub buy_market: Option<String>,
 
     /// Quantity to buy or sell
     #[structopt(long, required = false, default_value)]
     pub quantity: Decimal,
 
     /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
-    #[structopt(long, required = false, default_value)]
-    pub auto_sell: String,
+    #[structopt(long)]
+    pub auto_sell: Option<String>,
 
     /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
-    #[structopt(short = "D", long, required = false, default_value)]
-    pub display_order_log: String,
+    #[structopt(short = "D", long)]
+    pub display_order_log: Option<String>,
 }
 
 #[derive(Debug, Clone)]

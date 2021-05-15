@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub async fn market_order(
-    ctx: &mut BinanceContext,
+    ctx: &BinanceContext,
     ei: &ExchangeInfo,
     symbol_name: &str,
     quantity: Decimal,
