@@ -96,6 +96,10 @@ pub struct Opts {
     /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
     #[structopt(short = "D", long)]
     pub display_order_log: Option<String>,
+
+    /// Get klines, -K SYMBOL.
+    #[structopt(short = "K", long)]
+    pub get_klines: Option<String>,
 }
 
 #[derive(Debug, Clone)]

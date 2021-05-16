@@ -11,6 +11,7 @@ mod binance_auto_sell;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
+mod binance_klines;
 mod binance_market;
 mod binance_my_trades;
 mod binance_order_response;
@@ -32,8 +33,15 @@ use common::Side;
 
 extern crate function_name;
 use function_name::named;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
-use crate::{binance_auto_sell::auto_sell, binance_order_response::TradeResponse};
+use crate::{
+    binance_auto_sell::auto_sell,
+    binance_klines::{get_klines, KlineInterval, KlineRec},
+    binance_order_response::TradeResponse,
+    common::{time_ms_to_utc, utc_now_to_time_ms},
+};
 
 #[named]
 #[tokio::main]
@@ -128,7 +136,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(sym_name) = &ctx.opts.get_my_trades {
         let mt: Trades = get_my_trades(ctx, sym_name, None, None, None, None).await?;
-        println!("mt: {:#?}", mt);
+        let mut total_qty: Decimal = dec!(0);
+        let mut total_quote_value: Decimal = dec!(0);
+        for tr in &mt.trades {
+            println!("Date: {}", time_ms_to_utc(tr.time));
+            println!("{:#?}", tr);
+            total_qty += tr.qty;
+            total_quote_value += tr.quote_qty;
+            println!(
+                "total_qty: {}, total_quote_value: {}",
+                total_qty, total_quote_value
+            );
+        }
+        println!(
+            "total_qty: {}, total_quote_value: {}",
+            total_qty, total_quote_value
+        );
     }
 
     if let Some(log_file_path) = &ctx.opts.display_order_log {
@@ -137,6 +160,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for line in reader.lines() {
             let tr: TradeResponse = serde_json::from_str(&line?)?;
             println!("{:#?}", tr);
+        }
+    }
+
+    if let Some(sym_name) = &ctx.opts.get_klines {
+        // Some constants
+        const SEC: i64 = 1000;
+        const MIN: i64 = 60 * SEC;
+        const INTERVAL_MIN: i64 = 1;
+        const MINIMUM_INTERVAL_ELAPSED_SECS: i64 = 10 * SEC;
+
+        // Truncate st down to beginning of the current minute
+        let now = utc_now_to_time_ms();
+        let mut st = now;
+        st = st - (st % (INTERVAL_MIN * MIN));
+
+        // If we're <= first minimum_interval_elapsed_secsl of this
+        // interval go to the previous minute, otherwise there may be
+        // nothing returned as so little time has transpired. In my
+        // short empherical investigation this "dead" interval was
+        // about 3 or 4 seconds, so I've made it 10.
+        if (st + MINIMUM_INTERVAL_ELAPSED_SECS) >= now {
+            st -= MIN;
+            println!("backup to previous minute");
+        }
+        let et = st + (INTERVAL_MIN * MIN);
+        // Rounds up st, does the lesser of et and limit and if et is < KlineInterval nothing returned
+        println!(
+            "utc:       {} st: {} et: {} diff: {}",
+            time_ms_to_utc(utc_now_to_time_ms()),
+            time_ms_to_utc(st),
+            time_ms_to_utc(et),
+            (et - st) as f64 / MIN as f64
+        );
+        let krs: Vec<KlineRec> =
+            get_klines(ctx, sym_name, KlineInterval::Mins1, Some(st), None, Some(1)).await?;
+        for kr in &krs {
+            println!(
+                "Open time: {} Close time: {} diff: {}",
+                time_ms_to_utc(kr.open_time),
+                time_ms_to_utc(kr.close_time),
+                (kr.close_time - kr.open_time) as f64 / MIN as f64
+            );
+            println!("{:#?}", kr);
         }
     }
 
