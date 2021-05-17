@@ -6,6 +6,8 @@ use structopt::{clap::AppSettings, StructOpt};
 
 use rust_decimal::prelude::*;
 
+use crate::binance_get_klines_cmd::GetKlinesCmdRec;
+
 // When I tried clap version 3.0.0-beta.2
 // "optional" string parameters such as:
 //    #[clap(short, long, required = false, env = "SECRET_KEY", default_value)]
@@ -97,13 +99,13 @@ pub struct Opts {
     #[structopt(short = "D", long)]
     pub display_order_log: Option<String>,
 
-    /// Get klines, -K SYMBOL.
-    #[structopt(long)]
-    pub get_klines: Option<String>,
+    #[structopt(subcommand)]
+    pub cmd: Option<SubCommands>,
+}
 
-    /// Get one kline for SYMBOL at now
-    #[structopt(short = "K", long)]
-    pub get_kline: Option<String>,
+#[derive(Debug, Clone, StructOpt)]
+pub enum SubCommands {
+    Klines(GetKlinesCmdRec),
 }
 
 #[derive(Debug, Clone)]

@@ -4,12 +4,18 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use strum_macros::IntoStaticStr;
+
 use crate::{
     binance_context::BinanceContext,
     binance_signature::query_vec_u8,
     common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     common::{BinanceError, ResponseErrorRec},
 };
+
+// Seconds and minutes in milli-seconds
+const SEC: i64 = 1000;
+const MIN: i64 = 60 * SEC;
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename = "camelCase")]
@@ -48,6 +54,7 @@ impl Default for KlineRec {
 }
 
 #[allow(unused)]
+#[derive(PartialEq, IntoStaticStr)]
 pub enum KlineInterval {
     Mins1,
     Mins3,
@@ -67,8 +74,30 @@ pub enum KlineInterval {
 }
 
 impl KlineInterval {
-    #[allow(unused)]
-    fn to_string(&self) -> &str {
+    pub fn from_string(s: &str) -> Result<KlineInterval, Box<dyn std::error::Error>> {
+        let interval: Self = match s {
+            "1m" => KlineInterval::Mins1,
+            "3m" => KlineInterval::Mins3,
+            "5m" => KlineInterval::Mins5,
+            "15m" => KlineInterval::Mins15,
+            "30m" => KlineInterval::Mins30,
+            "1h" => KlineInterval::Hrs1,
+            "2h" => KlineInterval::Hrs2,
+            "4h" => KlineInterval::Hrs4,
+            "6h" => KlineInterval::Hrs6,
+            "8h" => KlineInterval::Hrs8,
+            "12h" => KlineInterval::Hrs12,
+            "1d" => KlineInterval::Days1,
+            "3d" => KlineInterval::Days3,
+            "1w" => KlineInterval::Weeks,
+            "1M" => KlineInterval::Months,
+            _ => return Err(format!("{} is an unknown kline interval", s).into()),
+        };
+
+        Ok(interval)
+    }
+
+    pub fn to_string(&self) -> &str {
         let interval_string: &str = match self {
             KlineInterval::Mins1 => "1m",
             KlineInterval::Mins3 => "3m",
@@ -87,10 +116,12 @@ impl KlineInterval {
             KlineInterval::Months => "1M",
         };
 
-        interval_string //.to_string()
+        interval_string
     }
 }
 
+/// Get zero or more klines for the symbol at the specified KlineInterval.
+/// A maximum of 1000 records is returned.
 pub async fn get_klines(
     ctx: &BinanceContext,
     symbol: &str,
@@ -99,12 +130,24 @@ pub async fn get_klines(
     end_time_ms: Option<i64>,
     limit: Option<u16>,
 ) -> Result<Vec<KlineRec>, Box<dyn std::error::Error>> {
+    trace!("get_klines:");
+
     let mut params = vec![("symbol", symbol), ("interval", interval.to_string())];
 
     let st_ms_string: String;
     if let Some(st_ms) = start_time_ms {
-        st_ms_string = st_ms.to_string();
-        params.push(("startTime", &st_ms_string));
+        // If st_ms is within the first minute of "now" or it is
+        // in the future do not send the startTime.
+        // Alhough my simple emperical testing indicated the window
+        // where no data is sent is only 2 or 3 seconds, I've chosen
+        // to not send the startTime if the time is within a minute,
+        // which is the smallest interval. This causes the most current
+        // N records to allways be returned.
+        let now = utc_now_to_time_ms();
+        if now - st_ms > MIN {
+            st_ms_string = st_ms.to_string();
+            params.push(("startTime", &st_ms_string));
+        }
     }
 
     let et_ms_string: String;
@@ -159,34 +202,25 @@ pub async fn get_klines(
     result
 }
 
-/// Get kline for sym_name at start_time_ms
+/// Get kline using KlineInterval Mins1 for sym_name at start_time_ms.
+/// The start_time_ms is UTC.
+#[allow(unused)]
 pub async fn get_kline(
     ctx: &BinanceContext,
     sym_name: &str,
     start_time_ms: i64,
 ) -> Result<KlineRec, Box<dyn std::error::Error>> {
-    // Some constants
-    const SEC: i64 = 1000;
-    const MIN: i64 = 60 * SEC;
-    const INTERVAL_MIN: i64 = 1;
-    const MINIMUM_INTERVAL_ELAPSED_SECS: i64 = 10 * SEC;
+    trace!("get_kline:");
 
-    // Truncate st to beginning of the current INTERVAL_MIN
-    let mut st = start_time_ms;
-    st = st - (st % (INTERVAL_MIN * MIN));
-
-    // If st is within the first few seconds of now change
-    // st to the previous minute, otherwise there may be
-    // nothing returned as so little time has elapsed.
-    // In my short empherical investigation this "dead"
-    // interval was about 3 or 4 seconds.
-    let now = utc_now_to_time_ms();
-    if (st + MINIMUM_INTERVAL_ELAPSED_SECS) >= now {
-        st -= MIN;
-        trace!("backup to previous minute");
-    }
-    let krs: Vec<KlineRec> =
-        get_klines(ctx, sym_name, KlineInterval::Mins1, Some(st), None, Some(1)).await?;
+    let krs: Vec<KlineRec> = get_klines(
+        ctx,
+        sym_name,
+        KlineInterval::Mins1,
+        Some(start_time_ms),
+        None,
+        Some(1),
+    )
+    .await?;
 
     if krs.is_empty() {
         Err(format!("No KlineRec available for {}", sym_name).into())

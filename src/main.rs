@@ -11,6 +11,7 @@ mod binance_auto_sell;
 mod binance_avg_price;
 mod binance_context;
 mod binance_exchange_info;
+mod binance_get_klines_cmd;
 mod binance_klines;
 mod binance_market;
 mod binance_my_trades;
@@ -24,23 +25,24 @@ mod de_string_or_number;
 
 use binance_account_info::get_account_info;
 use binance_avg_price::{get_avg_price, AvgPrice};
-use binance_context::BinanceContext;
+use binance_context::{BinanceContext, SubCommands::Klines};
 use binance_exchange_info::get_exchange_info;
+use binance_get_klines_cmd::get_klines_cmd;
 use binance_market::market_order;
 use binance_my_trades::{get_my_trades, Trades};
 use binance_orders::{get_all_orders, get_open_orders, Orders};
 use common::Side;
 
-extern crate function_name;
-use function_name::named;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
+extern crate function_name;
+use function_name::named;
+
 use crate::{
     binance_auto_sell::auto_sell,
-    binance_klines::{get_kline, get_klines, KlineInterval, KlineRec},
     binance_order_response::TradeResponse,
-    common::{time_ms_to_utc, utc_now_to_time_ms},
+    common::time_ms_to_utc,
 };
 
 #[named]
@@ -163,59 +165,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    if let Some(sym_name) = &ctx.opts.get_klines {
-        // Some constants
-        const SEC: i64 = 1000;
-        const MIN: i64 = 60 * SEC;
-        const INTERVAL_MIN: i64 = 1;
-        const MINIMUM_INTERVAL_ELAPSED_SECS: i64 = 10 * SEC;
-
-        // Truncate st down to beginning of the current minute
-        let now = utc_now_to_time_ms();
-        let mut st = now;
-        st = st - (st % (INTERVAL_MIN * MIN));
-
-        // If we're <= first minimum_interval_elapsed_secsl of this
-        // interval go to the previous minute, otherwise there may be
-        // nothing returned as so little time has transpired. In my
-        // short empherical investigation this "dead" interval was
-        // about 3 or 4 seconds, so I've made it 10.
-        if (st + MINIMUM_INTERVAL_ELAPSED_SECS) >= now {
-            st -= MIN;
-            println!("backup to previous minute");
+    if let Some(cmd) = &ctx.opts.cmd {
+        match cmd {
+            Klines(rec) => {
+                get_klines_cmd(ctx, rec).await?;
+            }
         }
-        let et = st + (INTERVAL_MIN * MIN);
-        // Rounds up st, does the lesser of et and limit and if et is < KlineInterval nothing returned
-        println!(
-            "utc:       {} st: {} et: {} diff: {}",
-            time_ms_to_utc(utc_now_to_time_ms()),
-            time_ms_to_utc(st),
-            time_ms_to_utc(et),
-            (et - st) as f64 / MIN as f64
-        );
-        let krs: Vec<KlineRec> =
-            get_klines(ctx, sym_name, KlineInterval::Mins1, Some(st), None, Some(1)).await?;
-        for kr in &krs {
-            println!(
-                "Open time: {} Close time: {} diff: {}",
-                time_ms_to_utc(kr.open_time),
-                time_ms_to_utc(kr.close_time),
-                (kr.close_time - kr.open_time) as f64 / MIN as f64
-            );
-            println!("{:#?}", kr);
-        }
-    }
-
-    if let Some(sym_name) = &ctx.opts.get_kline {
-        const MIN: f64 = 60_f64 * 1000_f64;
-        let kr: KlineRec = get_kline(ctx, sym_name, utc_now_to_time_ms()).await?;
-        println!(
-            "Open time: {} Close time: {} diff: {}",
-            time_ms_to_utc(kr.open_time),
-            time_ms_to_utc(kr.close_time),
-            (kr.close_time - kr.open_time) as f64 / MIN
-        );
-        println!("{:#?}", kr);
     }
 
     trace!("main: -");

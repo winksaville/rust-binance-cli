@@ -1,4 +1,4 @@
-use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use log::trace;
 
 use reqwest::{
@@ -252,6 +252,21 @@ pub fn utc_now_to_time_ms() -> i64 {
 
 pub fn utc_to_time_ms(date_time: &DateTime<Utc>) -> i64 {
     (date_time.timestamp_nanos() + 500_000) / 1_000_000
+}
+
+pub fn naive_to_utc_time_ms(date_time: &NaiveDateTime) -> i64 {
+    let ldt = Local.from_local_datetime(date_time).unwrap();
+    // println!("ldt: {:?}", ldt);
+    #[allow(clippy::unnecessary_cast)]
+    let udt = utc_to_time_ms(&DateTime::from(ldt));
+    // println!("udt: {:?}", udt);
+
+    udt
+}
+
+pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
+    let ndt = NaiveDateTime::parse_from_str(&naive_dt_str, "%Y-%m-%dT%H:%M:%S")?;
+    Ok(naive_to_utc_time_ms(&ndt))
 }
 
 #[cfg(test)]
