@@ -38,7 +38,7 @@ use rust_decimal_macros::dec;
 
 use crate::{
     binance_auto_sell::auto_sell,
-    binance_klines::{get_klines, KlineInterval, KlineRec},
+    binance_klines::{get_kline, get_klines, KlineInterval, KlineRec},
     binance_order_response::TradeResponse,
     common::{time_ms_to_utc, utc_now_to_time_ms},
 };
@@ -204,6 +204,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             println!("{:#?}", kr);
         }
+    }
+
+    if let Some(sym_name) = &ctx.opts.get_kline {
+        const MIN: f64 = 60_f64 * 1000_f64;
+        let kr: KlineRec = get_kline(ctx, sym_name, utc_now_to_time_ms()).await?;
+        println!(
+            "Open time: {} Close time: {} diff: {}",
+            time_ms_to_utc(kr.open_time),
+            time_ms_to_utc(kr.close_time),
+            (kr.close_time - kr.open_time) as f64 / MIN
+        );
+        println!("{:#?}", kr);
     }
 
     trace!("main: -");

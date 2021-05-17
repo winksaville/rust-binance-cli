@@ -7,11 +7,11 @@ use serde_json::Value;
 use crate::{
     binance_context::BinanceContext,
     binance_signature::query_vec_u8,
-    common::get_req_get_response,
+    common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     common::{BinanceError, ResponseErrorRec},
 };
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename = "camelCase")]
 pub struct KlineRec {
     pub open_time: i64,
@@ -91,7 +91,6 @@ impl KlineInterval {
     }
 }
 
-#[allow(unused)]
 pub async fn get_klines(
     ctx: &BinanceContext,
     symbol: &str,
@@ -158,6 +157,50 @@ pub async fn get_klines(
     };
 
     result
+}
+
+/// Get kline for sym_name at start_time_ms
+pub async fn get_kline(
+    ctx: &BinanceContext,
+    sym_name: &str,
+    start_time_ms: i64,
+) -> Result<KlineRec, Box<dyn std::error::Error>> {
+    // Some constants
+    const SEC: i64 = 1000;
+    const MIN: i64 = 60 * SEC;
+    const INTERVAL_MIN: i64 = 1;
+    const MINIMUM_INTERVAL_ELAPSED_SECS: i64 = 10 * SEC;
+
+    // Truncate st to beginning of the current INTERVAL_MIN
+    let mut st = start_time_ms;
+    st = st - (st % (INTERVAL_MIN * MIN));
+
+    // If st is within the first few seconds of now change
+    // st to the previous minute, otherwise there may be
+    // nothing returned as so little time has elapsed.
+    // In my short empherical investigation this "dead"
+    // interval was about 3 or 4 seconds.
+    let now = utc_now_to_time_ms();
+    if (st + MINIMUM_INTERVAL_ELAPSED_SECS) >= now {
+        st -= MIN;
+        trace!("backup to previous minute");
+    }
+    let krs: Vec<KlineRec> =
+        get_klines(ctx, sym_name, KlineInterval::Mins1, Some(st), None, Some(1)).await?;
+
+    if krs.is_empty() {
+        Err(format!("No KlineRec available for {}", sym_name).into())
+    } else {
+        let kr = krs[0];
+        trace!(
+            "Open time: {} Close time: {} diff: {}",
+            time_ms_to_utc(kr.open_time),
+            time_ms_to_utc(kr.close_time),
+            (kr.close_time - kr.open_time) as f64 / MIN as f64
+        );
+        trace!("{:#?}", kr);
+        Ok(kr)
+    }
 }
 
 #[cfg(test)]

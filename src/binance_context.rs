@@ -98,8 +98,12 @@ pub struct Opts {
     pub display_order_log: Option<String>,
 
     /// Get klines, -K SYMBOL.
-    #[structopt(short = "K", long)]
+    #[structopt(long)]
     pub get_klines: Option<String>,
+
+    /// Get one kline for SYMBOL at now
+    #[structopt(short = "K", long)]
+    pub get_kline: Option<String>,
 }
 
 #[derive(Debug, Clone)]
