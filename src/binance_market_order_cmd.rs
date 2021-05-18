@@ -92,7 +92,7 @@ pub struct MarketCmdRec {
     test: bool,
 }
 
-pub async fn buy_market_order(
+pub async fn buy_market_order_cmd(
     ctx: &BinanceContext,
     rec: &MarketCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -102,7 +102,7 @@ pub async fn buy_market_order(
     market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await
 }
 
-pub async fn sell_market_order(
+pub async fn sell_market_order_cmd(
     ctx: &BinanceContext,
     rec: &MarketCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {

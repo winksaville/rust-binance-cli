@@ -13,7 +13,7 @@ mod binance_context;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
 mod binance_klines;
-mod binance_market;
+mod binance_market_order_cmd;
 mod binance_my_trades;
 mod binance_order_response;
 mod binance_orders;
@@ -31,8 +31,8 @@ use binance_context::{
 };
 use binance_exchange_info::get_exchange_info;
 use binance_get_klines_cmd::get_klines_cmd;
-use binance_market::buy_market_order;
-use binance_market::sell_market_order;
+use binance_market_order_cmd::buy_market_order_cmd;
+use binance_market_order_cmd::sell_market_order_cmd;
 use binance_my_trades::{get_my_trades, Trades};
 use binance_order_response::TradeResponse;
 use binance_orders::{get_all_orders, get_open_orders, Orders};
@@ -158,10 +158,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 get_klines_cmd(ctx, rec).await?;
             }
             BuyMarket(rec) => {
-                buy_market_order(ctx, rec).await?;
+                buy_market_order_cmd(ctx, rec).await?;
             }
             SellMarket(rec) => {
-                sell_market_order(ctx, rec).await?;
+                sell_market_order_cmd(ctx, rec).await?;
             }
         }
     }

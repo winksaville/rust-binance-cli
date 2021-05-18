@@ -6,7 +6,7 @@ use structopt::{clap::AppSettings, StructOpt};
 
 use rust_decimal::prelude::*;
 
-use crate::{binance_get_klines_cmd::GetKlinesCmdRec, binance_market::MarketCmdRec};
+use crate::{binance_get_klines_cmd::GetKlinesCmdRec, binance_market_order_cmd::MarketCmdRec};
 
 // When I tried clap version 3.0.0-beta.2
 // "optional" string parameters such as:
