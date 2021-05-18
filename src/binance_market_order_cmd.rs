@@ -74,7 +74,7 @@ pub async fn market_order(
         test,
     )
     .await?;
-    println!("market reponse: {:#?}", response);
+    trace!("market reponse: {:#?}", response);
 
     Ok(())
 }

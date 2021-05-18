@@ -24,10 +24,11 @@ mod common;
 mod de_string_or_number;
 
 use binance_account_info::get_account_info;
-use binance_auto_sell::auto_sell;
+use binance_auto_sell::auto_sell_cmd;
 use binance_avg_price::{get_avg_price, AvgPrice};
 use binance_context::{
-    BinanceContext, SubCommands::BuyMarket, SubCommands::Klines, SubCommands::SellMarket,
+    BinanceContext, SubCommands::AutoSell, SubCommands::BuyMarket, SubCommands::Klines,
+    SubCommands::SellMarket,
 };
 use binance_exchange_info::get_exchange_info;
 use binance_get_klines_cmd::get_klines_cmd;
@@ -64,10 +65,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         println!("Usage: {} -h or --help", name);
         return Ok(());
-    }
-
-    if let Some(config_file) = &ctx.opts.auto_sell {
-        auto_sell(ctx, config_file).await?;
     }
 
     if ctx.opts.get_exchange_info {
@@ -162,6 +159,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             SellMarket(rec) => {
                 sell_market_order_cmd(ctx, rec).await?;
+            }
+            AutoSell(rec) => {
+                auto_sell_cmd(ctx, &rec).await?;
             }
         }
     }

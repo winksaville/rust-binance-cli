@@ -6,7 +6,10 @@ use structopt::{clap::AppSettings, StructOpt};
 
 use rust_decimal::prelude::*;
 
-use crate::{binance_get_klines_cmd::GetKlinesCmdRec, binance_market_order_cmd::MarketCmdRec};
+use crate::{
+    binance_auto_sell::AutoSellCmdRec, binance_get_klines_cmd::GetKlinesCmdRec,
+    binance_market_order_cmd::MarketCmdRec,
+};
 
 // When I tried clap version 3.0.0-beta.2
 // "optional" string parameters such as:
@@ -92,10 +95,6 @@ pub struct Opts {
     pub quantity: Decimal,
 
     /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
-    #[structopt(long)]
-    pub auto_sell: Option<String>,
-
-    /// Auto Sell using config file, --auto-sell data/wink-config-auto-sell.toml
     #[structopt(short = "D", long)]
     pub display_order_log: Option<String>,
 
@@ -108,6 +107,7 @@ pub enum SubCommands {
     Klines(GetKlinesCmdRec),
     BuyMarket(MarketCmdRec),
     SellMarket(MarketCmdRec),
+    AutoSell(AutoSellCmdRec),
 }
 
 #[derive(Debug, Clone)]

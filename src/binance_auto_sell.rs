@@ -1,6 +1,7 @@
 use log::trace;
 use rust_decimal_macros::dec;
 use std::collections::HashMap;
+use structopt::StructOpt;
 use tokio::fs;
 
 use rust_decimal::prelude::*;
@@ -9,7 +10,13 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::{binance_account_info::get_account_info, binance_context::BinanceContext};
+use crate::{
+    binance_account_info::get_account_info,
+    binance_context::BinanceContext,
+    binance_exchange_info::{get_exchange_info, ExchangeInfo},
+    binance_market_order_cmd::market_order,
+    common::Side,
+};
 
 fn default_min() -> Decimal {
     Decimal::MAX
@@ -82,9 +89,11 @@ where
 
 pub async fn auto_sell(
     ctx: &BinanceContext,
+    ei: &ExchangeInfo,
     config_file: &str,
+    test: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    trace!("auto_sell:+ config_file: {}", config_file);
+    trace!("auto_sell:+ test: {} config_file: {}", test, config_file);
 
     // Get the file contents and deserialize to ConfigAutoSell
     let config_string: String = fs::read_to_string(config_file).await?;
@@ -100,16 +109,17 @@ pub async fn auto_sell(
     let ctx = &ctx;
 
     let mut ai = get_account_info(ctx).await?;
-    ai.update_values(&ctx).await;
+    ai.update_values_in_usd(&ctx).await;
     //ai.print().await;
 
     #[derive(Default)]
     struct KeepRec {
         asset: String,
+        sell_to_asset: String,
         owned_qty: Decimal,
-        sell_value: Decimal,
+        sell_value_in_usd: Decimal,
         sell_qty: Decimal,
-        keep_value: Decimal,
+        keep_value_in_usd: Decimal,
         keep_qty: Decimal,
     }
 
@@ -124,12 +134,22 @@ pub async fn auto_sell(
                     owned_qty
                 };
                 let sell_qty = owned_qty - keep_qty;
+                let sell_to_asset = if keeping.sell_to_asset.is_empty() {
+                    if config.default_sell_to_asset.is_empty() {
+                        "USD"
+                    } else {
+                        &config.default_sell_to_asset
+                    }
+                } else {
+                    &keeping.sell_to_asset
+                };
                 vec_keep_rec.push(KeepRec {
                     asset: balance.asset.clone(),
+                    sell_to_asset: sell_to_asset.to_string(),
                     owned_qty,
-                    sell_value: (sell_qty / owned_qty) * balance.value,
+                    sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
                     sell_qty,
-                    keep_value: (keep_qty / owned_qty) * balance.value,
+                    keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
                     keep_qty,
                 });
             } else {
@@ -137,8 +157,20 @@ pub async fn auto_sell(
                     "Selling {:18.6} of {:6} worth ${:10.2} keeping none",
                     owned_qty,
                     balance.asset,
-                    balance.value.round_dp(2)
+                    balance.value_in_usd.round_dp(2)
                 );
+                let sell_to_asset = if config.default_sell_to_asset.is_empty() {
+                    "USD"
+                } else {
+                    &config.default_sell_to_asset
+                };
+                let symbol_name: String = balance.asset.clone() + sell_to_asset;
+                trace!(
+                    "auto_sell: call market_order selling ALL {} as {}",
+                    owned_qty,
+                    symbol_name
+                );
+                market_order(ctx, ei, &symbol_name, owned_qty, Side::SELL, test).await?;
             }
         }
     }
@@ -148,21 +180,54 @@ pub async fn auto_sell(
                 "Keeping {:18.6} of {:6} worth ${:10.2} selling {} worth ${:10.2}",
                 kr.keep_qty,
                 kr.asset,
-                kr.keep_value.round_dp(2),
+                kr.keep_value_in_usd.round_dp(2),
                 kr.sell_qty,
-                kr.sell_value
+                kr.sell_value_in_usd
             );
+            let symbol_name: String = kr.asset + &kr.sell_to_asset;
+            trace!(
+                "auto_sell: call market_order selling SOME {} as {}",
+                kr.sell_qty,
+                symbol_name
+            );
+            market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await?;
+        // TODO: TESTING ALWAYS ON ATM
         } else {
             println!(
                 "Keeping {:18.6} of {:6} worth ${:10.2} selling none",
                 kr.owned_qty,
                 kr.asset,
-                kr.keep_value.round_dp(2)
+                kr.keep_value_in_usd.round_dp(2)
             );
         }
     }
 
-    trace!("auto_sell:- config_file: {}", config_file);
+    trace!("auto_sell:- test: {} config_file: {}", test, config_file);
+    Ok(())
+}
+
+#[derive(Debug, Clone, Default, StructOpt)]
+#[structopt(
+    about = "Auto sell keeping some assets as defined in the keep section of the config file"
+)]
+pub struct AutoSellCmdRec {
+    /// full path to auto-sell configuration toml file, example: data/config-auto-cell.toml
+    config_file: String,
+
+    /// Enable test mode
+    #[structopt(short = "t", long)]
+    test: bool,
+}
+
+pub async fn auto_sell_cmd(
+    ctx: &BinanceContext,
+    rec: &AutoSellCmdRec,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!("auto_sell_cmd: rec: {:#?}", rec);
+
+    let ei = get_exchange_info(ctx).await?;
+    auto_sell(ctx, &ei, &rec.config_file, rec.test).await?;
+
     Ok(())
 }
 

@@ -56,7 +56,7 @@ pub struct Balance {
     pub free: Decimal,
     pub locked: Decimal,
     #[serde(skip)]
-    pub value: Decimal,
+    pub value_in_usd: Decimal,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -79,7 +79,7 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub async fn update_values(&mut self, ctx: &BinanceContext) -> Decimal {
+    pub async fn update_values_in_usd(&mut self, ctx: &BinanceContext) -> Decimal {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
@@ -95,8 +95,8 @@ impl AccountInfo {
                 } else {
                     dec!(1)
                 };
-                balance.value = price * (balance.free + balance.locked);
-                total_value += balance.value;
+                balance.value_in_usd = price * (balance.free + balance.locked);
+                total_value += balance.value_in_usd;
             }
         }
 
@@ -120,11 +120,11 @@ impl AccountInfo {
         self.print_header_fields();
         let mut total_value = dec!(0);
         for balance in self.balances_map.values() {
-            if balance.value > dec!(0) {
-                total_value += balance.value;
+            if balance.value_in_usd > dec!(0) {
+                total_value += balance.value_in_usd;
                 println!(
                     "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
-                    balance.asset, balance.value, balance.free, balance.locked
+                    balance.asset, balance.value_in_usd, balance.free, balance.locked
                 );
             }
         }
@@ -132,7 +132,7 @@ impl AccountInfo {
     }
 
     pub async fn update_and_print(&mut self, ctx: &BinanceContext) {
-        self.update_values(ctx).await;
+        self.update_values_in_usd(ctx).await;
         self.print().await;
     }
 }
