@@ -9,9 +9,9 @@ use std::{
 };
 
 use crate::{
-    binance_avg_price::get_avg_price,
     binance_context::BinanceContext,
     binance_exchange_info::ExchangeInfo,
+    binance_klines::get_kline,
     binance_order_response::{
         AckTradeResponseRec, FullTradeResponseRec, ResultTradeResponseRec, TestTradeResponseRec,
         TradeResponse, UnknownTradeResponseRec,
@@ -69,26 +69,34 @@ fn log_order_response<W: Write>(
 #[allow(unused)]
 async fn convert(
     ctx: &BinanceContext,
+    time_ms: i64,
     asset: &str,
     value: Decimal,
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
     let other_value: Decimal = if asset == other_asset {
         let new_value = value;
-        println!(
+        trace!(
             "convert: asset: {} value: {} to {}: {}",
-            asset, value, other_asset, new_value
+            asset,
+            value,
+            other_asset,
+            new_value
         );
         new_value
     } else {
         // Try to directly convert it
         let cvrt_asset_name = asset.to_string() + other_asset;
-        match get_avg_price(ctx, &cvrt_asset_name).await {
-            Ok(ap) => {
-                let new_value = ap.price * value;
-                println!(
+        match get_kline(ctx, &cvrt_asset_name, time_ms).await {
+            Ok(kr) => {
+                // TODO: Consider using an average or median instead of close?
+                let new_value = kr.close * value;
+                trace!(
                     "convert: asset: {} value: {} to {}: {}",
-                    asset, value, other_asset, new_value
+                    asset,
+                    value,
+                    other_asset,
+                    new_value
                 );
                 new_value
             }
@@ -112,7 +120,14 @@ async fn convert_commission(
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
     let mut commission_value = dec!(0);
     for f in &order_response.fills {
-        commission_value += convert(&ctx, &f.commission_asset, f.commission, fee_asset).await?;
+        commission_value += convert(
+            &ctx,
+            order_response.transact_time,
+            &f.commission_asset,
+            f.commission,
+            fee_asset,
+        )
+        .await?;
     }
     Ok(commission_value)
 }
@@ -197,6 +212,7 @@ pub async fn binance_new_order_or_test(
                     // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
                     convert(
                         ctx,
+                        full.transact_time,
                         &ei_symbol.quote_asset,
                         full.cummulative_quote_qty,
                         "USD",
@@ -222,6 +238,7 @@ pub async fn binance_new_order_or_test(
                         // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
                         convert(
                             ctx,
+                            result.transact_time,
                             &ei_symbol.quote_asset,
                             result.cummulative_quote_qty,
                             "USD",
@@ -334,12 +351,16 @@ mod test {
         let ctx = BinanceContext::new();
 
         // Expect to always return the value parameter
-        let value_usd = convert(&ctx, "USD", dec!(1234.5678), "USD").await.unwrap();
+        let value_usd = convert(&ctx, utc_now_to_time_ms(), "USD", dec!(1234.5678), "USD")
+            .await
+            .unwrap();
         assert_eq!(value_usd, dec!(1234.5678));
-
-        // TODO: Need to "mock" get_avg_price so "BNB" asset always returns a specific value.
-        let value_usd = convert(&ctx, "BNB", dec!(1), "USD").await.unwrap();
+        // TODO: Need to "mock" get_kline so "BNB" asset always returns a specific value.
+        let value_usd = convert(&ctx, utc_now_to_time_ms(), "BNB", dec!(1), "USD")
+            .await
+            .unwrap();
         // assert_eq!(value_usd, dec!(xxx))
+        println!("convert 1 BNBUSB: {}", value_usd);
         assert!(value_usd > dec!(0));
     }
 
@@ -348,11 +369,16 @@ mod test {
         let ctx = BinanceContext::new();
         let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
 
-        // TODO: Need to "mock" get_avg_price so order_response.fills[0].commission_asset ("BNB") always returns a specific value.
+        // TODO: Need to "mock" get_kline so order_response.fills[0].commission_asset ("BNB") always returns a specific value.
         let commission_usd = convert_commission(&ctx, &order_response, "USD")
             .await
             .unwrap();
         // assert_eq!(commission_usd, dec!(xxx))
+        println!(
+            "convert {} BNBUSB: {}",
+            order_response.fills[0].commission, commission_usd
+        );
+
         assert!(commission_usd > dec!(0));
     }
 

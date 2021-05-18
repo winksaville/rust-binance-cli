@@ -49,8 +49,8 @@ pub struct AckTradeResponseRec {
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub order_list_id: i64,
     pub client_order_id: String,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub transact_time: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
+    pub transact_time: i64,
 }
 
 impl Default for AckTradeResponseRec {
@@ -79,8 +79,8 @@ pub struct ResultTradeResponseRec {
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub order_list_id: i64,
     pub client_order_id: String,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub transact_time: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
+    pub transact_time: i64,
     pub price: Decimal,
     pub orig_qty: Decimal,
     pub executed_qty: Decimal,
@@ -133,8 +133,8 @@ pub struct FullTradeResponseRec {
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub order_list_id: i64,
     pub client_order_id: String,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub transact_time: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
+    pub transact_time: i64,
     pub price: Decimal,
     pub orig_qty: Decimal,
     pub executed_qty: Decimal,
