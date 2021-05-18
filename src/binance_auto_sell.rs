@@ -118,7 +118,7 @@ pub async fn auto_sell(
         let owned_qty = balance.free + balance.locked;
         if owned_qty > dec!(0) {
             if let Some(keeping) = config.keep.get(&balance.asset) {
-                let keep_qty = if keeping.min < Decimal::MAX {
+                let keep_qty = if keeping.min < Decimal::MAX && keeping.min < owned_qty {
                     keeping.min
                 } else {
                     owned_qty
@@ -135,7 +135,9 @@ pub async fn auto_sell(
             } else {
                 println!(
                     "Selling {:18.6} of {:6} worth ${:10.2} keeping none",
-                    owned_qty, balance.asset, balance.value
+                    owned_qty,
+                    balance.asset,
+                    balance.value.round_dp(2)
                 );
             }
         }
@@ -144,12 +146,18 @@ pub async fn auto_sell(
         if kr.sell_qty > dec!(0) {
             println!(
                 "Keeping {:18.6} of {:6} worth ${:10.2} selling {} worth ${:10.2}",
-                kr.keep_qty, kr.asset, kr.keep_value, kr.sell_qty, kr.sell_value
+                kr.keep_qty,
+                kr.asset,
+                kr.keep_value.round_dp(2),
+                kr.sell_qty,
+                kr.sell_value
             );
         } else {
             println!(
                 "Keeping {:18.6} of {:6} worth ${:10.2} selling none",
-                kr.owned_qty, kr.asset, kr.keep_value
+                kr.owned_qty,
+                kr.asset,
+                kr.keep_value.round_dp(2)
             );
         }
     }

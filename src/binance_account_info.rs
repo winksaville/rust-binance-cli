@@ -5,7 +5,7 @@ use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
 use std::{collections::BTreeMap, fmt};
 
 use crate::{
-    binance_avg_price::get_avg_price,
+    binance_klines::get_kline,
     common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
 };
@@ -85,8 +85,8 @@ impl AccountInfo {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
-                    let price = match get_avg_price(ctx, &sym).await {
-                        Ok(avgprice) => avgprice.price,
+                    let price = match get_kline(ctx, &sym, utc_now_to_time_ms()).await {
+                        Ok(kr) => kr.close,
                         Err(_) => {
                             dec!(0)
                         }
@@ -95,7 +95,7 @@ impl AccountInfo {
                 } else {
                     dec!(1)
                 };
-                balance.value = price * balance.free + balance.locked;
+                balance.value = price * (balance.free + balance.locked);
                 total_value += balance.value;
             }
         }
