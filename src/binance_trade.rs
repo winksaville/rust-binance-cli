@@ -13,8 +13,8 @@ use crate::{
     binance_context::BinanceContext,
     binance_exchange_info::ExchangeInfo,
     binance_order_response::{
-        AckTradeResponseRec, FullTradeResponseRec, ResultTradeResponseRec, TradeResponse,
-        UnknownTradeResponseRec,
+        AckTradeResponseRec, FullTradeResponseRec, ResultTradeResponseRec, TestTradeResponseRec,
+        TradeResponse, UnknownTradeResponseRec,
     },
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{post_req_get_response, utc_now_to_time_ms, BinanceError, ResponseErrorRec, Side},
@@ -240,15 +240,21 @@ pub async fn binance_new_order_or_test(
                         ack.query = query_string.clone();
                         TradeResponse::SuccessAck(ack)
                     }
-                    Err(e) => {
-                        let unknown = UnknownTradeResponseRec {
-                            test,
-                            query: query_string,
-                            response_body,
-                            error_internal: e.to_string(),
-                        };
-
-                        TradeResponse::SuccessUnknown(unknown)
+                    Err(_) => {
+                        if test {
+                            TradeResponse::SuccessTest(TestTradeResponseRec {
+                                test,
+                                query: query_string,
+                                response_body,
+                            })
+                        } else {
+                            TradeResponse::SuccessUnknown(UnknownTradeResponseRec {
+                                test,
+                                query: query_string,
+                                response_body,
+                                error_internal: "Unexpected trade response body".to_string(),
+                            })
+                        }
                     }
                 },
             },

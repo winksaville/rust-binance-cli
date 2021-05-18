@@ -178,6 +178,24 @@ impl Default for FullTradeResponseRec {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TestTradeResponseRec {
+    pub test: bool,
+    pub query: String,
+    pub response_body: String,
+}
+
+impl Default for TestTradeResponseRec {
+    fn default() -> TestTradeResponseRec {
+        TestTradeResponseRec {
+            test: false,
+            query: "".to_string(),
+            response_body: "".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UnknownTradeResponseRec {
     pub test: bool,
     pub query: String,
@@ -201,6 +219,7 @@ pub enum TradeResponse {
     SuccessAck(AckTradeResponseRec),
     SuccessResult(ResultTradeResponseRec),
     SuccessFull(FullTradeResponseRec),
+    SuccessTest(TestTradeResponseRec),
     SuccessUnknown(UnknownTradeResponseRec),
     Failure(BinanceError),
 }

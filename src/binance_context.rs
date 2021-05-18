@@ -6,7 +6,7 @@ use structopt::{clap::AppSettings, StructOpt};
 
 use rust_decimal::prelude::*;
 
-use crate::binance_get_klines_cmd::GetKlinesCmdRec;
+use crate::{binance_get_klines_cmd::GetKlinesCmdRec, binance_market::MarketCmdRec};
 
 // When I tried clap version 3.0.0-beta.2
 // "optional" string parameters such as:
@@ -106,6 +106,8 @@ pub struct Opts {
 #[derive(Debug, Clone, StructOpt)]
 pub enum SubCommands {
     Klines(GetKlinesCmdRec),
+    BuyMarket(MarketCmdRec),
+    SellMarket(MarketCmdRec),
 }
 
 #[derive(Debug, Clone)]

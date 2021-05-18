@@ -1,12 +1,13 @@
 use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
+use structopt::StructOpt;
 
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_context::BinanceContext,
-    binance_exchange_info::ExchangeInfo,
+    binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_orders::get_open_orders,
     binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType},
     binance_verify_order::{
@@ -22,6 +23,7 @@ pub async fn market_order(
     symbol_name: &str,
     quantity: Decimal,
     side: Side,
+    test: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut quantity = quantity;
     if quantity <= dec!(0.0) {
@@ -69,10 +71,43 @@ pub async fn market_order(
         &symbol_name,
         side,
         TradeOrderType::Market(MarketQuantityType::Quantity(quantity)),
-        false,
+        test,
     )
     .await?;
     println!("market reponse: {:#?}", response);
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Default, StructOpt)]
+pub struct MarketCmdRec {
+    /// Symbol name
+    pub sym_name: String,
+
+    /// Number of shares
+    pub quantity: Decimal,
+
+    /// Enable test mode
+    #[structopt(short = "t", long)]
+    test: bool,
+}
+
+pub async fn buy_market_order(
+    ctx: &BinanceContext,
+    rec: &MarketCmdRec,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!("buy_market_order: rec: {:#?}", rec);
+
+    let ei = &get_exchange_info(ctx).await?;
+    market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await
+}
+
+pub async fn sell_market_order(
+    ctx: &BinanceContext,
+    rec: &MarketCmdRec,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!("sell_market_order: rec: {:#?}", rec);
+
+    let ei = &get_exchange_info(ctx).await?;
+    market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::SELL, rec.test).await
 }

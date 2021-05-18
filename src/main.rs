@@ -24,26 +24,25 @@ mod common;
 mod de_string_or_number;
 
 use binance_account_info::get_account_info;
+use binance_auto_sell::auto_sell;
 use binance_avg_price::{get_avg_price, AvgPrice};
-use binance_context::{BinanceContext, SubCommands::Klines};
+use binance_context::{
+    BinanceContext, SubCommands::BuyMarket, SubCommands::Klines, SubCommands::SellMarket,
+};
 use binance_exchange_info::get_exchange_info;
 use binance_get_klines_cmd::get_klines_cmd;
-use binance_market::market_order;
+use binance_market::buy_market_order;
+use binance_market::sell_market_order;
 use binance_my_trades::{get_my_trades, Trades};
+use binance_order_response::TradeResponse;
 use binance_orders::{get_all_orders, get_open_orders, Orders};
-use common::Side;
+use common::time_ms_to_utc;
 
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 extern crate function_name;
 use function_name::named;
-
-use crate::{
-    binance_auto_sell::auto_sell,
-    binance_order_response::TradeResponse,
-    common::time_ms_to_utc,
-};
 
 #[named]
 #[tokio::main]
@@ -83,18 +82,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             println!("No such symbol {}", sym_name);
         }
-    }
-
-    if let Some(sym_name) = &ctx.opts.sell_market {
-        let ei = &get_exchange_info(ctx).await?;
-        let quantity = ctx.opts.quantity;
-        market_order(ctx, ei, &sym_name, quantity, Side::SELL).await?;
-    }
-
-    if let Some(sym_name) = &ctx.opts.buy_market {
-        let ei = &get_exchange_info(ctx).await?;
-        let quantity = ctx.opts.quantity;
-        market_order(ctx, ei, sym_name, quantity, Side::BUY).await?;
     }
 
     if ctx.opts.get_account_info {
@@ -169,6 +156,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match cmd {
             Klines(rec) => {
                 get_klines_cmd(ctx, rec).await?;
+            }
+            BuyMarket(rec) => {
+                buy_market_order(ctx, rec).await?;
+            }
+            SellMarket(rec) => {
+                sell_market_order(ctx, rec).await?;
             }
         }
     }
