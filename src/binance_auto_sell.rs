@@ -15,7 +15,7 @@ use crate::{
     binance_context::BinanceContext,
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_market_order_cmd::market_order,
-    common::Side,
+    common::{are_you_sure_stdout_stdin, Side},
 };
 
 fn default_min() -> Decimal {
@@ -43,12 +43,16 @@ pub struct ConfigAutoSell {
     #[serde(default)]
     pub api_key: String,
 
-    #[serde(default)]
+    #[serde(default = "default_sell_to_asset")]
     pub default_sell_to_asset: String,
 
     #[serde(deserialize_with = "de_vec_keep_rec_to_hashmap")]
     #[serde(default)]
     pub keep: HashMap<String, KeepRec>,
+}
+
+fn default_sell_to_asset() -> String {
+    "USD".to_string()
 }
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
@@ -113,7 +117,7 @@ pub async fn auto_sell(
     //ai.print().await;
 
     #[derive(Default)]
-    struct KeepRec {
+    struct ProcessRec {
         asset: String,
         sell_to_asset: String,
         owned_qty: Decimal,
@@ -123,83 +127,102 @@ pub async fn auto_sell(
         keep_qty: Decimal,
     }
 
-    let mut vec_keep_rec = Vec::new();
+    let mut vec_process_rec = Vec::new();
     for balance in ai.balances_map.values() {
+        let keep_qty: Decimal;
+        let sell_qty: Decimal;
+        let sell_to_asset: &str;
+
+        assert!(!config.default_sell_to_asset.is_empty());
+
         let owned_qty = balance.free + balance.locked;
         if owned_qty > dec!(0) {
             if let Some(keeping) = config.keep.get(&balance.asset) {
-                let keep_qty = if keeping.min < Decimal::MAX && keeping.min < owned_qty {
+                keep_qty = if keeping.min < Decimal::MAX && keeping.min < owned_qty {
                     keeping.min
                 } else {
                     owned_qty
                 };
-                let sell_qty = owned_qty - keep_qty;
-                let sell_to_asset = if keeping.sell_to_asset.is_empty() {
-                    if config.default_sell_to_asset.is_empty() {
-                        "USD"
-                    } else {
-                        &config.default_sell_to_asset
-                    }
+                sell_qty = owned_qty - keep_qty;
+
+                sell_to_asset = if keeping.sell_to_asset.is_empty() {
+                    &config.default_sell_to_asset
                 } else {
                     &keeping.sell_to_asset
                 };
-                vec_keep_rec.push(KeepRec {
-                    asset: balance.asset.clone(),
-                    sell_to_asset: sell_to_asset.to_string(),
-                    owned_qty,
-                    sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
-                    sell_qty,
-                    keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
-                    keep_qty,
-                });
             } else {
-                println!(
-                    "Selling {:18.6} of {:6} worth ${:10.2} keeping none",
-                    owned_qty,
-                    balance.asset,
-                    balance.value_in_usd.round_dp(2)
-                );
-                let sell_to_asset = if config.default_sell_to_asset.is_empty() {
-                    "USD"
-                } else {
-                    &config.default_sell_to_asset
-                };
-                let symbol_name: String = balance.asset.clone() + sell_to_asset;
-                trace!(
-                    "auto_sell: call market_order selling ALL {} as {}",
-                    owned_qty,
-                    symbol_name
-                );
-                market_order(ctx, ei, &symbol_name, owned_qty, Side::SELL, test).await?;
+                // Selling all
+                keep_qty = dec!(0);
+                sell_qty = owned_qty;
+                sell_to_asset = &config.default_sell_to_asset;
             }
+
+            vec_process_rec.push(ProcessRec {
+                asset: balance.asset.clone(),
+                sell_to_asset: sell_to_asset.to_string(),
+                owned_qty,
+                sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
+                sell_qty,
+                keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
+                keep_qty,
+            });
         }
     }
-    for kr in vec_keep_rec {
+
+    let mut total_sell_in_usd = dec!(0);
+    let mut total_assets_selling_some_or_all = 0i64;
+    for kr in &vec_process_rec {
         if kr.sell_qty > dec!(0) {
-            println!(
-                "Keeping {:18.6} of {:6} worth ${:10.2} selling {} worth ${:10.2}",
-                kr.keep_qty,
-                kr.asset,
-                kr.keep_value_in_usd.round_dp(2),
-                kr.sell_qty,
-                kr.sell_value_in_usd
-            );
-            let symbol_name: String = kr.asset + &kr.sell_to_asset;
-            trace!(
-                "auto_sell: call market_order selling SOME {} as {}",
-                kr.sell_qty,
-                symbol_name
-            );
-            market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await?;
-        // TODO: TESTING ALWAYS ON ATM
+            if kr.keep_qty > dec!(0) {
+                println!(
+                    "Keeping {:18.6} of {:6} worth ${:10.2} selling {} worth ${:10.2}",
+                    kr.keep_qty,
+                    kr.asset,
+                    kr.keep_value_in_usd.round_dp(2),
+                    kr.sell_qty,
+                    kr.sell_value_in_usd
+                );
+            } else {
+                println!(
+                    "Selling {:18} of {:6} worth ${:10.2} Keeping NONE",
+                    kr.keep_qty,
+                    kr.asset,
+                    kr.keep_value_in_usd.round_dp(2),
+                );
+            }
+            total_sell_in_usd += kr.sell_value_in_usd;
+            total_assets_selling_some_or_all += 1;
         } else {
             println!(
-                "Keeping {:18.6} of {:6} worth ${:10.2} selling none",
+                "Keeping {:18.6} of {:6} worth ${:10.2} selling NONE",
                 kr.owned_qty,
                 kr.asset,
                 kr.keep_value_in_usd.round_dp(2)
             );
         }
+    }
+
+    if total_assets_selling_some_or_all > 0 {
+        println!(
+            "${} to sell from {} assets",
+            total_sell_in_usd, total_assets_selling_some_or_all
+        );
+        if are_you_sure_stdout_stdin() {
+            for kr in &vec_process_rec {
+                if kr.sell_qty > dec!(0) {
+                    let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
+                    println!(
+                        "auto_sell: call market_order selling SOME {} as {}",
+                        kr.sell_qty, symbol_name
+                    );
+                    market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await?;
+                }
+            }
+        } else {
+            println!("\n ** Aborted **");
+        }
+    } else {
+        println!("\n ** NOTHING to sell **");
     }
 
     trace!("auto_sell:- test: {} config_file: {}", test, config_file);

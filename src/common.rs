@@ -6,8 +6,12 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
     Response,
 };
-use std::error::Error;
 use std::fmt::{self, Debug, Display};
+use std::{
+    error::Error,
+    io::stdout,
+    io::{stdin, Write},
+};
 use strum_macros::IntoStaticStr;
 
 use serde::{Deserialize, Serialize};
@@ -267,6 +271,20 @@ pub fn naive_to_utc_time_ms(date_time: &NaiveDateTime) -> i64 {
 pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
     let ndt = NaiveDateTime::parse_from_str(&naive_dt_str, "%Y-%m-%dT%H:%M:%S")?;
     Ok(naive_to_utc_time_ms(&ndt))
+}
+
+pub fn are_you_sure_stdout_stdin() -> bool {
+    print!("Are you sure, type Yes: ");
+    if stdout().flush().is_err() {
+        return false;
+    }
+
+    // Read line include '\n' and check for "Yes\n"
+    let mut line = String::new();
+    match stdin().read_line(&mut line) {
+        Ok(_) => line.eq("Yes\n"),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
