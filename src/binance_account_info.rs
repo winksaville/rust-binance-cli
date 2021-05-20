@@ -2,7 +2,11 @@ use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{de::SeqAccess, de::Visitor, Deserialize, Deserializer, Serialize};
-use std::{collections::BTreeMap, fmt};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    io::{stdout, Write},
+};
 
 use crate::{
     binance_klines::get_kline,
@@ -79,12 +83,16 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub async fn update_values_in_usd(&mut self, ctx: &BinanceContext) -> Decimal {
+    pub async fn update_values_in_usd(&mut self, ctx: &BinanceContext, verbose: bool) -> Decimal {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
                 let price = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
+                    if verbose {
+                        print!("{:-10} {:+10}\r", "Updating", sym);
+                        let _ = stdout().flush();
+                    }
                     let price = match get_kline(ctx, &sym, utc_now_to_time_ms()).await {
                         Ok(kr) => kr.close,
                         Err(_) => {
@@ -98,6 +106,10 @@ impl AccountInfo {
                 balance.value_in_usd = price * (balance.free + balance.locked);
                 total_value += balance.value_in_usd;
             }
+        }
+        if verbose {
+            print!("{:-10} {:+10}\r", " ", " ");
+            let _ = stdout().flush();
         }
 
         total_value
@@ -132,7 +144,7 @@ impl AccountInfo {
     }
 
     pub async fn update_and_print(&mut self, ctx: &BinanceContext) {
-        self.update_values_in_usd(ctx).await;
+        self.update_values_in_usd(ctx, true).await;
         self.print().await;
     }
 }

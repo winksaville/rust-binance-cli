@@ -113,7 +113,7 @@ pub async fn auto_sell(
     let ctx = &ctx;
 
     let mut ai = get_account_info(ctx).await?;
-    ai.update_values_in_usd(&ctx).await;
+    ai.update_values_in_usd(&ctx, true).await;
     //ai.print().await;
 
     #[derive(Default)]
@@ -169,30 +169,11 @@ pub async fn auto_sell(
         }
     }
 
-    let mut total_sell_in_usd = dec!(0);
-    let mut total_assets_selling_some_or_all = 0i64;
+    // Print assets being kept
+    let mut kept_cnt: i64 = 0;
     for kr in &vec_process_rec {
-        if kr.sell_qty > dec!(0) {
-            if kr.keep_qty > dec!(0) {
-                println!(
-                    "Keeping {:18.6} of {:6} worth ${:10.2} selling {} worth ${:10.2}",
-                    kr.keep_qty,
-                    kr.asset,
-                    kr.keep_value_in_usd.round_dp(2),
-                    kr.sell_qty,
-                    kr.sell_value_in_usd
-                );
-            } else {
-                println!(
-                    "Selling {:18} of {:6} worth ${:10.2} Keeping NONE",
-                    kr.sell_qty,
-                    kr.asset,
-                    kr.sell_value_in_usd.round_dp(2),
-                );
-            }
-            total_sell_in_usd += kr.sell_value_in_usd;
-            total_assets_selling_some_or_all += 1;
-        } else {
+        if kr.sell_qty <= dec!(0) {
+            kept_cnt += 1;
             println!(
                 "Keeping {:18.6} of {:6} worth ${:10.2} selling NONE",
                 kr.owned_qty,
@@ -201,10 +182,38 @@ pub async fn auto_sell(
             );
         }
     }
+    if kept_cnt > 0 {
+        println!();
+    }
+
+    // Print assets being sold
+    let mut total_sell_in_usd = dec!(0);
+    let mut total_assets_selling_some_or_all = 0i64;
+    for kr in &vec_process_rec {
+        if kr.sell_qty > dec!(0) {
+            print!(
+                "SELLING {:18.6} of {:6} worth ${:10.2} keeping ",
+                kr.sell_qty,
+                kr.asset,
+                kr.sell_value_in_usd.round_dp(2),
+            );
+            if kr.keep_qty > dec!(0) {
+                println!(
+                    "{} worth ${:10.2}",
+                    kr.keep_qty,
+                    kr.keep_value_in_usd.round_dp(2),
+                );
+            } else {
+                println!("NONE");
+            }
+            total_sell_in_usd += kr.sell_value_in_usd;
+            total_assets_selling_some_or_all += 1;
+        }
+    }
 
     if total_assets_selling_some_or_all > 0 {
         println!(
-            "\nSelling {} assets for ${:.2}",
+            "\nSELLING {} assets for ${:.2}",
             total_assets_selling_some_or_all,
             total_sell_in_usd.round_dp(2)
         );
@@ -213,7 +222,7 @@ pub async fn auto_sell(
                 if kr.sell_qty > dec!(0) {
                     let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
                     println!(
-                        "\nSelling {} of {} worth about ${:.2}",
+                        "\nSELLING {} of {} worth about ${:.2}",
                         kr.sell_qty, symbol_name, kr.sell_value_in_usd
                     );
                     let tr =
@@ -227,7 +236,7 @@ pub async fn auto_sell(
     } else {
         println!("\n ** NOTHING to sell **");
     }
-    println!("");
+    println!();
 
     trace!("auto_sell:- test: {} config_file: {}", test, config_file);
     Ok(())
