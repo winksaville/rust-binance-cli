@@ -8,6 +8,7 @@ use crate::{
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_context::BinanceContext,
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
+    binance_order_response::TradeResponse,
     binance_orders::get_open_orders,
     binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType},
     binance_verify_order::{
@@ -24,7 +25,7 @@ pub async fn market_order(
     quantity: Decimal,
     side: Side,
     test: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<TradeResponse, Box<dyn std::error::Error>> {
     let mut quantity = quantity;
     if quantity <= dec!(0.0) {
         return Err(format!("order {} quantity", quantity).into());
@@ -57,7 +58,7 @@ pub async fn market_order(
     // Verify MaxPosition
     verify_max_position(&ai, &open_orders, symbol, quantity)?;
 
-    // Could use if matches!(side, Side::SELL) but this is safer is Side changes
+    // Could use if matches!(side, Side::SELL) but this is safer if Side changes
     match side {
         Side::SELL => {
             verify_quanity_is_greater_than_free(&ai, symbol, quantity)?;
@@ -65,7 +66,7 @@ pub async fn market_order(
         Side::BUY => {}
     }
 
-    let response = binance_new_order_or_test(
+    let tr = binance_new_order_or_test(
         ctx,
         ei,
         &symbol_name,
@@ -74,9 +75,9 @@ pub async fn market_order(
         test,
     )
     .await?;
-    trace!("market reponse: {:#?}", response);
+    trace!("market trade reponse: {:#?}", tr);
 
-    Ok(())
+    Ok(tr)
 }
 
 #[derive(Debug, Clone, Default, StructOpt)]
@@ -99,7 +100,10 @@ pub async fn buy_market_order_cmd(
     trace!("buy_market_order: rec: {:#?}", rec);
 
     let ei = &get_exchange_info(ctx).await?;
-    market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await
+    let tr = market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await?;
+    println!("{}", tr);
+
+    Ok(())
 }
 
 pub async fn sell_market_order_cmd(
@@ -109,5 +113,8 @@ pub async fn sell_market_order_cmd(
     trace!("sell_market_order: rec: {:#?}", rec);
 
     let ei = &get_exchange_info(ctx).await?;
-    market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::SELL, rec.test).await
+    let tr = market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::SELL, rec.test).await?;
+    println!("{}", tr);
+
+    Ok(())
 }

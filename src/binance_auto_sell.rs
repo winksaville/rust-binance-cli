@@ -185,9 +185,9 @@ pub async fn auto_sell(
             } else {
                 println!(
                     "Selling {:18} of {:6} worth ${:10.2} Keeping NONE",
-                    kr.keep_qty,
+                    kr.sell_qty,
                     kr.asset,
-                    kr.keep_value_in_usd.round_dp(2),
+                    kr.sell_value_in_usd.round_dp(2),
                 );
             }
             total_sell_in_usd += kr.sell_value_in_usd;
@@ -204,18 +204,21 @@ pub async fn auto_sell(
 
     if total_assets_selling_some_or_all > 0 {
         println!(
-            "${} to sell from {} assets",
-            total_sell_in_usd, total_assets_selling_some_or_all
+            "\nSelling {} assets for ${:.2}",
+            total_assets_selling_some_or_all,
+            total_sell_in_usd.round_dp(2)
         );
         if are_you_sure_stdout_stdin() {
             for kr in &vec_process_rec {
                 if kr.sell_qty > dec!(0) {
                     let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
                     println!(
-                        "auto_sell: call market_order selling SOME {} as {}",
-                        kr.sell_qty, symbol_name
+                        "\nSelling {} of {} worth about ${:.2}",
+                        kr.sell_qty, symbol_name, kr.sell_value_in_usd
                     );
-                    market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await?;
+                    let tr =
+                        market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await?;
+                    println!("{}", tr);
                 }
             }
         } else {
@@ -224,6 +227,7 @@ pub async fn auto_sell(
     } else {
         println!("\n ** NOTHING to sell **");
     }
+    println!("");
 
     trace!("auto_sell:- test: {} config_file: {}", test, config_file);
     Ok(())
