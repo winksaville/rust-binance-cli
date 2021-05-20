@@ -61,12 +61,24 @@ pub enum OrderType {
     LIMIT_MAKER,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, IntoStaticStr)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, IntoStaticStr)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Side {
     BUY,
     SELL,
+}
+
+impl fmt::Display for Side {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::Side: {:#?}", self);
+        let side_str = match self {
+            Side::SELL => "Sold",
+            Side::BUY => "Bought",
+        };
+
+        write!(f, "{}", side_str)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -282,7 +294,10 @@ pub fn are_you_sure_stdout_stdin() -> bool {
     // Read line include '\n' and check for "Yes\n"
     let mut line = String::new();
     match stdin().read_line(&mut line) {
-        Ok(_) => line.eq("Yes\n"),
+        Ok(_) => {
+            trace!("line: {}", line.trim());
+            line.trim().eq("Yes")
+        }
         Err(_) => false,
     }
 }

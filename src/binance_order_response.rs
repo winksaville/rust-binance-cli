@@ -1,10 +1,16 @@
+use std::fmt;
+
+use log::trace;
 use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use semver::Version;
 
-use crate::de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64};
+use crate::{
+    common::{time_ms_to_utc, Side},
+    de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
+};
 
 use crate::common::{BinanceError, OrderType};
 
@@ -51,6 +57,18 @@ pub struct AckTradeResponseRec {
     pub client_order_id: String,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub transact_time: i64,
+}
+
+impl fmt::Display for AckTradeResponseRec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::atrr: {:#?}", self);
+        write!(
+            f,
+            "Trade Ack for {} at {}",
+            self.symbol,
+            time_ms_to_utc(self.transact_time),
+        )
+    }
 }
 
 impl Default for AckTradeResponseRec {
@@ -120,6 +138,17 @@ impl Default for ResultTradeResponseRec {
     }
 }
 
+impl fmt::Display for ResultTradeResponseRec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::rtrr: {:#?}", self);
+        write!(
+            f,
+            "{} {} at {:.2}/share of {} valued at ${:.2}",
+            self.side, self.executed_qty, self.price, self.symbol, self.cummulative_quote_qty
+        )
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FullTradeResponseRec {
@@ -127,7 +156,7 @@ pub struct FullTradeResponseRec {
     pub test: bool,
     #[serde(default)]
     pub query: String,
-    symbol: String,
+    pub symbol: String,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub order_id: u64,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
@@ -143,12 +172,23 @@ pub struct FullTradeResponseRec {
     pub time_in_force: String, // add enum TimeInForce
     #[serde(rename = "type")]
     pub order_type: OrderType,
-    pub side: String, // add enum Side (it's currently defined in main.rs)
+    pub side: Side,
     pub fills: Vec<Fill>,
     #[serde(default)]
     pub value_usd: Decimal,
     #[serde(default)]
     pub commission_usd: Decimal,
+}
+
+impl fmt::Display for FullTradeResponseRec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::fttr: {:#?}", self);
+        write!(
+            f,
+            "{} {} at {:.2}/share of {} valued at ${:.2}",
+            self.side, self.executed_qty, self.price, self.symbol, self.cummulative_quote_qty
+        )
+    }
 }
 
 impl Default for FullTradeResponseRec {
@@ -168,7 +208,7 @@ impl Default for FullTradeResponseRec {
             status: "".to_string(),
             time_in_force: "".to_string(),
             order_type: OrderType::MARKET,
-            side: "".to_string(),
+            side: Side::BUY,
             fills: vec![],
             value_usd: dec!(0),
             commission_usd: dec!(0),
@@ -182,6 +222,13 @@ pub struct TestTradeResponseRec {
     pub test: bool,
     pub query: String,
     pub response_body: String,
+}
+
+impl fmt::Display for TestTradeResponseRec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::tttr: {:#?}", self);
+        write!(f, "Successful test, response body: {}", self.response_body)
+    }
 }
 
 impl Default for TestTradeResponseRec {
@@ -203,6 +250,17 @@ pub struct UnknownTradeResponseRec {
     pub error_internal: String,
 }
 
+impl fmt::Display for UnknownTradeResponseRec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::uttr: {:#?}", self);
+        write!(
+            f,
+            "Successful but unknown response, body: {}",
+            self.response_body
+        )
+    }
+}
+
 impl Default for UnknownTradeResponseRec {
     fn default() -> UnknownTradeResponseRec {
         UnknownTradeResponseRec {
@@ -222,6 +280,19 @@ pub enum TradeResponse {
     SuccessTest(TestTradeResponseRec),
     SuccessUnknown(UnknownTradeResponseRec),
     Failure(BinanceError),
+}
+
+impl fmt::Display for TradeResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TradeResponse::SuccessAck(tr) => write!(f, "{}", tr),
+            TradeResponse::SuccessResult(tr) => write!(f, "{}", tr),
+            TradeResponse::SuccessFull(tr) => write!(f, "{}", tr),
+            TradeResponse::SuccessTest(tr) => write!(f, "{}", tr),
+            TradeResponse::SuccessUnknown(tr) => write!(f, "{}", tr),
+            TradeResponse::Failure(ber) => write!(f, "{}", ber),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -369,7 +440,7 @@ mod test {
         assert_eq!(order_response.status, "FILLED");
         assert_eq!(order_response.time_in_force, "GTC");
         assert_eq!(order_response.order_type, OrderType::MARKET);
-        assert_eq!(order_response.side, "BUY");
+        assert_eq!(order_response.side, Side::BUY);
         assert_eq!(order_response.fills[0].price, dec!(417.8216));
         assert_eq!(order_response.fills[0].qty, dec!(0.03));
         assert_eq!(order_response.fills[0].commission, dec!(0.00002250));
