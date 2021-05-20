@@ -208,7 +208,7 @@ pub async fn auto_sell(
             total_assets_selling_some_or_all,
             total_sell_in_usd.round_dp(2)
         );
-        if are_you_sure_stdout_stdin() {
+        if test || are_you_sure_stdout_stdin() {
             for kr in &vec_process_rec {
                 if kr.sell_qty > dec!(0) {
                     let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
