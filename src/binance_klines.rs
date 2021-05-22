@@ -8,9 +8,9 @@ use strum_macros::IntoStaticStr;
 
 use crate::{
     binance_context::BinanceContext,
+    binance_order_response::TradeResponse,
     binance_signature::query_vec_u8,
-    common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
-    common::{BinanceError, ResponseErrorRec},
+    common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms, ResponseErrorRec},
 };
 
 // Seconds and minutes in milli-seconds
@@ -186,9 +186,8 @@ pub async fn get_klines(
         trace!("get_klines: klines={:?}", klines);
         Ok(klines)
     } else {
-        let response_error_rec =
-            ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
-        let binance_error_response = BinanceError::Response(response_error_rec);
+        let rer = ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
+        let binance_error_response = TradeResponse::FailureResponse(rer);
 
         trace!(
             "get_klines: error symbol={} resp_failure={:?}",

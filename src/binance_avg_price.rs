@@ -3,9 +3,8 @@ use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    binance_context::BinanceContext,
-    common::get_req_get_response,
-    common::{BinanceError, ResponseErrorRec},
+    binance_context::BinanceContext, binance_order_response::TradeResponse,
+    common::get_req_get_response, common::ResponseErrorRec,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -31,9 +30,8 @@ pub async fn get_avg_price<'e>(
         trace!("get_avg_price: avg_price={:?}", avg_price);
         Ok(avg_price)
     } else {
-        let response_error_rec =
-            ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
-        let binance_error_response = BinanceError::Response(response_error_rec);
+        let rer = ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
+        let binance_error_response = TradeResponse::FailureResponse(rer);
 
         trace!(
             "get_avg_price: error symbol={} resp_failure={:?}",

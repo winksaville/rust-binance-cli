@@ -124,6 +124,7 @@ pub async fn auto_sell(
     #[derive(Default)]
     struct ProcessRec {
         asset: String,
+        price_in_usd: Decimal,
         sell_to_asset: String,
         owned_qty: Decimal,
         sell_value_in_usd: Decimal,
@@ -164,6 +165,7 @@ pub async fn auto_sell(
 
             vec_process_rec.push(ProcessRec {
                 asset: balance.asset.clone(),
+                price_in_usd: balance.price_in_usd,
                 sell_to_asset: sell_to_asset.to_string(),
                 owned_qty,
                 sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
@@ -180,9 +182,10 @@ pub async fn auto_sell(
         if kr.sell_qty <= dec!(0) {
             kept_cnt += 1;
             println!(
-                "Keeping {:18.6} of {:6} worth ${:10.2} selling NONE",
+                "Keeping {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2} selling NONE",
                 kr.owned_qty,
                 kr.asset,
+                kr.price_in_usd,
                 kr.keep_value_in_usd.round_dp(2)
             );
         }
@@ -197,14 +200,15 @@ pub async fn auto_sell(
     for kr in &vec_process_rec {
         if kr.sell_qty > dec!(0) {
             print!(
-                "SELLING {:18.6} of {:6} worth ${:10.2} keeping ",
+                "SELLING {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2} keeping ",
                 kr.sell_qty,
                 kr.asset,
+                kr.price_in_usd,
                 kr.sell_value_in_usd.round_dp(2),
             );
             if kr.keep_qty > dec!(0) {
                 println!(
-                    "{} worth ${:10.2}",
+                    "{:6} worth ${:10.2}",
                     kr.keep_qty,
                     kr.keep_value_in_usd.round_dp(2),
                 );
@@ -218,7 +222,7 @@ pub async fn auto_sell(
 
     if total_assets_selling_some_or_all > 0 {
         println!(
-            "\nSELLING {} assets for ${:.2}",
+            "\nSELLING {} assets for ${:10.2}",
             total_assets_selling_some_or_all,
             total_sell_in_usd.round_dp(2)
         );
@@ -227,12 +231,15 @@ pub async fn auto_sell(
                 if kr.sell_qty > dec!(0) {
                     let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
                     println!(
-                        "\nSELLING {} of {} worth about ${:.2}",
-                        kr.sell_qty, symbol_name, kr.sell_value_in_usd
+                        "\nSELLING {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2}",
+                        kr.sell_qty,
+                        symbol_name,
+                        kr.price_in_usd,
+                        kr.sell_value_in_usd.round_dp(2)
                     );
                     match market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await {
                         Ok(tr) => println!("{}", tr),
-                        Err(e) => println!("Skipping {}", e),
+                        Err(e) => println!("SKIPPING {}, {}", symbol_name, e),
                     }
                 }
             }

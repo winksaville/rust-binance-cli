@@ -17,7 +17,7 @@ use crate::{
         TradeResponse, UnknownTradeResponseRec,
     },
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{post_req_get_response, utc_now_to_time_ms, BinanceError, ResponseErrorRec, Side},
+    common::{post_req_get_response, utc_now_to_time_ms, ResponseErrorRec, Side},
 };
 
 pub enum MarketQuantityType {
@@ -289,14 +289,13 @@ pub async fn binance_new_order_or_test(
 
         Ok(order_resp)
     } else {
-        let response_error_rec = ResponseErrorRec::new(
+        let rer = ResponseErrorRec::new(
             test,
             response_status.as_u16(),
             &query_string,
             &response_body,
         );
-        let binance_error_response = BinanceError::Response(response_error_rec);
-        let order_resp = TradeResponse::Failure(binance_error_response.clone());
+        let order_resp = TradeResponse::FailureResponse(rer);
 
         // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
         log_order_response(&mut writer, &order_resp)?;
@@ -309,7 +308,7 @@ pub async fn binance_new_order_or_test(
             )
         );
 
-        Err(binance_error_response.into())
+        Err(order_resp.into())
     };
 
     result

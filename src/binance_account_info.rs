@@ -60,6 +60,8 @@ pub struct Balance {
     pub free: Decimal,
     pub locked: Decimal,
     #[serde(skip)]
+    pub price_in_usd: Decimal,
+    #[serde(skip)]
     pub value_in_usd: Decimal,
 }
 
@@ -87,7 +89,7 @@ impl AccountInfo {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
-                let price = if balance.asset != "USD" {
+                let price_in_usd = if balance.asset != "USD" {
                     let sym = balance.asset.clone() + "USD";
                     if verbose {
                         print!("{:-10} {:+10}\r", "Updating", sym);
@@ -103,7 +105,8 @@ impl AccountInfo {
                 } else {
                     dec!(1)
                 };
-                balance.value_in_usd = price * (balance.free + balance.locked);
+                balance.price_in_usd = price_in_usd;
+                balance.value_in_usd = price_in_usd * (balance.free + balance.locked);
                 total_value += balance.value_in_usd;
             }
         }

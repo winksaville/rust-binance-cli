@@ -28,14 +28,14 @@ pub async fn market_order(
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
     let mut quantity = quantity;
     if quantity <= dec!(0) {
-        return Err(format!("order {} quantity <= 0", quantity).into());
+        return Err(format!("quantity: {} <= 0", quantity).into());
     }
     trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
     let symbol = match ei.get_symbol(&symbol_name) {
         Some(s) => s,
         None => {
-            return Err(format!("There is no asset named {}", symbol_name).into());
+            return Err(format!("No asset named {}", symbol_name).into());
         }
     };
     trace!("Got symbol");
@@ -53,7 +53,7 @@ pub async fn market_order(
 
     // Could have gone zero, if so return an error
     if quantity <= dec!(0) {
-        return Err(format!("order {} adjusted quantity <= 0", quantity).into());
+        return Err(format!("adjusted quantity: {} <= 0", quantity).into());
     }
 
     // Verify the quantity meets the min_notional criteria

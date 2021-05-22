@@ -6,8 +6,9 @@ use rust_decimal::prelude::*;
 
 use crate::{
     binance_context::BinanceContext,
+    binance_order_response::TradeResponse,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{get_req_get_response, BinanceError, ResponseErrorRec},
+    common::{get_req_get_response, ResponseErrorRec},
     common::{utc_now_to_time_ms, utc_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
 };
@@ -92,7 +93,7 @@ async fn trades_get_req_and_response(
             &query_string,
             &response_body,
         );
-        let binance_error_response = BinanceError::Response(rer);
+        let binance_error_response = TradeResponse::FailureResponse(rer);
 
         trace!(
             "{}",

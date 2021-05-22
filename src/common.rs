@@ -8,7 +8,6 @@ use reqwest::{
 };
 use std::fmt::{self, Debug, Display};
 use std::{
-    error::Error,
     io::stdout,
     io::{stdin, Write},
 };
@@ -25,26 +24,37 @@ pub struct InternalErrorRec {
     pub line: u32,
     pub fn_name: String,
     pub file: String,
-    pub message: String,
+    pub msg: String,
 }
 
 impl InternalErrorRec {
     #[allow(unused)]
-    pub fn new(code: u32, line: u32, fn_name: &str, file: &str, message: &str) -> Self {
+    pub fn new(code: u32, file: &str, fn_name: &str, line: u32, message: &str) -> Self {
         InternalErrorRec {
             code,
-            line,
-            fn_name: String::from(fn_name),
             file: String::from(file),
-            message: String::from(message),
+            fn_name: String::from(fn_name),
+            line,
+            msg: String::from(message),
         }
     }
 }
 
+impl Display for InternalErrorRec {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        trace!("Display::InternalErrorRec: {:#?}", self);
+        write!(
+            f,
+            "InternalErrorRec: {}::{}:{} code: {} msg: {}",
+            self.file, self.fn_name, self.line, self.code, self.msg,
+        )
+    }
+}
+
 #[macro_export]
-macro_rules! ie_new {
+macro_rules! ier_new {
     ( $c:expr, $m:expr ) => {
-        InternalErrorRec::new($c, std::line!(), function_name!(), std::file!(), $m);
+        InternalErrorRec::new($c, std::file!(), function_name!(), std::line!(), $m);
     };
 }
 
@@ -69,7 +79,7 @@ pub enum Side {
     SELL,
 }
 
-impl fmt::Display for Side {
+impl Display for Side {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         trace!("Display::Side: {:#?}", self);
         let side_str = match self {
@@ -124,24 +134,14 @@ impl ResponseErrorRec {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum BinanceError {
-    Response(ResponseErrorRec),
-}
-
-impl Error for BinanceError {}
-
-impl Display for BinanceError {
+impl Display for ResponseErrorRec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &*self {
-            BinanceError::Response(rec) => {
-                write!(
-                    f,
-                    "BinanceError::Response: test={} status={} code={} msg={} query={}",
-                    rec.test, rec.status, rec.code, rec.msg, rec.query
-                )
-            }
-        }
+        trace!("Display::rer: {:#?}", self);
+        write!(
+            f,
+            "ResponseErrorRec: test={} status={} code={} msg={} query={}",
+            self.test, self.status, self.code, self.msg, self.query
+        )
     }
 }
 
@@ -392,7 +392,7 @@ mod test {
     #[test]
     #[named]
     fn test_internal_error() {
-        let ie1 = ie_new!(1, "err 1");
+        let ie1 = ier_new!(1, "err 1");
         println!("{:#?}", ie1);
         assert_eq!(ie1.code, 1);
         assert_eq!(ie1.line, line!() - 3);

@@ -49,10 +49,10 @@ pub fn verify_min_notional(
             let min_notional_quantity = mnr.min_notional / avg_price.price;
             if quantity < min_notional_quantity {
                 return Err(format!(
-                    "quantity: {} must be >= {} so value is >= ${:.2}",
+                    "quantity: {} must be >= {:.6} so value is >= ${:.2}",
                     quantity,
                     min_notional_quantity,
-                    min_notional_quantity * avg_price.price
+                    (min_notional_quantity * avg_price.price).round_dp(2)
                 )
                 .into());
             }

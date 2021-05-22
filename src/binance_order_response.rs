@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{error::Error, fmt};
 
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -8,11 +8,11 @@ use rust_decimal_macros::dec;
 use semver::Version;
 
 use crate::{
-    common::{time_ms_to_utc, Side},
+    common::{time_ms_to_utc, InternalErrorRec, ResponseErrorRec, Side},
     de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
 };
 
-use crate::common::{BinanceError, OrderType};
+use crate::common::OrderType;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -279,8 +279,11 @@ pub enum TradeResponse {
     SuccessFull(FullTradeResponseRec),
     SuccessTest(TestTradeResponseRec),
     SuccessUnknown(UnknownTradeResponseRec),
-    Failure(BinanceError),
+    FailureResponse(ResponseErrorRec),
+    FailureInternal(InternalErrorRec),
 }
+
+impl Error for TradeResponse {}
 
 impl fmt::Display for TradeResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -290,7 +293,8 @@ impl fmt::Display for TradeResponse {
             TradeResponse::SuccessFull(tr) => write!(f, "{}", tr),
             TradeResponse::SuccessTest(tr) => write!(f, "{}", tr),
             TradeResponse::SuccessUnknown(tr) => write!(f, "{}", tr),
-            TradeResponse::Failure(ber) => write!(f, "{}", ber),
+            TradeResponse::FailureResponse(ber) => write!(f, "{}", ber),
+            TradeResponse::FailureInternal(ier) => write!(f, "{}", ier),
         }
     }
 }
