@@ -1,6 +1,6 @@
 use log::trace;
 use rust_decimal_macros::dec;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use structopt::StructOpt;
 use tokio::fs;
 
@@ -42,6 +42,8 @@ pub struct ConfigAutoSell {
     #[serde(rename = "API_KEY")]
     #[serde(default)]
     pub api_key: String,
+
+    pub order_log_path: Option<PathBuf>,
 
     #[serde(default = "default_sell_to_asset")]
     pub default_sell_to_asset: String,
@@ -110,6 +112,9 @@ pub async fn auto_sell(
     let mut ctx: BinanceContext = (*ctx).clone();
     ctx.keys.api_key = config.api_key.clone();
     ctx.keys.secret_key = config.secret_key.clone();
+    if let Some(olp) = config.order_log_path {
+        ctx.opts.order_log_path = olp;
+    }
     let ctx = &ctx;
 
     let mut ai = get_account_info(ctx).await?;
@@ -225,9 +230,10 @@ pub async fn auto_sell(
                         "\nSELLING {} of {} worth about ${:.2}",
                         kr.sell_qty, symbol_name, kr.sell_value_in_usd
                     );
-                    let tr =
-                        market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await?;
-                    println!("{}", tr);
+                    match market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await {
+                        Ok(tr) => println!("{}", tr),
+                        Err(e) => println!("Skipping {}", e),
+                    }
                 }
             }
         } else {

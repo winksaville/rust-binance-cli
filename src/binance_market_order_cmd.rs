@@ -27,8 +27,8 @@ pub async fn market_order(
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
     let mut quantity = quantity;
-    if quantity <= dec!(0.0) {
-        return Err(format!("order {} quantity", quantity).into());
+    if quantity <= dec!(0) {
+        return Err(format!("order {} quantity <= 0", quantity).into());
     }
     trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
@@ -49,7 +49,12 @@ pub async fn market_order(
     verify_open_orders(&open_orders, symbol)?;
 
     // Adjust quantity and verify the quantity meets the LotSize criteria
-    quantity = adj_quantity_verify_lot_size(symbol, quantity)?;
+    quantity = adj_quantity_verify_lot_size(symbol, quantity);
+
+    // Could have gone zero, if so return an error
+    if quantity <= dec!(0) {
+        return Err(format!("order {} adjusted quantity <= 0", quantity).into());
+    }
 
     // Verify the quantity meets the min_notional criteria
     let avg_price: AvgPrice = get_avg_price(ctx, &symbol.symbol).await?;
