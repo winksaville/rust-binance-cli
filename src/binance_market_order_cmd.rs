@@ -1,3 +1,5 @@
+//use std::fs;
+
 use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
@@ -17,7 +19,7 @@ use crate::{
         adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
         verify_quanity_is_greater_than_free,
     },
-    common::{InternalErrorRec, Side},
+    common::{update_context_from_config_file, InternalErrorRec, Side},
     ier_new,
 };
 use binance_trade::log_order_response;
@@ -117,6 +119,9 @@ pub async fn market_order(
 
 #[derive(Debug, Clone, Default, StructOpt)]
 pub struct MarketCmdRec {
+    /// full path to configuration toml file, example: data/config.toml
+    config_file: String,
+
     /// Symbol name
     pub sym_name: String,
 
@@ -128,11 +133,16 @@ pub struct MarketCmdRec {
     test: bool,
 }
 
+#[named]
 pub async fn buy_market_order_cmd(
     ctx: &BinanceContext,
     rec: &MarketCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("buy_market_order: rec: {:#?}", rec);
+
+    let mut ctx = ctx.clone();
+    let _ = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
+    let ctx = &ctx;
 
     let ei = &get_exchange_info(ctx).await?;
     let tr = market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await?;
@@ -141,11 +151,16 @@ pub async fn buy_market_order_cmd(
     Ok(())
 }
 
+#[named]
 pub async fn sell_market_order_cmd(
     ctx: &BinanceContext,
     rec: &MarketCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("sell_market_order: rec: {:#?}", rec);
+
+    let mut ctx = ctx.clone();
+    let _ = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
+    let ctx = &ctx;
 
     let ei = &get_exchange_info(ctx).await?;
     let tr = market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::SELL, rec.test).await?;

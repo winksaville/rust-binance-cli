@@ -49,7 +49,7 @@ pub struct AckTradeResponseRec {
     pub test: bool,
     #[serde(default)]
     pub query: String,
-    symbol: String,
+    pub symbol: String,
     #[serde(deserialize_with = "de_string_or_number_to_u64")]
     pub order_id: u64,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
@@ -92,7 +92,7 @@ pub struct ResultTradeResponseRec {
     pub test: bool,
     #[serde(default)]
     pub query: String,
-    symbol: String,
+    pub symbol: String,
     pub order_id: u64,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub order_list_id: i64,
@@ -141,10 +141,19 @@ impl Default for ResultTradeResponseRec {
 impl fmt::Display for ResultTradeResponseRec {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         trace!("Display::rtrr: {:#?}", self);
+        let price = if self.price > dec!(0) {
+            self.price
+        } else {
+            self.cummulative_quote_qty / self.executed_qty
+        };
         write!(
             f,
-            "{} {} at {:.2}/share of {} valued at ${:.2}",
-            self.side, self.executed_qty, self.price, self.symbol, self.cummulative_quote_qty
+            "{:8} {:14.6} at {:.4}/per of {:10} valued at ${:.2}",
+            self.side,
+            self.executed_qty,
+            price.round_dp(4),
+            self.symbol,
+            self.cummulative_quote_qty
         )
     }
 }
@@ -183,10 +192,19 @@ pub struct FullTradeResponseRec {
 impl fmt::Display for FullTradeResponseRec {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         trace!("Display::fttr: {:#?}", self);
+        let price = if self.price > dec!(0) {
+            self.price
+        } else {
+            self.cummulative_quote_qty / self.executed_qty
+        };
         write!(
             f,
-            "{} {} at {:.2}/share of {} valued at ${:.2}",
-            self.side, self.executed_qty, self.price, self.symbol, self.cummulative_quote_qty
+            "{:8} {:14.6} at {:.4}/per of {:10} valued at ${:.2}",
+            self.side,
+            self.executed_qty,
+            price.round_dp(4),
+            self.symbol,
+            self.cummulative_quote_qty
         )
     }
 }
