@@ -10,14 +10,22 @@ use crate::{
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_order_response::TradeResponse,
     binance_orders::get_open_orders,
-    binance_trade::{binance_new_order_or_test, MarketQuantityType, TradeOrderType},
+    binance_trade::{
+        self, binance_new_order_or_test, order_log_file, MarketQuantityType, TradeOrderType,
+    },
     binance_verify_order::{
         adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
         verify_quanity_is_greater_than_free,
     },
-    common::Side,
+    common::{InternalErrorRec, Side},
+    ier_new,
 };
+use binance_trade::log_order_response;
 
+extern crate function_name;
+use function_name::named;
+
+#[named]
 pub async fn market_order(
     ctx: &BinanceContext,
     ei: &ExchangeInfo,
@@ -26,16 +34,28 @@ pub async fn market_order(
     side: Side,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
+    let mut log_writer = order_log_file(&ctx.opts.order_log_path)?;
+
     let mut quantity = quantity;
     if quantity <= dec!(0) {
-        return Err(format!("quantity: {} <= 0", quantity).into());
+        let tr = TradeResponse::FailureInternal(ier_new!(
+            1,
+            &format!("adjusted quantity: {} <= 0", quantity)
+        ));
+        log_order_response(&mut log_writer, &tr)?;
+        return Err(tr.into());
     }
     trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
     let symbol = match ei.get_symbol(&symbol_name) {
         Some(s) => s,
         None => {
-            return Err(format!("No asset named {}", symbol_name).into());
+            let tr = TradeResponse::FailureInternal(ier_new!(
+                2,
+                &format!("No asset named {}", symbol_name)
+            ));
+            log_order_response(&mut log_writer, &tr)?;
+            return Err(tr.into());
         }
     };
     trace!("Got symbol");
@@ -53,12 +73,21 @@ pub async fn market_order(
 
     // Could have gone zero, if so return an error
     if quantity <= dec!(0) {
-        return Err(format!("adjusted quantity: {} <= 0", quantity).into());
+        let tr = TradeResponse::FailureInternal(ier_new!(
+            3,
+            &format!("adjusted quantity: {} <= 0", quantity)
+        ));
+        log_order_response(&mut log_writer, &tr)?;
+        return Err(tr.into());
     }
 
     // Verify the quantity meets the min_notional criteria
     let avg_price: AvgPrice = get_avg_price(ctx, &symbol.symbol).await?;
-    verify_min_notional(&avg_price, symbol, quantity)?;
+    if let Err(e) = verify_min_notional(&avg_price, symbol, quantity) {
+        let tr = TradeResponse::FailureInternal(ier_new!(4, &e.to_string()));
+        log_order_response(&mut log_writer, &tr)?;
+        return Err(tr.into());
+    }
 
     // Verify MaxPosition
     verify_max_position(&ai, &open_orders, symbol, quantity)?;
@@ -73,6 +102,7 @@ pub async fn market_order(
 
     let tr = binance_new_order_or_test(
         ctx,
+        &mut log_writer,
         ei,
         &symbol_name,
         side,

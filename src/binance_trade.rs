@@ -35,30 +35,21 @@ pub enum TradeOrderType {
     // LimitMaker,
 }
 
-fn order_log_file(order_log_path: &Path) -> Result<File, Box<dyn std::error::Error>> {
-    if let Some(prefix) = order_log_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(prefix) {
-            panic!("Error creating {:?} e={}", order_log_path, e);
-        }
+pub fn order_log_file(order_log_path: &Path) -> Result<File, Box<dyn std::error::Error>> {
+    if let Some(parent_dirs) = order_log_path.parent() {
+        // Be sure the parent directories exist
+        std::fs::create_dir_all(parent_dirs)?;
     }
 
-    let order_log_file: File = match OpenOptions::new()
+    Ok(OpenOptions::new()
         .create(true)
         .write(true)
         .append(true)
-        .open(order_log_path)
-    {
-        Ok(file) => file,
-        Err(e) => {
-            return Err(e.into());
-        }
-    };
-
-    Ok(order_log_file)
+        .open(order_log_path)?)
 }
 
-fn log_order_response<W: Write>(
-    mut writer: &mut W,
+pub fn log_order_response(
+    mut writer: &mut dyn Write,
     order_response: &TradeResponse,
 ) -> Result<(), Box<dyn std::error::Error>> {
     serde_json::to_writer(&mut writer, order_response)?;
@@ -134,14 +125,13 @@ async fn convert_commission(
 
 pub async fn binance_new_order_or_test(
     ctx: &BinanceContext,
+    mut log_writer: &mut dyn Write,
     ei: &ExchangeInfo,
     symbol: &str,
     side: Side,
     order_type: TradeOrderType,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    let mut writer = order_log_file(&ctx.opts.order_log_path)?;
-
     let ei_symbol = match ei.get_symbol(symbol) {
         Some(s) => s,
         None => {
@@ -285,7 +275,7 @@ pub async fn binance_new_order_or_test(
             order_resp
         );
         // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
-        log_order_response(&mut writer, &order_resp)?;
+        log_order_response(&mut log_writer, &order_resp)?;
 
         Ok(order_resp)
     } else {
@@ -298,7 +288,7 @@ pub async fn binance_new_order_or_test(
         let order_resp = TradeResponse::FailureResponse(rer);
 
         // TODO: Erroring is wrong, maybe dec!(0) plus an error alert sent to the programmer!
-        log_order_response(&mut writer, &order_resp)?;
+        log_order_response(&mut log_writer, &order_resp)?;
 
         trace!(
             "{}",

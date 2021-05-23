@@ -231,14 +231,14 @@ pub async fn auto_sell(
                 if kr.sell_qty > dec!(0) {
                     let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
                     println!(
-                        "\nSELLING {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2}",
+                        "SELLING {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2}",
                         kr.sell_qty,
                         symbol_name,
                         kr.price_in_usd,
                         kr.sell_value_in_usd.round_dp(2)
                     );
                     match market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await {
-                        Ok(tr) => println!("{}", tr),
+                        Ok(tr) => trace!("{}", tr),
                         Err(e) => println!("SKIPPING {}, {}", symbol_name, e),
                     }
                 }
