@@ -93,7 +93,7 @@ async fn convert(
             }
             Err(_) => {
                 return Err(format!(
-                    "convert error, asset: {} not convertalbe to {}",
+                    "convert error, asset: {} not convertable to {}",
                     asset, other_asset
                 )
                 .into());
