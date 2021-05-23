@@ -45,7 +45,7 @@ pub async fn market_order(
             &format!("adjusted quantity: {} <= 0", quantity)
         ));
         log_order_response(&mut log_writer, &tr)?;
-        return Err(tr.into());
+        return Ok(tr);
     }
     trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
@@ -57,7 +57,7 @@ pub async fn market_order(
                 &format!("No asset named {}", symbol_name)
             ));
             log_order_response(&mut log_writer, &tr)?;
-            return Err(tr.into());
+            return Ok(tr);
         }
     };
     trace!("Got symbol");
@@ -80,7 +80,7 @@ pub async fn market_order(
             &format!("adjusted quantity: {} <= 0", quantity)
         ));
         log_order_response(&mut log_writer, &tr)?;
-        return Err(tr.into());
+        return Ok(tr);
     }
 
     // Verify the quantity meets the min_notional criteria
@@ -88,7 +88,7 @@ pub async fn market_order(
     if let Err(e) = verify_min_notional(&avg_price, symbol, quantity) {
         let tr = TradeResponse::FailureInternal(ier_new!(4, &e.to_string()));
         log_order_response(&mut log_writer, &tr)?;
-        return Err(tr.into());
+        return Ok(tr);
     }
 
     // Verify MaxPosition

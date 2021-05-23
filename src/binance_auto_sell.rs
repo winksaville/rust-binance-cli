@@ -171,6 +171,12 @@ pub async fn auto_sell(
                                         time_ms_to_utc(atrr.transact_time).to_string()
                                     );
                             }
+                            TradeResponse::FailureResponse(rer) => {
+                                println!("{:8}, {} {}", "SKIPPING", symbol_name, rer);
+                            }
+                            TradeResponse::FailureInternal(ier) => {
+                                println!("{:8}, {} {}", "SKIPPING", symbol_name, ier.msg);
+                            }
                             _ => println!("{}", tr),
                         },
                         Err(e) => println!("SKIPPING {}, {}", symbol_name, e),
