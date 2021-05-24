@@ -7,7 +7,8 @@ use structopt::{clap::AppSettings, StructOpt};
 use rust_decimal::prelude::*;
 
 use crate::{
-    binance_auto_sell::AutoSellCmdRec, binance_get_klines_cmd::GetKlinesCmdRec,
+    //binance_auto_sell::AutoSellCmdRec,
+    binance_get_klines_cmd::GetKlinesCmdRec,
     binance_market_order_cmd::MarketCmdRec,
 };
 
@@ -107,7 +108,7 @@ pub enum SubCommands {
     Klines(GetKlinesCmdRec),
     BuyMarket(MarketCmdRec),
     SellMarket(MarketCmdRec),
-    AutoSell(AutoSellCmdRec),
+    //AutoSell(AutoSellCmdRec),
 }
 
 #[derive(Debug, Clone)]

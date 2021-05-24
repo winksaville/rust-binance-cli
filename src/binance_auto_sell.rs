@@ -1,29 +1,22 @@
 use log::trace;
 use rust_decimal_macros::dec;
 use std::io::{stdout, Write};
-use structopt::StructOpt;
+//use structopt::StructOpt;
 // use tokio::fs;
 
 use rust_decimal::prelude::*;
 
-use crate::{
-    binance_account_info::get_account_info,
-    binance_context::BinanceContext,
-    binance_exchange_info::{get_exchange_info, ExchangeInfo},
-    binance_market_order_cmd::market_order,
-    binance_order_response::TradeResponse,
-    common::{
-        are_you_sure_stdout_stdin, time_ms_to_utc, update_context_from_config_file, Configuration,
+use crate::{binance_account_info::get_account_info, binance_context::BinanceContext, binance_exchange_info::{get_exchange_info, ExchangeInfo}, binance_market_order_cmd::market_order, binance_order_response::TradeResponse, common::{
+        are_you_sure_stdout_stdin, time_ms_to_utc,
         Side,
-    },
-};
+    }, configuration::ConfigurationX};
 
 pub async fn auto_sell(
     ctx: &BinanceContext,
     ei: &ExchangeInfo,
-    config: &Configuration,
-    test: bool,
+    config: &ConfigurationX,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let test = config.test;
     trace!("auto_sell:+ test: {} config: {:?}", test, config);
 
     let mut ai = get_account_info(ctx).await?;
@@ -48,7 +41,7 @@ pub async fn auto_sell(
         let sell_qty: Decimal;
         let sell_to_asset: &str;
 
-        assert!(!config.default_sell_to_asset.is_empty());
+        assert!(!config.default_quote_asset.is_empty());
 
         let owned_qty = balance.free + balance.locked;
         if owned_qty > dec!(0) {
@@ -61,7 +54,7 @@ pub async fn auto_sell(
                 sell_qty = owned_qty - keep_qty;
 
                 sell_to_asset = if keeping.sell_to_asset.is_empty() {
-                    &config.default_sell_to_asset
+                    &config.default_quote_asset
                 } else {
                     &keeping.sell_to_asset
                 };
@@ -69,7 +62,7 @@ pub async fn auto_sell(
                 // Selling all
                 keep_qty = dec!(0);
                 sell_qty = owned_qty;
-                sell_to_asset = &config.default_sell_to_asset;
+                sell_to_asset = &config.default_quote_asset;
             }
 
             vec_process_rec.push(ProcessRec {
@@ -191,35 +184,27 @@ pub async fn auto_sell(
     }
     println!();
 
-    trace!("auto_sell:- test: {} config_file: {:?}", test, config);
+    trace!("auto_sell:- test: {} config_file: {:?}", config.test, config);
     Ok(())
 }
 
-#[derive(Debug, Clone, Default, StructOpt)]
-#[structopt(
-    about = "Auto sell keeping some assets as defined in the keep section of the config file"
-)]
-pub struct AutoSellCmdRec {
-    /// full path to auto-sell configuration toml file, example: data/config-auto-cell.toml
-    config_file: String,
-
-    /// Enable test mode
-    #[structopt(short = "t", long)]
-    test: bool,
-}
+//#[derive(Debug, Clone, Default, StructOpt)]
+//#[structopt(
+//    about = "Auto sell keeping some assets as defined in the keep section of the config file"
+//)]
 
 pub async fn auto_sell_cmd(
     ctx: &BinanceContext,
-    rec: &AutoSellCmdRec,
+    config: &ConfigurationX,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    trace!("auto_sell_cmd: rec: {:#?}", rec);
+    trace!("auto_sell_cmd: {:#?}", config);
 
-    let mut ctx = ctx.clone();
-    let config = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
-    let ctx = &ctx;
+    //let mut ctx = ctx.clone();
+    //let config = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
+    //let ctx = &ctx;
 
     let ei = get_exchange_info(ctx).await?;
-    auto_sell(ctx, &ei, &config, rec.test).await?;
+    auto_sell(ctx, &ei, &config).await?;
 
     Ok(())
 }

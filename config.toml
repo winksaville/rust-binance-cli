@@ -1,0 +1,18 @@
+# Define keys
+API_KEY = "an api key"
+SECRET_KEY = "a secret key"
+
+# Path and file name for the log file
+log_path = "data/log-1.txt"
+
+# The name of the asset that is used to buy or sell another asset.
+default_quote_asset = "USD"
+
+# Test mode "true" | "false"
+test = false
+
+# Default scheme for make_url
+scheme: "https"
+
+# Default domain for make_url
+domain: "binance"
