@@ -14,5 +14,5 @@ test = false
 # Default scheme for make_url
 scheme: "https"
 
-# Default domain for make_url
-domain: "binance"
+# Default domain for make_url, binance.us or binance.com
+domain: "binance.us"

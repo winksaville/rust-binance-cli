@@ -8,7 +8,6 @@ use structopt::StructOpt;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
-    binance_context::BinanceContext,
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_order_response::TradeResponse,
     binance_orders::get_open_orders,
@@ -19,7 +18,8 @@ use crate::{
         adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
         verify_quanity_is_greater_than_free,
     },
-    common::{update_context_from_config_file, InternalErrorRec, Side},
+    common::{InternalErrorRec, Side},
+    configuration::ConfigurationX,
     ier_new,
 };
 use binance_trade::log_order_response;
@@ -29,14 +29,15 @@ use function_name::named;
 
 #[named]
 pub async fn market_order(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     ei: &ExchangeInfo,
     symbol_name: &str,
     quantity: Decimal,
     side: Side,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    let mut log_writer = order_log_file(&ctx.opts.order_log_path)?;
+    let log_path = config.order_log_path.as_ref().unwrap(); // FIXME: NO UNWRAP
+    let mut log_writer = order_log_file(log_path)?;
 
     let mut quantity = quantity;
     if quantity <= dec!(0) {
@@ -62,10 +63,10 @@ pub async fn market_order(
     };
     trace!("Got symbol");
 
-    let ai = get_account_info(ctx).await?;
+    let ai = get_account_info(config).await?;
     trace!("Got AccountInfo");
 
-    let open_orders = get_open_orders(ctx, &symbol.symbol).await?;
+    let open_orders = get_open_orders(config, &symbol.symbol).await?;
 
     // Verify the maximum number of orders isn't exceeded.
     verify_open_orders(&open_orders, symbol)?;
@@ -84,7 +85,7 @@ pub async fn market_order(
     }
 
     // Verify the quantity meets the min_notional criteria
-    let avg_price: AvgPrice = get_avg_price(ctx, &symbol.symbol).await?;
+    let avg_price: AvgPrice = get_avg_price(config, &symbol.symbol).await?;
     if let Err(e) = verify_min_notional(&avg_price, symbol, quantity) {
         let tr = TradeResponse::FailureInternal(ier_new!(4, &e.to_string()));
         log_order_response(&mut log_writer, &tr)?;
@@ -103,7 +104,7 @@ pub async fn market_order(
     }
 
     let tr = binance_new_order_or_test(
-        ctx,
+        config,
         &mut log_writer,
         ei,
         &symbol_name,
@@ -135,17 +136,13 @@ pub struct MarketCmdRec {
 
 #[named]
 pub async fn buy_market_order_cmd(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     rec: &MarketCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("buy_market_order: rec: {:#?}", rec);
 
-    let mut ctx = ctx.clone();
-    let _ = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
-    let ctx = &ctx;
-
-    let ei = &get_exchange_info(ctx).await?;
-    let tr = market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await?;
+    let ei = &get_exchange_info(config).await?;
+    let tr = market_order(config, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await?;
     println!("{}", tr);
 
     Ok(())
@@ -153,17 +150,21 @@ pub async fn buy_market_order_cmd(
 
 #[named]
 pub async fn sell_market_order_cmd(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     rec: &MarketCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("sell_market_order: rec: {:#?}", rec);
 
-    let mut ctx = ctx.clone();
-    let _ = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
-    let ctx = &ctx;
-
-    let ei = &get_exchange_info(ctx).await?;
-    let tr = market_order(ctx, ei, &rec.sym_name, rec.quantity, Side::SELL, rec.test).await?;
+    let ei = &get_exchange_info(config).await?;
+    let tr = market_order(
+        config,
+        ei,
+        &rec.sym_name,
+        rec.quantity,
+        Side::SELL,
+        rec.test,
+    )
+    .await?;
     println!("{}", tr);
 
     Ok(())

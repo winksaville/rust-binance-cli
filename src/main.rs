@@ -1,8 +1,4 @@
-use std::{
-    //fs::OpenOptions,
-    //io::{BufRead, BufReader},
-    path::Path,
-};
+use std::path::Path;
 
 use log::trace;
 
@@ -10,7 +6,6 @@ mod arg_matches;
 mod binance_account_info;
 mod binance_auto_sell;
 mod binance_avg_price;
-mod binance_context;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
 mod binance_klines;
@@ -29,10 +24,6 @@ use arg_matches::arg_matches;
 //use binance_account_info::get_account_info;
 use binance_auto_sell::auto_sell_cmd;
 //use binance_avg_price::{get_avg_price, AvgPrice};
-use binance_context::{
-    BinanceContext, //SubCommands::AutoSell, SubCommands::BuyMarket, SubCommands::Klines,
-    //SubCommands::SellMarket,
-};
 //use binance_exchange_info::get_exchange_info;
 //use binance_get_klines_cmd::get_klines_cmd;
 //use binance_market_order_cmd::buy_market_order_cmd;
@@ -55,8 +46,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     trace!("main: +");
 
-    let ctx = BinanceContext::new();
-
     let matches = arg_matches()?;
     let config = ConfigurationX::new(&matches);
 
@@ -76,11 +65,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Call subcommands
     if matches.subcommand_matches("auto-sell").is_some() {
-        auto_sell_cmd(&ctx, &config).await?;
-    //} else if let Some(matches) = matches.subcommand_matches("buy-market") {
+        auto_sell_cmd(&config).await?;
+        //} else if let Some(matches) = matches.subcommand_matches("buy-market") {
         //buy_market_cmd(&config, &matches)?;
     }
- 
 
     //if ctx.opts.get_exchange_info {
     //    let ei = get_exchange_info(ctx).await?;

@@ -8,15 +8,13 @@ use std::{
     io::{stdout, Write},
 };
 
+use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 use crate::{
     binance_klines::get_kline,
     common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
+    ConfigurationX,
 };
-
-use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
-
-use crate::binance_context::BinanceContext;
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
@@ -85,7 +83,11 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub async fn update_values_in_usd(&mut self, ctx: &BinanceContext, verbose: bool) -> Decimal {
+    pub async fn update_values_in_usd(
+        &mut self,
+        config: &ConfigurationX,
+        verbose: bool,
+    ) -> Decimal {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
@@ -95,7 +97,7 @@ impl AccountInfo {
                         print!("{:-10} {:+10}\r", "Updating", sym);
                         let _ = stdout().flush();
                     }
-                    let price = match get_kline(ctx, &sym, utc_now_to_time_ms()).await {
+                    let price = match get_kline(config, &sym, utc_now_to_time_ms()).await {
                         Ok(kr) => kr.close,
                         Err(_) => {
                             dec!(0)
@@ -146,19 +148,19 @@ impl AccountInfo {
         println!("total: ${:.2}", total_value);
     }
 
-    pub async fn update_and_print(&mut self, ctx: &BinanceContext) {
-        self.update_values_in_usd(ctx, true).await;
+    pub async fn update_and_print(&mut self, config: &ConfigurationX) {
+        self.update_values_in_usd(config, true).await;
         self.print().await;
     }
 }
 
 pub async fn get_account_info<'e>(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
 ) -> Result<AccountInfo, Box<dyn std::error::Error>> {
     trace!("get_account_info: +");
 
-    let secret_key = ctx.keys.secret_key.as_bytes();
-    let api_key = &ctx.keys.api_key;
+    let secret_key = config.secret_key.as_bytes();
+    let api_key = &config.api_key;
 
     let mut params = vec![];
     let ts_string: String = format!("{}", utc_now_to_time_ms());
@@ -176,7 +178,7 @@ pub async fn get_account_info<'e>(
     let query_string = String::from_utf8(query)?;
     trace!("query_string={}", &query_string);
 
-    let url = ctx.make_url("api", &format!("/api/v3/account?{}", &query_string));
+    let url = config.make_url("api", &format!("/api/v3/account?{}", &query_string));
     trace!("get_account_info: url={}", url);
 
     let response = get_req_get_response(api_key, &url).await?;

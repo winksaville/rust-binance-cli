@@ -56,7 +56,21 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
             Arg::with_name("test")
                 .short("t")
                 .long("test")
-                .help("Enable test mode")
+                .help("Enable test mode"),
+        )
+        .arg(
+            Arg::with_name("scheme")
+                .long("scheme")
+                .value_name("BINANCE_SCHEME")
+                .help("Scheme such as https")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("domain")
+                .long("domain")
+                .value_name("BINANCE_DOMAIN")
+                .help("Domain such as binance.us or binance.com")
+                .takes_value(true),
         )
         .subcommand(
             SubCommand::with_name("auto-sell")

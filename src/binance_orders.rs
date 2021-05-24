@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 use rust_decimal::prelude::*;
 
 use crate::{
-    binance_context::BinanceContext,
     binance_order_response::TradeResponse,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{self, get_req_get_response, ResponseErrorRec},
     common::{utc_now_to_time_ms, utc_to_time_ms},
+    configuration::ConfigurationX,
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -68,12 +68,12 @@ impl Orders {
 }
 
 async fn orders_get_req_and_response(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     cmd: &str,
     mut params: Vec<(&str, &str)>,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
-    let secret_key = ctx.keys.secret_key.as_bytes();
-    let api_key = &ctx.keys.api_key;
+    let secret_key = config.secret_key.as_bytes();
+    let api_key = &config.api_key;
 
     params.push(("recvWindow", "5000"));
 
@@ -92,7 +92,7 @@ async fn orders_get_req_and_response(
     let query_string = String::from_utf8(query)?;
     trace!("query_string={}", &query_string);
 
-    let mut url = ctx.make_url("api", &format!("/api/v3/{}?", cmd));
+    let mut url = config.make_url("api", &format!("/api/v3/{}?", cmd));
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
@@ -134,7 +134,7 @@ async fn orders_get_req_and_response(
 }
 
 pub async fn get_all_orders(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     symbol: &str,
     order_id: Option<u64>,
     start_date_time: Option<DateTime<Utc>>,
@@ -171,11 +171,11 @@ pub async fn get_all_orders(
         params.push(("limit", &limit_string));
     }
 
-    orders_get_req_and_response(ctx, "allOrders", params).await
+    orders_get_req_and_response(config, "allOrders", params).await
 }
 
 pub async fn get_open_orders(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     symbol: &str,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
     let mut params: Vec<(&str, &str)> = Vec::new();
@@ -184,7 +184,7 @@ pub async fn get_open_orders(
         params.push(("symbol", symbol));
     }
 
-    orders_get_req_and_response(ctx, "openOrders", params).await
+    orders_get_req_and_response(config, "openOrders", params).await
 }
 
 // TODO: Add some tests

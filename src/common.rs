@@ -6,123 +6,16 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
     Response,
 };
-use rust_decimal::Decimal;
-use std::{
-    collections::HashMap,
-    fmt::{self, Debug, Display},
-    path::PathBuf,
-};
+use std::fmt::{self, Debug, Display};
 use std::{
     io::stdout,
     io::{stdin, Write},
 };
 use strum_macros::IntoStaticStr;
 
-use serde::{
-    de::{SeqAccess, Visitor},
-    Deserialize, Deserializer, Serialize,
-};
-use tokio::fs;
+use serde::{Deserialize, Serialize};
 
-use crate::{binance_context::BinanceContext, de_string_or_number::de_string_or_number_to_i64};
-
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct KeepRec {
-    pub name: String,
-
-    #[serde(default = "default_min")]
-    pub min: Decimal,
-
-    #[serde(default)]
-    pub sell_to_asset: String,
-}
-
-fn default_min() -> Decimal {
-    Decimal::MAX
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Configuration {
-    #[serde(rename = "SECRET_KEY")]
-    #[serde(default)]
-    pub secret_key: String,
-
-    #[serde(rename = "API_KEY")]
-    #[serde(default)]
-    pub api_key: String,
-
-    pub order_log_path: Option<PathBuf>,
-
-    #[serde(default = "default_sell_to_asset")]
-    pub default_sell_to_asset: String,
-
-    #[serde(deserialize_with = "de_vec_keep_rec_to_hashmap")]
-    #[serde(default)]
-    pub keep: HashMap<String, KeepRec>,
-}
-
-fn default_sell_to_asset() -> String {
-    "USD".to_string()
-}
-
-pub async fn update_context_from_config_file(
-    ctx: &mut BinanceContext,
-
-    // full path to auto-sell configuration toml file, example: data/config-auto-cell.toml
-    config_file: &str,
-) -> Result<Configuration, Box<dyn std::error::Error>> {
-    let config_string: String = fs::read_to_string(config_file).await?;
-    let config: Configuration = toml::from_str(&config_string)?;
-    // println!("auto_sell: config:\n{:#?}", config);
-
-    // Create a mutable clone so we can change the keys
-    // and then change it back to immutable
-    // TODO: Consider adding BinanceContext::set_keys?
-    //let mut ctx: BinanceContext = (*ctx).clone();
-    ctx.keys.api_key = config.api_key.clone();
-    ctx.keys.secret_key = config.secret_key.clone();
-    if let Some(olp) = &config.order_log_path {
-        ctx.opts.order_log_path = olp.clone();
-    }
-
-    Ok(config)
-}
-
-// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
-// TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
-pub fn de_vec_keep_rec_to_hashmap<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<String, KeepRec>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct ItemsVisitor;
-
-    impl<'de> Visitor<'de> for ItemsVisitor {
-        type Value = HashMap<String, KeepRec>;
-
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            formatter.write_str("a sequence of items")
-        }
-
-        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, KeepRec>, V::Error>
-        where
-            V: SeqAccess<'de>,
-        {
-            let mut map: HashMap<String, KeepRec> =
-                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
-
-            while let Some(item) = seq.next_element::<KeepRec>()? {
-                // println!("item={:#?}", item);
-                map.insert(item.name.clone(), item);
-            }
-
-            Ok(map)
-        }
-    }
-
-    deserializer.deserialize_seq(ItemsVisitor)
-}
+use crate::de_string_or_number::de_string_or_number_to_i64;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -4,9 +4,9 @@ use structopt::StructOpt;
 use function_name::named;
 
 use crate::{
-    binance_context::BinanceContext,
     binance_klines::{get_klines, KlineInterval, KlineRec},
     common::{dt_str_to_utc_time_ms, time_ms_to_utc, utc_now_to_time_ms},
+    configuration::ConfigurationX,
 };
 
 // Seconds and minutes in milli-seconds
@@ -33,7 +33,7 @@ pub struct GetKlinesCmdRec {
 
 #[named]
 pub async fn get_klines_cmd(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     rec: &GetKlinesCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("get_klines_cmd: rec: {:#?}", rec);
@@ -54,7 +54,7 @@ pub async fn get_klines_cmd(
 
     let krs: Vec<KlineRec> =
         //get_klines(ctx, &rec.sym_name, interval, Some(start_time_ms), None, Some(limit)).await?;
-        get_klines(ctx, &rec.sym_name, interval, start_time_ms, None, Some(limit)).await?;
+        get_klines(config, &rec.sym_name, interval, start_time_ms, None, Some(limit)).await?;
 
     for kr in &krs {
         println!(

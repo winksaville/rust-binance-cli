@@ -10,9 +10,7 @@ use std::{collections::HashMap, fs::read_to_string, path::PathBuf};
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
-fn de_vec_keep_rec_to_hashmap<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<String, KeepRec>, D::Error>
+fn de_vec_keep_rec_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, KeepRec>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -52,7 +50,7 @@ pub struct KeepRec {
     pub min: Decimal,
 
     #[serde(default)]
-    pub sell_to_asset: String,
+    pub quote_asset: String,
 }
 
 fn default_min() -> Decimal {
@@ -69,7 +67,7 @@ pub struct ConfigurationX {
     //#[serde(default)]
     pub api_key: String,
 
-    pub log_path: Option<PathBuf>,
+    pub order_log_path: Option<PathBuf>,
 
     #[serde(default = "default_sell_to_asset")]
     pub default_quote_asset: String,
@@ -94,11 +92,11 @@ impl Default for ConfigurationX {
         ConfigurationX {
             api_key: "".to_string(),
             secret_key: "".to_string(),
-            log_path: None,
+            order_log_path: None,
             default_quote_asset: default_sell_to_asset(),
             test: false,
-            scheme: "".to_string(),
-            domain: "".to_string(),
+            scheme: "https".to_string(),
+            domain: "binance.us".to_string(),
             keep: HashMap::<String, KeepRec>::new(),
         }
     }
@@ -129,6 +127,16 @@ impl ConfigurationX {
         config
     }
 
+    pub fn make_url(&self, subdomain: &str, full_path: &str) -> String {
+        let sd = if !subdomain.is_empty() {
+            format!("{}.", subdomain)
+        } else {
+            "".to_string()
+        };
+
+        format!("{}://{}{}{}", self.scheme, sd, self.domain, full_path)
+    }
+
     fn update_config(&mut self, matches: &ArgMatches) {
         if let Some(value) = matches.value_of("api-key") {
             self.api_key = value.to_string();
@@ -140,7 +148,7 @@ impl ConfigurationX {
 
         if let Some(value) = matches.value_of("log-path") {
             let path_buf = PathBuf::from(value.to_string());
-            self.log_path = Some(path_buf);
+            self.order_log_path = Some(path_buf);
         }
 
         if let Some(value) = matches.value_of("default-quote-asset") {

@@ -7,10 +7,10 @@ use serde_json::Value;
 use strum_macros::IntoStaticStr;
 
 use crate::{
-    binance_context::BinanceContext,
     binance_order_response::TradeResponse,
     binance_signature::query_vec_u8,
     common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms, ResponseErrorRec},
+    configuration::ConfigurationX,
 };
 
 // Seconds and minutes in milli-seconds
@@ -123,7 +123,7 @@ impl KlineInterval {
 /// Get zero or more klines for the symbol at the specified KlineInterval.
 /// A maximum of 1000 records is returned.
 pub async fn get_klines(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     symbol: &str,
     interval: KlineInterval,
     start_time_ms: Option<i64>,
@@ -168,12 +168,12 @@ pub async fn get_klines(
 
     // Convert to a string
     let query_string = String::from_utf8(query)?;
-    trace!("get_klines: uery_string={}", &query_string);
+    trace!("get_klines: query_string: {}", &query_string);
 
-    let url = ctx.make_url("api", &format!("/api/v3/klines?{}", query_string));
+    let url = config.make_url("api", &format!("/api/v3/klines?{}", query_string));
     trace!("get_klines: url={}", url);
 
-    let response = get_req_get_response(&ctx.opts.api_key, &url).await?;
+    let response = get_req_get_response(&config.api_key, &url).await?;
     let response_status = response.status();
     let response_body = response.text().await?;
 
@@ -205,14 +205,14 @@ pub async fn get_klines(
 /// The start_time_ms is UTC.
 #[allow(unused)]
 pub async fn get_kline(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     sym_name: &str,
     start_time_ms: i64,
 ) -> Result<KlineRec, Box<dyn std::error::Error>> {
     trace!("get_kline:");
 
     let krs: Vec<KlineRec> = get_klines(
-        ctx,
+        config,
         sym_name,
         KlineInterval::Mins1,
         Some(start_time_ms),

@@ -3,8 +3,8 @@ use rust_decimal::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    binance_context::BinanceContext, binance_order_response::TradeResponse,
-    common::get_req_get_response, common::ResponseErrorRec,
+    binance_order_response::TradeResponse, common::get_req_get_response, common::ResponseErrorRec,
+    configuration::ConfigurationX,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -14,13 +14,13 @@ pub struct AvgPrice {
 }
 
 pub async fn get_avg_price<'e>(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
     symbol: &str,
 ) -> Result<AvgPrice, Box<dyn std::error::Error>> {
-    let url = ctx.make_url("api", &format!("/api/v3/avgPrice?symbol={}", symbol));
+    let url = config.make_url("api", &format!("/api/v3/avgPrice?symbol={}", symbol));
     trace!("get_avg_price: url={}", url);
 
-    let response = get_req_get_response(&ctx.opts.api_key, &url).await?;
+    let response = get_req_get_response(&config.api_key, &url).await?;
     let response_status = response.status();
     let response_body = response.text().await?;
 

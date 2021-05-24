@@ -6,9 +6,9 @@ use rust_decimal::prelude::*;
 
 use std::collections::HashMap;
 
-use crate::common::OrderType;
+use crate::common::get_req_get_response;
 use crate::de_string_or_number::de_string_or_number_to_u64;
-use crate::{binance_context::BinanceContext, common::get_req_get_response};
+use crate::{common::OrderType, configuration::ConfigurationX};
 
 use strum_macros::IntoStaticStr;
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -554,14 +554,14 @@ impl ExchangeInfo {
 }
 
 pub async fn get_exchange_info<'e>(
-    ctx: &BinanceContext,
+    config: &ConfigurationX,
 ) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
     trace!("get_exchange_info: +");
 
-    let url = ctx.make_url("api", "/api/v3/exchangeInfo");
+    let url = config.make_url("api", "/api/v3/exchangeInfo");
     trace!("get_exchange_info: url={}", url);
 
-    let response = get_req_get_response(&ctx.opts.api_key, &url).await?;
+    let response = get_req_get_response(&config.api_key, &url).await?;
     trace!("response={:#?}", response);
 
     let response_status = response.status();

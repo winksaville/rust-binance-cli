@@ -6,28 +6,31 @@ use std::io::{stdout, Write};
 
 use rust_decimal::prelude::*;
 
-use crate::{binance_account_info::get_account_info, binance_context::BinanceContext, binance_exchange_info::{get_exchange_info, ExchangeInfo}, binance_market_order_cmd::market_order, binance_order_response::TradeResponse, common::{
-        are_you_sure_stdout_stdin, time_ms_to_utc,
-        Side,
-    }, configuration::ConfigurationX};
+use crate::{
+    binance_account_info::get_account_info,
+    binance_exchange_info::{get_exchange_info, ExchangeInfo},
+    binance_market_order_cmd::market_order,
+    binance_order_response::TradeResponse,
+    common::{are_you_sure_stdout_stdin, time_ms_to_utc, Side},
+    configuration::ConfigurationX,
+};
 
 pub async fn auto_sell(
-    ctx: &BinanceContext,
-    ei: &ExchangeInfo,
     config: &ConfigurationX,
+    ei: &ExchangeInfo,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let test = config.test;
     trace!("auto_sell:+ test: {} config: {:?}", test, config);
 
-    let mut ai = get_account_info(ctx).await?;
-    ai.update_values_in_usd(&ctx, true).await;
+    let mut ai = get_account_info(config).await?;
+    ai.update_values_in_usd(config, true).await;
     //ai.print().await;
 
     #[derive(Default)]
     struct ProcessRec {
         asset: String,
         price_in_usd: Decimal,
-        sell_to_asset: String,
+        quote_asset: String,
         owned_qty: Decimal,
         sell_value_in_usd: Decimal,
         sell_qty: Decimal,
@@ -39,7 +42,7 @@ pub async fn auto_sell(
     for balance in ai.balances_map.values() {
         let keep_qty: Decimal;
         let sell_qty: Decimal;
-        let sell_to_asset: &str;
+        let quote_asset: &str;
 
         assert!(!config.default_quote_asset.is_empty());
 
@@ -53,22 +56,22 @@ pub async fn auto_sell(
                 };
                 sell_qty = owned_qty - keep_qty;
 
-                sell_to_asset = if keeping.sell_to_asset.is_empty() {
+                quote_asset = if keeping.quote_asset.is_empty() {
                     &config.default_quote_asset
                 } else {
-                    &keeping.sell_to_asset
+                    &keeping.quote_asset
                 };
             } else {
                 // Selling all
                 keep_qty = dec!(0);
                 sell_qty = owned_qty;
-                sell_to_asset = &config.default_quote_asset;
+                quote_asset = &config.default_quote_asset;
             }
 
             vec_process_rec.push(ProcessRec {
                 asset: balance.asset.clone(),
                 price_in_usd: balance.price_in_usd,
-                sell_to_asset: sell_to_asset.to_string(),
+                quote_asset: quote_asset.to_string(),
                 owned_qty,
                 sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
                 sell_qty,
@@ -134,13 +137,15 @@ pub async fn auto_sell(
             }
             for kr in &vec_process_rec {
                 if kr.sell_qty > dec!(0) {
-                    let symbol_name: String = kr.asset.clone() + &kr.sell_to_asset;
+                    let symbol_name: String = kr.asset.clone() + &kr.quote_asset;
                     print!(
                         "{:8} {:14.6} of {:10}\r",
                         "Selling", kr.sell_qty, symbol_name
                     );
                     let _ = stdout().flush();
-                    match market_order(ctx, ei, &symbol_name, kr.sell_qty, Side::SELL, test).await {
+                    match market_order(config, ei, &symbol_name, kr.sell_qty, Side::SELL, test)
+                        .await
+                    {
                         Ok(tr) => match tr {
                             TradeResponse::SuccessTest(_) => {
                                 println!(
@@ -184,7 +189,11 @@ pub async fn auto_sell(
     }
     println!();
 
-    trace!("auto_sell:- test: {} config_file: {:?}", config.test, config);
+    trace!(
+        "auto_sell:- test: {} config_file: {:?}",
+        config.test,
+        config
+    );
     Ok(())
 }
 
@@ -193,25 +202,22 @@ pub async fn auto_sell(
 //    about = "Auto sell keeping some assets as defined in the keep section of the config file"
 //)]
 
-pub async fn auto_sell_cmd(
-    ctx: &BinanceContext,
-    config: &ConfigurationX,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn auto_sell_cmd(config: &ConfigurationX) -> Result<(), Box<dyn std::error::Error>> {
     trace!("auto_sell_cmd: {:#?}", config);
 
     //let mut ctx = ctx.clone();
     //let config = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
     //let ctx = &ctx;
 
-    let ei = get_exchange_info(ctx).await?;
-    auto_sell(ctx, &ei, &config).await?;
+    let ei = get_exchange_info(config).await?;
+    auto_sell(config, &ei).await?;
 
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
-    use crate::common::{Configuration, KeepRec};
+    use crate::configuration::KeepRec;
 
     use super::*;
 
@@ -221,31 +227,34 @@ mod test {
     const TOML_DATA: &str = r#"
         API_KEY = "api key"
         SECRET_KEY = "secret key"
-        default_sell_to_asset="USD"
+        default_quote_asset="USD"
+        test = true
+        scheme = "https"
+        domain = "binance.us"
 
         keep = [
             { name = "USD" },
             { name = "USDT" },
             { name = "USDC" },
             { name = "BNB", min = 500 },
-            { name = "ABC", min = 0, sell_to_asset = "BTC" },
-            { name = "XYZ", sell_to_asset = "BNB" },
+            { name = "ABC", min = 0, quote_asset = "BTC" },
+            { name = "XYZ", quote_asset = "BNB" },
         ]
     "#;
 
     #[test]
     fn test_config_auto_sell_all() {
-        let config: Configuration = toml::from_str(TOML_DATA).unwrap();
+        let config: ConfigurationX = toml::from_str(TOML_DATA).unwrap();
         // println!("{:#?}", config);
         assert_eq!(config.api_key, "api key");
         assert_eq!(config.secret_key, "secret key");
-        assert_eq!(config.default_sell_to_asset, "USD");
+        assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(
             config.keep.get("USD").unwrap(),
             &KeepRec {
                 name: "USD".to_string(),
                 min: Decimal::MAX,
-                sell_to_asset: "".to_string()
+                quote_asset: "".to_string()
             }
         );
         assert_eq!(
@@ -253,7 +262,7 @@ mod test {
             &KeepRec {
                 name: "USDT".to_string(),
                 min: Decimal::MAX,
-                sell_to_asset: "".to_string()
+                quote_asset: "".to_string()
             }
         );
         assert_eq!(
@@ -261,7 +270,7 @@ mod test {
             &KeepRec {
                 name: "USDC".to_string(),
                 min: Decimal::MAX,
-                sell_to_asset: "".to_string()
+                quote_asset: "".to_string()
             }
         );
         assert_eq!(
@@ -269,7 +278,7 @@ mod test {
             &KeepRec {
                 name: "BNB".to_string(),
                 min: dec!(500),
-                sell_to_asset: "".to_string()
+                quote_asset: "".to_string()
             }
         );
 
@@ -279,17 +288,17 @@ mod test {
             &KeepRec {
                 name: "ABC".to_string(),
                 min: dec!(0),
-                sell_to_asset: "BTC".to_string()
+                quote_asset: "BTC".to_string()
             }
         );
 
-        // XYZ is odd as nothing will be sold since KeepRec.min default is MAX so sell_to_asset is ignored
+        // XYZ is odd as nothing will be sold since KeepRec.min default is MAX so quote_asset is ignored
         assert_eq!(
             config.keep.get("XYZ").unwrap(),
             &KeepRec {
                 name: "XYZ".to_string(),
                 min: Decimal::MAX,
-                sell_to_asset: "BNB".to_string()
+                quote_asset: "BNB".to_string()
             }
         );
     }
