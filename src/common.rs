@@ -280,17 +280,29 @@ pub fn utc_to_time_ms(date_time: &DateTime<Utc>) -> i64 {
 }
 
 pub fn naive_to_utc_time_ms(date_time: &NaiveDateTime) -> i64 {
+    //println!("navie_to_utc_time_ms:+");
     let ldt = Local.from_local_datetime(date_time).unwrap();
-    // println!("ldt: {:?}", ldt);
+    //println!("ldt: {:?}", ldt);
     #[allow(clippy::unnecessary_cast)]
     let udt = utc_to_time_ms(&DateTime::from(ldt));
-    // println!("udt: {:?}", udt);
+    //println!("udt: {:?}", udt);
 
     udt
 }
 
 pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
-    let ndt = NaiveDateTime::parse_from_str(&naive_dt_str, "%Y-%m-%dT%H:%M:%S")?;
+    //println!("dt_str_to_utc_time_ms: {}", naive_dt_str);
+    let ndt = match NaiveDateTime::parse_from_str(&naive_dt_str, "%Y-%m-%dT%H:%M:%S") {
+        Ok(dt) => dt,
+        Err(e) => {
+            return Err(format!(
+                "Error converting local time to utc: Expecting \"YYYY-MM-DDTHH:MM:SS\" {}",
+                e
+            )
+            .into())
+        }
+    };
+    //println!("dt_str_to_utc_time_ms: {}", ndt);
     Ok(naive_to_utc_time_ms(&ndt))
 }
 
@@ -405,7 +417,7 @@ mod test {
         println!("{:#?}", ie1);
         assert_eq!(ie1.code, 1);
         assert_eq!(ie1.line, line!() - 3);
-        assert_eq!(ie1.fn_name, "test_internal_error");
+        //assert_eq!(ie1.fn_name, "test_internal_error");
         assert_eq!(ie1.file, file!());
     }
 }

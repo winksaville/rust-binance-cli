@@ -3,75 +3,81 @@ use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
 use std::error::Error;
 
 pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
+    // The config option is the only option that has a default_value,
+    // all others get their defaults from the Configuration.
+    // Also, these are all "global(true)" for two reasons:
+    //  1) This allows them to be used after the subcommand, i.e.:
+    //      binance-auto-sell ai --config data/wink-config.toml
+    //  2) The configuration::update_config() only updates
+    //     the configuration struct for "globals". Changing this
+    //     mean update_config has to know about each subcommands
+    //     options and, at least at the moment, this is more than
+    //     good enough.
+    let config_arg = Arg::with_name("config")
+        .global(true)
+        .short("c")
+        .long("config")
+        .value_name("FILE")
+        .help("Sets a custom config file")
+        .env("BINANCE_CONFIG")
+        .default_value("config.toml")
+        .takes_value(true);
+    let api_key_arg = Arg::with_name("api-key")
+        .global(true)
+        .long("api-key")
+        .value_name("API-KEY")
+        .help("Define the api key")
+        .env("BINANCE_US_API_KEY")
+        .takes_value(true);
+    let secret_key_arg = Arg::with_name("secret-key")
+        .global(true)
+        .long("secret-key")
+        .value_name("SECRET-KEY")
+        .help("Define the secret key")
+        .env("BINANCE_US_SECRET_KEY")
+        .takes_value(true);
+    let log_path_arg = Arg::with_name("log-path")
+        .global(true)
+        .long("log-path")
+        .value_name("PATH")
+        .help("Define log path")
+        .takes_value(true);
+    let default_quote_asset_arg = Arg::with_name("default-quote-asset")
+        .global(true)
+        .long("default-quote-asset")
+        .value_name("ASSET")
+        .help("The name of the asset that is used to buy or sell another asset")
+        .takes_value(true);
+    let test_arg = Arg::with_name("test")
+        .global(true)
+        .short("t")
+        .long("test")
+        .help("Enable test mode");
+    let scheme_arg = Arg::with_name("scheme")
+        .global(true)
+        .long("scheme")
+        .value_name("BINANCE_SCHEME")
+        .help("Scheme such as https")
+        .takes_value(true);
+    let domain_arg = Arg::with_name("domain")
+        .global(true)
+        .long("domain")
+        .value_name("BINANCE_DOMAIN")
+        .help("Domain such as binance.us or binance.com")
+        .takes_value(true);
+
     let matches = App::new("Exper clap config")
         .version(crate_version!())
         .about("Experiment using a config file")
-        .arg(
-            // The config option is the only option that has a default_value,
-            // all others get their defaults from the Configuration.
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .value_name("FILE")
-                .help("Sets a custom config file")
-                .env("BINANCE_CONFIG")
-                .default_value("config.toml")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("api-key")
-                .short("a")
-                .long("api-key")
-                .value_name("API-KEY")
-                .help("Define the api key")
-                .env("BINANCE_US_API_KEY")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("secret-key")
-                .short("s")
-                .long("secret-key")
-                .value_name("SECRET-KEY")
-                .help("Define the secret key")
-                .env("BINANCE_US_SECRET_KEY")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("log-path")
-                .short("l")
-                .long("log-path")
-                .value_name("PATH")
-                .help("Define log path")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("default-quote-asset")
-                .short("d")
-                .long("default-quote-asset")
-                .value_name("ASSET")
-                .help("The name of the asset that is used to buy or sell another asset")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("test")
-                .short("t")
-                .long("test")
-                .help("Enable test mode"),
-        )
-        .arg(
-            Arg::with_name("scheme")
-                .long("scheme")
-                .value_name("BINANCE_SCHEME")
-                .help("Scheme such as https")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("domain")
-                .long("domain")
-                .value_name("BINANCE_DOMAIN")
-                .help("Domain such as binance.us or binance.com")
-                .takes_value(true),
-        )
+        .arg(config_arg.clone())
+        .arg(api_key_arg.clone())
+        .arg(secret_key_arg.clone())
+        .arg(log_path_arg.clone())
+        .arg(default_quote_asset_arg.clone())
+        .arg(test_arg.clone())
+        .arg(scheme_arg.clone())
+        .arg(domain_arg.clone())
+        .subcommand(SubCommand::with_name("do-nothing").about("Do nothing used for testing"))
         .subcommand(SubCommand::with_name("ai").about("Display the account info"))
         .subcommand(SubCommand::with_name("ei").about("Display the exchange info"))
         .subcommand(
@@ -80,7 +86,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         )
         .subcommand(
             SubCommand::with_name("sei")
-                .about("Display a symbols exchange info")
+                .about("Display a symbols exchange information")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
@@ -89,7 +95,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            SubCommand::with_name("ap")
+            SubCommand::with_name("sap")
                 .about("Display a symbols 5 minute average price")
                 .arg(
                     Arg::with_name("SYMBOL")
@@ -118,12 +124,12 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                         .index(1),
                 )
                 .arg(
-                    Arg::with_name("start-time")
+                    Arg::with_name("START-TIME")
                         .short("s")
                         .long("start_time")
                         .value_name("START-TIME")
                         .help("Define the starting time format: YYYY-MM-DDTHR:MIN example: 2021-05-24T16:31")
-                        .default_value("now")
+                        //.default_value("now")
                         .takes_value(true),
                 )
                 .arg(
@@ -136,7 +142,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                         .takes_value(true),
                 )
                 .arg(
-                    Arg::with_name("interval")
+                    Arg::with_name("INTERVAL")
                         .short("i")
                         .long("interval")
                         .value_name("INTERVAL")

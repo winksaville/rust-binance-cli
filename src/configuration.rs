@@ -137,6 +137,10 @@ impl Configuration {
         format!("{}://{}{}{}", self.scheme, sd, self.domain, full_path)
     }
 
+    /// This updates configuration only from global options.
+    // For instance I looked at cloning them into each subcommand on an
+    // as-needed-basis but then this function doesn't find any of them
+    // and the configuration is not updated.
     fn update_config(&mut self, matches: &ArgMatches) {
         if let Some(value) = matches.value_of("api-key") {
             self.api_key = value.to_string();

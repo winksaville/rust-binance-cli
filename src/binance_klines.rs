@@ -124,7 +124,7 @@ impl KlineInterval {
             "3d" => KlineInterval::Days3,
             "1w" => KlineInterval::Weeks,
             "1M" => KlineInterval::Months,
-            _ => return Err(format!("{} is an unknown kline interval", s).into()),
+            _ => return Err(format!("Unknown kline interval, {}, expecting: 1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M", s).into()),
         };
 
         Ok(interval)

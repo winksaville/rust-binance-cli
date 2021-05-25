@@ -32,6 +32,7 @@ fn test_help() -> Result<(), Box<dyn Error>> {
 #[cfg(not(tarpaulin_include))]
 fn test_req_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
+    cmd.arg("do-nothing");
     cmd.arg("--secret-key=secret_key");
     cmd.arg("--api-key").arg("api key");
 
@@ -43,12 +44,11 @@ fn test_req_params() -> Result<(), Box<dyn Error>> {
 #[cfg(not(tarpaulin_include))]
 fn test_req_params_as_env_vars() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("binance-auto-sell")?;
+    cmd.arg("do-nothing");
     cmd.env("SECRET_KEY", "secret key");
     cmd.env("API_KEY", "api key");
 
-    cmd.assert()
-        .code(predicate::eq(0))
-        .stdout(predicate::str::contains("Usage:"));
+    cmd.assert().code(predicate::eq(0));
 
     Ok(())
 }

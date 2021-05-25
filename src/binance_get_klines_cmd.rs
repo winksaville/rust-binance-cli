@@ -4,7 +4,7 @@ use function_name::named;
 
 use crate::{
     binance_klines::{get_klines, KlineInterval, KlineRec},
-    common::{dt_str_to_utc_time_ms, time_ms_to_utc, utc_now_to_time_ms},
+    common::{dt_str_to_utc_time_ms, time_ms_to_utc},
     configuration::Configuration,
 };
 
@@ -60,8 +60,7 @@ pub async fn get_klines_cmd(
 
     for kr in &krs {
         println!(
-            "Now UTC: {} Open time: {} Close time: {} diff: {}",
-            time_ms_to_utc(utc_now_to_time_ms()),
+            "Open time: {} Close time: {} diff minutes: {}",
             time_ms_to_utc(kr.open_time),
             time_ms_to_utc(kr.close_time),
             (kr.close_time - kr.open_time) as f64 / MIN as f64
