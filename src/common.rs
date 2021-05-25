@@ -43,18 +43,27 @@ impl InternalErrorRec {
 impl Display for InternalErrorRec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         trace!("Display::InternalErrorRec: {:#?}", self);
-        write!(
-            f,
-            "InternalErrorRec: {}::{}:{} code: {} msg: {}",
-            self.file, self.fn_name, self.line, self.code, self.msg,
-        )
+        if !self.fn_name.is_empty() {
+            write!(
+                f,
+                "InternalErrorRec: {}::{}:{} code: {} msg: {}",
+                self.file, self.fn_name, self.line, self.code, self.msg,
+            )
+        } else {
+            write!(
+                f,
+                "InternalErrorRec: {}:{} code: {} msg: {}",
+                self.file, self.line, self.code, self.msg,
+            )
+        }
     }
 }
 
 #[macro_export]
 macro_rules! ier_new {
     ( $c:expr, $m:expr ) => {
-        InternalErrorRec::new($c, std::file!(), function_name!(), std::line!(), $m);
+        //InternalErrorRec::new($c, std::file!(), function_name!(), std::line!(), $m);
+        InternalErrorRec::new($c, std::file!(), "", std::line!(), $m);
     };
 }
 

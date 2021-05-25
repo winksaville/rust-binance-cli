@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     binance_order_response::TradeResponse, common::get_req_get_response, common::ResponseErrorRec,
-    configuration::ConfigurationX,
+    configuration::Configuration,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -14,7 +14,7 @@ pub struct AvgPrice {
 }
 
 pub async fn get_avg_price<'e>(
-    config: &ConfigurationX,
+    config: &Configuration,
     symbol: &str,
 ) -> Result<AvgPrice, Box<dyn std::error::Error>> {
     let url = config.make_url("api", &format!("/api/v3/avgPrice?symbol={}", symbol));

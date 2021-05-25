@@ -9,7 +9,7 @@ use crate::{
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{get_req_get_response, ResponseErrorRec},
     common::{utc_now_to_time_ms, utc_to_time_ms},
-    configuration::ConfigurationX,
+    configuration::Configuration,
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -44,7 +44,7 @@ pub struct Trades {
 /// TODO: Consider making generic or process macro as is
 /// copy/paste fo orders_get_req_response
 async fn trades_get_req_and_response(
-    config: &ConfigurationX,
+    config: &Configuration,
     cmd: &str,
     mut params: Vec<(&str, &str)>,
 ) -> Result<Trades, Box<dyn std::error::Error>> {
@@ -110,7 +110,7 @@ async fn trades_get_req_and_response(
 }
 
 pub async fn get_my_trades(
-    config: &ConfigurationX,
+    config: &Configuration,
     symbol: &str,
     from_id: Option<u64>,
     start_date_time: Option<DateTime<Utc>>,

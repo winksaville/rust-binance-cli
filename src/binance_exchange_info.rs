@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::common::get_req_get_response;
 use crate::de_string_or_number::de_string_or_number_to_u64;
-use crate::{common::OrderType, configuration::ConfigurationX};
+use crate::{common::OrderType, configuration::Configuration};
 
 use strum_macros::IntoStaticStr;
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -554,7 +554,7 @@ impl ExchangeInfo {
 }
 
 pub async fn get_exchange_info<'e>(
-    config: &ConfigurationX,
+    config: &Configuration,
 ) -> Result<ExchangeInfo, Box<dyn std::error::Error>> {
     trace!("get_exchange_info: +");
 

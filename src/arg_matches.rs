@@ -72,10 +72,100 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .help("Domain such as binance.us or binance.com")
                 .takes_value(true),
         )
+        .subcommand(SubCommand::with_name("ai").about("Display the account info"))
+        .subcommand(SubCommand::with_name("ei").about("Display the exchange info"))
         .subcommand(
             SubCommand::with_name("auto-sell")
                 .about("Automatically sell assets as defined in the configuration keep section"),
         )
+        .subcommand(
+            SubCommand::with_name("sei")
+                .about("Display a symbols exchange info")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("ap")
+                .about("Display a symbols 5 minute average price")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("skr")
+                .about("Display a symbols current kline record")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("skrs")
+                .about("Display a symbols kline records")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("start-time")
+                        .short("s")
+                        .long("start_time")
+                        .value_name("START-TIME")
+                        .help("Define the starting time format: YYYY-MM-DDTHR:MIN example: 2021-05-24T16:31")
+                        .default_value("now")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("LIMIT")
+                        .short("l")
+                        .long("limit")
+                        .value_name("LIMIT")
+                        .help("Number of kline records to get, value between 1 and 1000")
+                        .default_value("1")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("interval")
+                        .short("i")
+                        .long("interval")
+                        .value_name("INTERVAL")
+                        .help("Kline interval, one of: 1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M")
+                        .takes_value(true),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("oo")
+                .about("Display a symbols open orders")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(SubCommand::with_name("ao").about("Dispaly all orders"))
+        .subcommand(
+            SubCommand::with_name("st")
+                .about("Display a symbols trades")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(SubCommand::with_name("ol").about("Dispaly order log"))
         .subcommand(
             SubCommand::with_name("buy-market")
                 .about("Buy an asset")
@@ -88,6 +178,22 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .arg(
                     Arg::with_name("QUANTITY")
                         .help("Amount of asset to buy")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("sell-market")
+                .about("Sell an asset")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("QUANTITY")
+                        .help("Amount of asset to sell")
                         .required(true)
                         .index(2),
                 ),

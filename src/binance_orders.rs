@@ -10,7 +10,7 @@ use crate::{
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{self, get_req_get_response, ResponseErrorRec},
     common::{utc_now_to_time_ms, utc_to_time_ms},
-    configuration::ConfigurationX,
+    configuration::Configuration,
     de_string_or_number::de_string_or_number_to_i64,
 };
 
@@ -68,7 +68,7 @@ impl Orders {
 }
 
 async fn orders_get_req_and_response(
-    config: &ConfigurationX,
+    config: &Configuration,
     cmd: &str,
     mut params: Vec<(&str, &str)>,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
@@ -134,7 +134,7 @@ async fn orders_get_req_and_response(
 }
 
 pub async fn get_all_orders(
-    config: &ConfigurationX,
+    config: &Configuration,
     symbol: &str,
     order_id: Option<u64>,
     start_date_time: Option<DateTime<Utc>>,
@@ -175,7 +175,7 @@ pub async fn get_all_orders(
 }
 
 pub async fn get_open_orders(
-    config: &ConfigurationX,
+    config: &Configuration,
     symbol: &str,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
     let mut params: Vec<(&str, &str)> = Vec::new();

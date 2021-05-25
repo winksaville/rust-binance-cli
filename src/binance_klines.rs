@@ -1,3 +1,6 @@
+use std::fmt::{self, Display};
+
+use chrono::Local;
 use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
@@ -10,7 +13,7 @@ use crate::{
     binance_order_response::TradeResponse,
     binance_signature::query_vec_u8,
     common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms, ResponseErrorRec},
-    configuration::ConfigurationX,
+    configuration::Configuration,
 };
 
 // Seconds and minutes in milli-seconds
@@ -73,6 +76,36 @@ pub enum KlineInterval {
     Months,
 }
 
+impl Display for KlineRec {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let local = Local::now().timezone();
+        trace!("Display::InternalErrorRec: {:#?}", self);
+        write!(
+            f,
+            r#"        openTime: {}
+       closeTime: {}
+            open: {:10.4}
+            high: {:10.4}
+             low: {:10.4}
+           close: {:10.4}
+          volume: {:10.4}
+  numberOfTrades: {}
+ BaseAssetVolume: {}
+QuoteAssetVolume: {}"#,
+            time_ms_to_utc(self.open_time).with_timezone(&local),
+            time_ms_to_utc(self.close_time).with_timezone(&local),
+            self.open,
+            self.high,
+            self.low,
+            self.close,
+            self.volume,
+            self.number_of_trades,
+            self.taker_buy_base_asset_volume,
+            self.taker_buy_quote_asset_volume,
+        )
+    }
+}
+
 impl KlineInterval {
     pub fn from_string(s: &str) -> Result<KlineInterval, Box<dyn std::error::Error>> {
         let interval: Self = match s {
@@ -123,7 +156,7 @@ impl KlineInterval {
 /// Get zero or more klines for the symbol at the specified KlineInterval.
 /// A maximum of 1000 records is returned.
 pub async fn get_klines(
-    config: &ConfigurationX,
+    config: &Configuration,
     symbol: &str,
     interval: KlineInterval,
     start_time_ms: Option<i64>,
@@ -205,7 +238,7 @@ pub async fn get_klines(
 /// The start_time_ms is UTC.
 #[allow(unused)]
 pub async fn get_kline(
-    config: &ConfigurationX,
+    config: &Configuration,
     sym_name: &str,
     start_time_ms: i64,
 ) -> Result<KlineRec, Box<dyn std::error::Error>> {

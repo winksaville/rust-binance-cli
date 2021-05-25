@@ -17,7 +17,7 @@ use crate::{
     },
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{post_req_get_response, utc_now_to_time_ms, ResponseErrorRec, Side},
-    configuration::ConfigurationX,
+    configuration::Configuration,
 };
 
 pub enum MarketQuantityType {
@@ -59,7 +59,7 @@ pub fn log_order_response(
 
 #[allow(unused)]
 async fn convert(
-    config: &ConfigurationX,
+    config: &Configuration,
     time_ms: i64,
     asset: &str,
     value: Decimal,
@@ -109,7 +109,7 @@ async fn convert(
 }
 
 async fn convert_commission(
-    config: &ConfigurationX,
+    config: &Configuration,
     order_response: &FullTradeResponseRec,
     fee_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
@@ -128,7 +128,7 @@ async fn convert_commission(
 }
 
 pub async fn binance_new_order_or_test(
-    config: &ConfigurationX,
+    config: &Configuration,
     mut log_writer: &mut dyn Write,
     ei: &ExchangeInfo,
     symbol: &str,
@@ -136,7 +136,6 @@ pub async fn binance_new_order_or_test(
     order_type: TradeOrderType,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    let test = true;
     let ei_symbol = match ei.get_symbol(symbol) {
         Some(s) => s,
         None => {
@@ -343,7 +342,7 @@ mod test {
 
     #[test(tokio::test)]
     async fn test_convert() {
-        let config = ConfigurationX::default();
+        let config = Configuration::default();
 
         // Expect to always return the value parameter
         let value_usd = convert(&config, utc_now_to_time_ms(), "USD", dec!(1234.5678), "USD")
@@ -361,7 +360,7 @@ mod test {
 
     #[tokio::test]
     async fn test_convertcommission() {
-        let config = ConfigurationX::default();
+        let config = Configuration::default();
         let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
 
         // TODO: Need to "mock" get_kline so order_response.fills[0].commission_asset ("BNB") always returns a specific value.

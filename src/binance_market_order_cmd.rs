@@ -19,7 +19,7 @@ use crate::{
         verify_quanity_is_greater_than_free,
     },
     common::{InternalErrorRec, Side},
-    configuration::ConfigurationX,
+    configuration::Configuration,
     ier_new,
 };
 use binance_trade::log_order_response;
@@ -29,7 +29,7 @@ use function_name::named;
 
 #[named]
 pub async fn market_order(
-    config: &ConfigurationX,
+    config: &Configuration,
     ei: &ExchangeInfo,
     symbol_name: &str,
     quantity: Decimal,
@@ -120,29 +120,28 @@ pub async fn market_order(
 
 #[derive(Debug, Clone, Default, StructOpt)]
 pub struct MarketCmdRec {
-    /// full path to configuration toml file, example: data/config.toml
-    config_file: String,
-
     /// Symbol name
     pub sym_name: String,
 
     /// Number of shares
     pub quantity: Decimal,
-
-    /// Enable test mode
-    #[structopt(short = "t", long)]
-    test: bool,
 }
 
 #[named]
 pub async fn buy_market_order_cmd(
-    config: &ConfigurationX,
-    rec: &MarketCmdRec,
+    config: &Configuration,
+    sym_name: &str,
+    quantity: Decimal,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    trace!("buy_market_order: rec: {:#?}", rec);
+    trace!(
+        "buy_market_order: sym_name: {} quantity: {} config:\n{:#?}",
+        sym_name,
+        quantity,
+        config
+    );
 
     let ei = &get_exchange_info(config).await?;
-    let tr = market_order(config, ei, &rec.sym_name, rec.quantity, Side::BUY, rec.test).await?;
+    let tr = market_order(config, ei, sym_name, quantity, Side::BUY, config.test).await?;
     println!("{}", tr);
 
     Ok(())
@@ -150,21 +149,19 @@ pub async fn buy_market_order_cmd(
 
 #[named]
 pub async fn sell_market_order_cmd(
-    config: &ConfigurationX,
-    rec: &MarketCmdRec,
+    config: &Configuration,
+    sym_name: &str,
+    quantity: Decimal,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    trace!("sell_market_order: rec: {:#?}", rec);
+    trace!(
+        "sell_market_order: sym_name: {} quantity: {} config:\n{:#?}",
+        sym_name,
+        quantity,
+        config
+    );
 
     let ei = &get_exchange_info(config).await?;
-    let tr = market_order(
-        config,
-        ei,
-        &rec.sym_name,
-        rec.quantity,
-        Side::SELL,
-        rec.test,
-    )
-    .await?;
+    let tr = market_order(config, ei, sym_name, quantity, Side::BUY, config.test).await?;
     println!("{}", tr);
 
     Ok(())

@@ -1,41 +1,37 @@
 use log::trace;
-use structopt::StructOpt;
 
 use function_name::named;
 
 use crate::{
     binance_klines::{get_klines, KlineInterval, KlineRec},
     common::{dt_str_to_utc_time_ms, time_ms_to_utc, utc_now_to_time_ms},
-    configuration::ConfigurationX,
+    configuration::Configuration,
 };
 
-// Seconds and minutes in milli-seconds
-const SEC: i64 = 1000;
-const MIN: i64 = 60 * SEC;
-
-#[derive(Debug, Clone, Default, StructOpt)]
+#[derive(Debug, Clone, Default)]
 pub struct GetKlinesCmdRec {
-    /// Symbol name
+    // Symbol name
     pub sym_name: String,
 
-    /// Start date and time, Optional second positional argument
-    #[structopt(short = "s", long)]
+    // Start date and time
     pub start_date_time: Option<String>,
 
-    /// Limit 1 to 1000
-    #[structopt(short = "l", long)]
+    // Limit 1 to 1000
     pub limit: Option<u16>,
 
-    /// Kline interval
-    #[structopt(short = "i", long)]
+    // Kline interval
     pub interval: Option<String>,
 }
 
 #[named]
 pub async fn get_klines_cmd(
-    config: &ConfigurationX,
+    config: &Configuration,
     rec: &GetKlinesCmdRec,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Seconds and minutes in milli-seconds
+    const SEC: i64 = 1000;
+    const MIN: i64 = 60 * SEC;
+
     trace!("get_klines_cmd: rec: {:#?}", rec);
 
     let start_time_ms = if let Some(naive_dt_str) = &rec.start_date_time {
@@ -52,9 +48,15 @@ pub async fn get_klines_cmd(
         KlineInterval::Mins1
     };
 
-    let krs: Vec<KlineRec> =
-        //get_klines(ctx, &rec.sym_name, interval, Some(start_time_ms), None, Some(limit)).await?;
-        get_klines(config, &rec.sym_name, interval, start_time_ms, None, Some(limit)).await?;
+    let krs: Vec<KlineRec> = get_klines(
+        config,
+        &rec.sym_name,
+        interval,
+        start_time_ms,
+        None,
+        Some(limit),
+    )
+    .await?;
 
     for kr in &krs {
         println!(

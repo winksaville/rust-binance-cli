@@ -12,11 +12,11 @@ use crate::{
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
     common::{are_you_sure_stdout_stdin, time_ms_to_utc, Side},
-    configuration::ConfigurationX,
+    configuration::Configuration,
 };
 
 pub async fn auto_sell(
-    config: &ConfigurationX,
+    config: &Configuration,
     ei: &ExchangeInfo,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let test = config.test;
@@ -202,7 +202,7 @@ pub async fn auto_sell(
 //    about = "Auto sell keeping some assets as defined in the keep section of the config file"
 //)]
 
-pub async fn auto_sell_cmd(config: &ConfigurationX) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn auto_sell_cmd(config: &Configuration) -> Result<(), Box<dyn std::error::Error>> {
     trace!("auto_sell_cmd: {:#?}", config);
 
     //let mut ctx = ctx.clone();
@@ -244,7 +244,7 @@ mod test {
 
     #[test]
     fn test_config_auto_sell_all() {
-        let config: ConfigurationX = toml::from_str(TOML_DATA).unwrap();
+        let config: Configuration = toml::from_str(TOML_DATA).unwrap();
         // println!("{:#?}", config);
         assert_eq!(config.api_key, "api key");
         assert_eq!(config.secret_key, "secret key");

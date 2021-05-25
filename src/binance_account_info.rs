@@ -13,7 +13,7 @@ use crate::{
     binance_klines::get_kline,
     common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
-    ConfigurationX,
+    Configuration,
 };
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
@@ -83,11 +83,7 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub async fn update_values_in_usd(
-        &mut self,
-        config: &ConfigurationX,
-        verbose: bool,
-    ) -> Decimal {
+    pub async fn update_values_in_usd(&mut self, config: &Configuration, verbose: bool) -> Decimal {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
@@ -148,14 +144,14 @@ impl AccountInfo {
         println!("total: ${:.2}", total_value);
     }
 
-    pub async fn update_and_print(&mut self, config: &ConfigurationX) {
+    pub async fn update_and_print(&mut self, config: &Configuration) {
         self.update_values_in_usd(config, true).await;
         self.print().await;
     }
 }
 
 pub async fn get_account_info<'e>(
-    config: &ConfigurationX,
+    config: &Configuration,
 ) -> Result<AccountInfo, Box<dyn std::error::Error>> {
     trace!("get_account_info: +");
 

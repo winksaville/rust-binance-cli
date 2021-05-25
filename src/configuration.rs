@@ -58,7 +58,7 @@ fn default_min() -> Decimal {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ConfigurationX {
+pub struct Configuration {
     #[serde(rename = "SECRET_KEY")]
     //#[serde(default)]
     pub secret_key: String,
@@ -87,9 +87,9 @@ fn default_sell_to_asset() -> String {
     "USD".to_string()
 }
 
-impl Default for ConfigurationX {
+impl Default for Configuration {
     fn default() -> Self {
-        ConfigurationX {
+        Configuration {
             api_key: "".to_string(),
             secret_key: "".to_string(),
             order_log_path: None,
@@ -102,23 +102,23 @@ impl Default for ConfigurationX {
     }
 }
 
-impl ConfigurationX {
+impl Configuration {
     pub fn new(matches: &ArgMatches) -> Self {
         let mut config = if let Some(path_str) = matches.value_of("config") {
             let config_file_path = PathBuf::from(path_str.to_string());
-            let config: ConfigurationX = match read_to_string(config_file_path) {
+            let config: Configuration = match read_to_string(config_file_path) {
                 Ok(str) => match toml::from_str(&str) {
                     Ok(cfg) => {
                         trace!("config from file:\n{:#?}", cfg);
                         cfg
                     }
-                    Err(_) => ConfigurationX::default(),
+                    Err(_) => Configuration::default(),
                 },
-                Err(_) => ConfigurationX::default(),
+                Err(_) => Configuration::default(),
             };
             config
         } else {
-            ConfigurationX::default()
+            Configuration::default()
         };
 
         config.update_config(&matches);
