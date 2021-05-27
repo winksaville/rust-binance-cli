@@ -3,7 +3,6 @@
 use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
-use structopt::StructOpt;
 
 use crate::{
     binance_account_info::get_account_info,
@@ -118,7 +117,7 @@ pub async fn market_order(
     Ok(tr)
 }
 
-#[derive(Debug, Clone, Default, StructOpt)]
+#[derive(Debug, Clone, Default)]
 pub struct MarketCmdRec {
     /// Symbol name
     pub sym_name: String,

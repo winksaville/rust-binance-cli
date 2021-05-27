@@ -1,5 +1,6 @@
 // Based on https://stackoverflow.com/a/55134333/4812090
 use clap::ArgMatches;
+use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
 use serde::{
@@ -7,6 +8,17 @@ use serde::{
     Deserialize, Deserializer,
 };
 use std::{collections::HashMap, fs::read_to_string, path::PathBuf};
+
+const PKG_VER: &str = env!("CARGO_PKG_VERSION");
+const GIT_SHORT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
+
+lazy_static! {
+    // I'm not sure this is the right approach but
+    // Having a static String seems to be reasonable
+    // so it's computed only once.
+    //pub static ref VERSION: String = version();
+    pub static ref VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
+}
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?

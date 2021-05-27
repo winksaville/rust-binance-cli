@@ -1,6 +1,8 @@
 // Based on https://stackoverflow.com/a/55134333/4812090
-use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches, SubCommand};
 use std::error::Error;
+
+use crate::configuration::VERSION;
 
 pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
     // The config option is the only option that has a default_value,
@@ -66,9 +68,9 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .help("Domain such as binance.us or binance.com")
         .takes_value(true);
 
-    let matches = App::new("Exper clap config")
-        .version(crate_version!())
-        .about("Experiment using a config file")
+    let matches = App::new("binance-auto-sell")
+        .version(VERSION.as_str())
+        .about("Binance cli app")
         .arg(config_arg.clone())
         .arg(api_key_arg.clone())
         .arg(secret_key_arg.clone())
