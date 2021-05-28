@@ -3,7 +3,7 @@ API_KEY = "an api key"
 SECRET_KEY = "a secret key"
 
 # Path and file name for the log file
-log_path = "data/log-1.txt"
+deata_log_path = "data/log-1.txt"
 
 # The name of the asset that is used to buy or sell another asset.
 default_quote_asset = "USD"

@@ -23,7 +23,7 @@ const GIT_SHORT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
 
 lazy_static! {
     // I'm not sure this is the right approach but
-    // Having a static String seems to be reasonable
+    // having a static String seems to be reasonable
     // so it's computed only once.
     pub static ref APP_VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
 }
@@ -126,8 +126,8 @@ impl Display for Side {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         trace!("Display::Side: {:#?}", self);
         let side_str = match self {
-            Side::SELL => "Sold",
-            Side::BUY => "Bought",
+            Side::SELL => "Sell",
+            Side::BUY => "Buy",
         };
 
         write!(f, "{}", side_str)
@@ -362,8 +362,6 @@ mod test {
     use super::*;
     use std::time::Instant;
 
-    use function_name::named;
-
     #[test]
     fn test_binance_response_error_rec() {
         const RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
@@ -445,13 +443,11 @@ mod test {
     }
 
     #[test]
-    #[named]
     fn test_internal_error() {
         let ie1 = ier_new!(1, "err 1");
         println!("{:#?}", ie1);
         assert_eq!(ie1.code, 1);
         assert_eq!(ie1.line, line!() - 3);
-        //assert_eq!(ie1.fn_name, "test_internal_error");
         assert_eq!(ie1.file, file!());
     }
 }

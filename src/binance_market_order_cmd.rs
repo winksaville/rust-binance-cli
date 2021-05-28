@@ -23,10 +23,6 @@ use crate::{
 };
 use binance_trade::log_order_response;
 
-extern crate function_name;
-use function_name::named;
-
-#[named]
 pub async fn market_order(
     config: &Configuration,
     ei: &ExchangeInfo,
@@ -35,8 +31,16 @@ pub async fn market_order(
     side: Side,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
-    let log_path = config.order_log_path.as_ref().unwrap(); // FIXME: NO UNWRAP
-    let mut log_writer = order_log_file(log_path)?;
+    trace!(
+        "market_order: config={:#?} symbol_name={} order_type={} side={} test={}",
+        config,
+        symbol_name,
+        order_type,
+        side,
+        test
+    );
+    let order_log_path = config.order_log_path.as_ref().unwrap(); // FIXME: NO UNWRAP
+    let mut log_writer = order_log_file(order_log_path)?;
 
     let symbol = match ei.get_symbol(&symbol_name) {
         Some(s) => s,
@@ -49,7 +53,7 @@ pub async fn market_order(
             return Ok(tr);
         }
     };
-    trace!("Got symbol");
+    trace!("market_order: Got symbol");
 
     let adj_order_type: TradeOrderType;
 
@@ -90,7 +94,7 @@ pub async fn market_order(
     }
 
     let ai = get_account_info(config).await?;
-    trace!("Got AccountInfo");
+    trace!("market_order: Got AccountInfo");
 
     let open_orders = get_open_orders(config, &symbol.symbol).await?;
 
@@ -118,7 +122,7 @@ pub async fn market_order(
         test,
     )
     .await?;
-    trace!("market trade reponse: {:#?}", tr);
+    trace!("market_order: trade reponse: {:#?}", tr);
 
     Ok(tr)
 }
@@ -132,7 +136,6 @@ pub struct MarketCmdRec {
     pub quantity: Decimal,
 }
 
-#[named]
 pub async fn buy_market_order_cmd(
     config: &Configuration,
     sym_name: &str,
@@ -152,7 +155,6 @@ pub async fn buy_market_order_cmd(
     Ok(())
 }
 
-#[named]
 pub async fn sell_market_order_cmd(
     config: &Configuration,
     sym_name: &str,
@@ -166,7 +168,7 @@ pub async fn sell_market_order_cmd(
     );
 
     let ei = &get_exchange_info(config).await?;
-    let tr = market_order(config, ei, sym_name, &order_type, Side::BUY, config.test).await?;
+    let tr = market_order(config, ei, sym_name, &order_type, Side::SELL, config.test).await?;
     println!("{}", tr);
 
     Ok(())

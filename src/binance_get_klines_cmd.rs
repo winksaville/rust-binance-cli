@@ -1,7 +1,5 @@
 use log::trace;
 
-use function_name::named;
-
 use crate::{
     binance_klines::{get_klines, KlineInterval, KlineRec},
     common::{dt_str_to_utc_time_ms, time_ms_to_utc},
@@ -23,7 +21,6 @@ pub struct GetKlinesCmdRec {
     pub interval: Option<String>,
 }
 
-#[named]
 pub async fn get_klines_cmd(
     config: &Configuration,
     rec: &GetKlinesCmdRec,

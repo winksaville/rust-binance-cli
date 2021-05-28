@@ -29,20 +29,20 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .long("api-key")
         .value_name("API-KEY")
         .help("Define the api key")
-        .env("BINANCE_US_API_KEY")
+        .env("BINANCE_API_KEY")
         .takes_value(true);
     let secret_key_arg = Arg::with_name("secret-key")
         .global(true)
         .long("secret-key")
         .value_name("SECRET-KEY")
         .help("Define the secret key")
-        .env("BINANCE_US_SECRET_KEY")
+        .env("BINANCE_SECRET_KEY")
         .takes_value(true);
-    let log_path_arg = Arg::with_name("log-path")
+    let order_log_path_arg = Arg::with_name("order-log-path")
         .global(true)
-        .long("log-path")
+        .long("order-log-path")
         .value_name("PATH")
-        .help("Define log path")
+        .help("Define order log path")
         .takes_value(true);
     let default_quote_asset_arg = Arg::with_name("default-quote-asset")
         .global(true)
@@ -74,7 +74,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .arg(config_arg.clone())
         .arg(api_key_arg.clone())
         .arg(secret_key_arg.clone())
-        .arg(log_path_arg.clone())
+        .arg(order_log_path_arg.clone())
         .arg(default_quote_asset_arg.clone())
         .arg(test_arg.clone())
         .arg(scheme_arg.clone())
@@ -220,7 +220,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                         .index(1),
                 )
                 .arg(
-                    Arg::with_name("Value")
+                    Arg::with_name("VALUE")
                         .help("Value of asset to sell in the quote asset")
                         .required(true)
                         .index(2),

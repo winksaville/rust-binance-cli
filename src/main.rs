@@ -30,8 +30,6 @@ use binance_auto_buy::auto_buy_cmd;
 use binance_auto_sell::auto_sell_cmd;
 use configuration::Configuration;
 
-extern crate function_name;
-use function_name::named;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
@@ -52,7 +50,7 @@ use crate::{
 fn get_configuration_and_sub_command(
 ) -> Result<(Configuration, Box<SubCommand<'static>>), Box<dyn std::error::Error>> {
     let the_matches = arg_matches()?;
-    let config = Configuration::new(&the_matches);
+    let config = Configuration::new(&the_matches)?;
 
     let subcmd = if let Some(sc) = the_matches.subcommand {
         sc
@@ -68,7 +66,8 @@ fn get_configuration_and_sub_command(
     Ok((config, subcmd))
 }
 
-#[named]
+use common::APP_VERSION;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -85,7 +84,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             None => &args[0],
         };
-        println!("Usage: {} help, --help or -h", name);
+        println!(
+            "Usage: {} help, --help or -h\nver: {}",
+            name,
+            APP_VERSION.as_str()
+        );
         return Ok(());
     }
 
@@ -248,20 +251,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 total_qty, total_quote_value
             );
         }
-        "ol" => match config.order_log_path {
-            Some(path) => {
-                let file = File::open(path)?;
-                let reader = BufReader::new(file);
-                for result in reader.lines() {
-                    let line = result?;
-                    let tr: TradeResponse = serde_json::from_str(&line)?;
-                    println!("{:#?}", tr);
+        "ol" => {
+            match config.order_log_path {
+                Some(path) => {
+                    let file = File::open(path)?;
+                    let reader = BufReader::new(file);
+                    for result in reader.lines() {
+                        let line = result?;
+                        let tr: TradeResponse = serde_json::from_str(&line)?;
+                        println!("{:#?}", tr);
+                    }
+                }
+                None => {
+                    println!("No order log path, set it in the config file or use -l or --order_log_path");
                 }
             }
-            None => {
-                println!("No order log path, set it in the config file or use -l or --log_path");
-            }
-        },
+        }
         _ => println!("Unknown subcommand: {}", subcmd.name),
     }
 

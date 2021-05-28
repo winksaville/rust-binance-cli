@@ -132,17 +132,8 @@ pub async fn auto_buy(
     Ok(())
 }
 
-//#[derive(Debug, Clone, Default, StructOpt)]
-//#[structopt(
-//    about = "Auto sell keeping some assets as defined in the keep section of the config file"
-//)]
-
 pub async fn auto_buy_cmd(config: &Configuration) -> Result<(), Box<dyn std::error::Error>> {
     trace!("auto_buy_cmd: {:#?}", config);
-
-    //let mut ctx = ctx.clone();
-    //let config = update_context_from_config_file(&mut ctx, &rec.config_file).await?;
-    //let ctx = &ctx;
 
     let ei = get_exchange_info(config).await?;
     auto_buy(config, &ei).await?;

@@ -29,13 +29,12 @@ pub enum MarketQuantityType {
 
 impl Display for MarketQuantityType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        trace!("Display:TradeOrderType: {:#?}", self);
         let qty_str = match self {
             MarketQuantityType::Quantity(qty) => {
-                format!("Market Order Quanitty: {}", qty)
+                format!("Quantity:{}", qty)
             }
             MarketQuantityType::QuoteOrderQty(qty) => {
-                format!("Market Order QuoteQty: {}", qty)
+                format!("QuoteOrderQty:{}", qty)
             }
         };
 
@@ -56,8 +55,11 @@ pub enum TradeOrderType {
 
 impl Display for TradeOrderType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        trace!("Display:TradeOrderType: {:#?}", self);
-        write!(f, "{}", self)
+        match self {
+            TradeOrderType::Market(mot) => {
+                write!(f, "Market::{}", mot)
+            }
+        }
     }
 }
 
@@ -91,9 +93,12 @@ async fn convert(
     value: Decimal,
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
-    println!(
+    trace!(
         "convert: {:#?}, asset: {} value: {} other_asset: {}",
-        config, asset, value, other_asset
+        config,
+        asset,
+        value,
+        other_asset
     );
     let other_value: Decimal = if asset == other_asset {
         let new_value = value;

@@ -168,8 +168,10 @@ impl Default for Configuration {
 }
 
 impl Configuration {
-    pub fn new(matches: &ArgMatches) -> Self {
-        let mut config = if let Some(path_str) = matches.value_of("config") {
+    pub fn new(matches: &ArgMatches) -> Result<Self, Box<dyn std::error::Error>> {
+        let opt_config = matches.value_of("config");
+        trace!("Configuration::new: opt_config={:#?}", opt_config);
+        let mut config = if let Some(path_str) = opt_config {
             let config_file_path = PathBuf::from(path_str.to_string());
             let config: Configuration = match read_to_string(config_file_path) {
                 Ok(str) => match toml::from_str(&str) {
@@ -177,9 +179,9 @@ impl Configuration {
                         trace!("config from file:\n{:#?}", cfg);
                         cfg
                     }
-                    Err(_) => Configuration::default(),
+                    Err(e) => return Err(format!("Error processing {}: {}", path_str, e).into()),
                 },
-                Err(_) => Configuration::default(),
+                Err(e) => return Err(format!("Error reading {}: {}", path_str, e).into()),
             };
             config
         } else {
@@ -189,7 +191,7 @@ impl Configuration {
         config.update_config(&matches);
         trace!("config after update_config:\n{:#?}", config);
 
-        config
+        Ok(config)
     }
 
     pub fn make_url(&self, subdomain: &str, full_path: &str) -> String {
@@ -215,7 +217,7 @@ impl Configuration {
             self.secret_key = value.to_string();
         }
 
-        if let Some(value) = matches.value_of("log-path") {
+        if let Some(value) = matches.value_of("order-log-path") {
             let path_buf = PathBuf::from(value.to_string());
             self.order_log_path = Some(path_buf);
         }
