@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use lazy_static::lazy_static;
 use log::trace;
 
 use reqwest::{
@@ -16,6 +17,16 @@ use strum_macros::IntoStaticStr;
 use serde::{Deserialize, Serialize};
 
 use crate::de_string_or_number::de_string_or_number_to_i64;
+
+const PKG_VER: &str = env!("CARGO_PKG_VERSION");
+const GIT_SHORT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
+
+lazy_static! {
+    // I'm not sure this is the right approach but
+    // Having a static String seems to be reasonable
+    // so it's computed only once.
+    pub static ref APP_VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,14 +57,23 @@ impl Display for InternalErrorRec {
         if !self.fn_name.is_empty() {
             write!(
                 f,
-                "InternalErrorRec: {}::{}:{} code: {} msg: {}",
-                self.file, self.fn_name, self.line, self.code, self.msg,
+                "InternalErrorRec ver: {:?} file: {} fn: {} line: {} code: {} msg: {}",
+                APP_VERSION.as_str(),
+                self.file,
+                self.fn_name,
+                self.line,
+                self.code,
+                self.msg,
             )
         } else {
             write!(
                 f,
-                "InternalErrorRec: {}:{} code: {} msg: {}",
-                self.file, self.line, self.code, self.msg,
+                "InternalErrorRec: ver: {:?} file: {} line:{} code: {} msg: {}",
+                APP_VERSION.as_str(),
+                self.file,
+                self.line,
+                self.code,
+                self.msg,
             )
         }
     }
@@ -64,6 +84,20 @@ macro_rules! ier_new {
     ( $c:expr, $m:expr ) => {
         //InternalErrorRec::new($c, std::file!(), function_name!(), std::line!(), $m);
         InternalErrorRec::new($c, std::file!(), "", std::line!(), $m);
+    };
+}
+
+#[macro_export]
+macro_rules! ie_msg {
+    ( $c:expr, $m:expr ) => {
+        //InternalErrorRec::new($c, std::file!(), function_name!(), std::line!(), $m);
+        &format!(
+            "InternalErrorRec: {}:{} code: {} msg: {}",
+            std::file!(),
+            std::line!(),
+            $c,
+            $m
+        );
     };
 }
 

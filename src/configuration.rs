@@ -1,6 +1,5 @@
 // Based on https://stackoverflow.com/a/55134333/4812090
 use clap::ArgMatches;
-use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
 use serde::{
@@ -8,17 +7,6 @@ use serde::{
     Deserialize, Deserializer,
 };
 use std::{collections::HashMap, fs::read_to_string, path::PathBuf};
-
-const PKG_VER: &str = env!("CARGO_PKG_VERSION");
-const GIT_SHORT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
-
-lazy_static! {
-    // I'm not sure this is the right approach but
-    // Having a static String seems to be reasonable
-    // so it's computed only once.
-    //pub static ref VERSION: String = version();
-    pub static ref VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
-}
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
@@ -69,6 +57,54 @@ fn default_min() -> Decimal {
     Decimal::MAX
 }
 
+// from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
+// TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
+fn de_vec_buy_rec_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, BuyRec>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ItemsVisitor;
+
+    impl<'de> Visitor<'de> for ItemsVisitor {
+        type Value = HashMap<String, BuyRec>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a sequence of items")
+        }
+
+        fn visit_seq<V>(self, mut seq: V) -> Result<HashMap<String, BuyRec>, V::Error>
+        where
+            V: SeqAccess<'de>,
+        {
+            let mut map: HashMap<String, BuyRec> =
+                HashMap::with_capacity(seq.size_hint().unwrap_or(0));
+
+            while let Some(item) = seq.next_element::<BuyRec>()? {
+                // println!("item={:#?}", item);
+                map.insert(item.name.clone(), item);
+            }
+
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(ItemsVisitor)
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct BuyRec {
+    pub name: String,
+
+    #[serde(default)]
+    pub percent: Decimal,
+
+    #[serde(default)]
+    pub quote_asset: String,
+
+    #[serde(default, skip)]
+    pub buy_qty: Decimal,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
     #[serde(rename = "SECRET_KEY")]
@@ -81,7 +117,7 @@ pub struct Configuration {
 
     pub order_log_path: Option<PathBuf>,
 
-    #[serde(default = "default_sell_to_asset")]
+    #[serde(default = "default_quote_asset")]
     pub default_quote_asset: String,
 
     pub test: bool,
@@ -90,12 +126,16 @@ pub struct Configuration {
     //#[serde(default)]
     pub keep: HashMap<String, KeepRec>,
 
+    #[serde(deserialize_with = "de_vec_buy_rec_to_hashmap")]
+    //#[serde(default)]
+    pub buy: HashMap<String, BuyRec>,
+
     pub scheme: String,
 
     pub domain: String,
 }
 
-fn default_sell_to_asset() -> String {
+fn default_quote_asset() -> String {
     "USD".to_string()
 }
 
@@ -105,11 +145,12 @@ impl Default for Configuration {
             api_key: "".to_string(),
             secret_key: "".to_string(),
             order_log_path: None,
-            default_quote_asset: default_sell_to_asset(),
+            default_quote_asset: default_quote_asset(),
             test: false,
             scheme: "https".to_string(),
             domain: "binance.us".to_string(),
             keep: HashMap::<String, KeepRec>::new(),
+            buy: HashMap::<String, BuyRec>::new(),
         }
     }
 }

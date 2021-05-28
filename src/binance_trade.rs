@@ -3,6 +3,7 @@ use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use std::{
+    fmt::{self, Display},
     fs::{File, OpenOptions},
     io::Write,
     path::Path,
@@ -20,11 +21,29 @@ use crate::{
     configuration::Configuration,
 };
 
+#[derive(Debug, Clone)]
 pub enum MarketQuantityType {
     Quantity(Decimal),
-    //QuoteOrderQty(Decimal),
+    QuoteOrderQty(Decimal),
 }
 
+impl Display for MarketQuantityType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display:TradeOrderType: {:#?}", self);
+        let qty_str = match self {
+            MarketQuantityType::Quantity(qty) => {
+                format!("Market Order Quanitty: {}", qty)
+            }
+            MarketQuantityType::QuoteOrderQty(qty) => {
+                format!("Market Order QuoteQty: {}", qty)
+            }
+        };
+
+        write!(f, "{}", qty_str)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum TradeOrderType {
     Market(MarketQuantityType),
     // Limit,
@@ -33,6 +52,13 @@ pub enum TradeOrderType {
     // TakeProfit,
     // TakeProfitLimit,
     // LimitMaker,
+}
+
+impl Display for TradeOrderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display:TradeOrderType: {:#?}", self);
+        write!(f, "{}", self)
+    }
 }
 
 pub fn order_log_file(order_log_path: &Path) -> Result<File, Box<dyn std::error::Error>> {
@@ -156,13 +182,18 @@ pub async fn binance_new_order_or_test(
                                       // was handled properly.
     ];
 
-    let astring: String;
+    let qty_string: String;
     match order_type {
         TradeOrderType::Market(MarketQuantityType::Quantity(qty)) => {
             params.push(("type", "MARKET"));
-            astring = format!("{}", qty);
-            params.push(("quantity", &astring));
-        } //_ => return Err("Unknown order_type")?,
+            qty_string = format!("{}", qty);
+            params.push(("quantity", &qty_string));
+        }
+        TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(qty)) => {
+            params.push(("type", "MARKET"));
+            qty_string = format!("{}", qty);
+            params.push(("quoteOrderQty", &qty_string));
+        }
     };
 
     let ts_string: String = format!("{}", utc_now_to_time_ms());

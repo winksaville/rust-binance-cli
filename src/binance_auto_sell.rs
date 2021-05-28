@@ -11,6 +11,7 @@ use crate::{
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
+    binance_trade::{MarketQuantityType, TradeOrderType},
     common::{are_you_sure_stdout_stdin, time_ms_to_utc, Side},
     configuration::Configuration,
 };
@@ -143,7 +144,9 @@ pub async fn auto_sell(
                         "Selling", kr.sell_qty, symbol_name
                     );
                     let _ = stdout().flush();
-                    match market_order(config, ei, &symbol_name, kr.sell_qty, Side::SELL, test)
+                    let order_type =
+                        TradeOrderType::Market(MarketQuantityType::Quantity(kr.sell_qty));
+                    match market_order(config, ei, &symbol_name, &order_type, Side::SELL, test)
                         .await
                     {
                         Ok(tr) => match tr {

@@ -2,7 +2,7 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::error::Error;
 
-use crate::configuration::VERSION;
+use crate::common::APP_VERSION;
 
 pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
     // The config option is the only option that has a default_value,
@@ -69,7 +69,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .takes_value(true);
 
     let matches = App::new("binance-auto-sell")
-        .version(VERSION.as_str())
+        .version(APP_VERSION.as_str())
         .about("Binance cli app")
         .arg(config_arg.clone())
         .arg(api_key_arg.clone())
@@ -85,6 +85,10 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .subcommand(
             SubCommand::with_name("auto-sell")
                 .about("Automatically sell assets as defined in the configuration keep section"),
+        )
+        .subcommand(
+            SubCommand::with_name("auto-buy")
+                .about("Automatically buy assets as defined in the configuration buy section"),
         )
         .subcommand(
             SubCommand::with_name("sei")
@@ -175,8 +179,24 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         )
         .subcommand(SubCommand::with_name("ol").about("Dispaly order log"))
         .subcommand(
+            SubCommand::with_name("buy-market-value")
+                .about("Buy asset using quote asset value")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("VALUE")
+                        .help("Value of asset to buy in the quote asset")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
             SubCommand::with_name("buy-market")
-                .about("Buy an asset")
+                .about("Buy a number of assets")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
@@ -185,14 +205,30 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 )
                 .arg(
                     Arg::with_name("QUANTITY")
-                        .help("Amount of asset to buy")
+                        .help("Number of assets to buy")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("sell-market-value")
+                .about("Sell asset using quote asset value")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("Value")
+                        .help("Value of asset to sell in the quote asset")
                         .required(true)
                         .index(2),
                 ),
         )
         .subcommand(
             SubCommand::with_name("sell-market")
-                .about("Sell an asset")
+                .about("Sell a number of assets")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
@@ -201,7 +237,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 )
                 .arg(
                     Arg::with_name("QUANTITY")
-                        .help("Amount of asset to sell")
+                        .help("Number of assets to sell")
                         .required(true)
                         .index(2),
                 ),

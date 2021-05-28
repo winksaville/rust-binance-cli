@@ -9,7 +9,7 @@ use crate::{
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AvgPrice {
-    pub mins: Decimal,
+    pub mins: u64,
     pub price: Decimal,
 }
 

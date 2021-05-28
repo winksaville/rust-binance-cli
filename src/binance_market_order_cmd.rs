@@ -31,23 +31,12 @@ pub async fn market_order(
     config: &Configuration,
     ei: &ExchangeInfo,
     symbol_name: &str,
-    quantity: Decimal,
+    order_type: &TradeOrderType,
     side: Side,
     test: bool,
 ) -> Result<TradeResponse, Box<dyn std::error::Error>> {
     let log_path = config.order_log_path.as_ref().unwrap(); // FIXME: NO UNWRAP
     let mut log_writer = order_log_file(log_path)?;
-
-    let mut quantity = quantity;
-    if quantity <= dec!(0) {
-        let tr = TradeResponse::FailureInternal(ier_new!(
-            1,
-            &format!("adjusted quantity: {} <= 0", quantity)
-        ));
-        log_order_response(&mut log_writer, &tr)?;
-        return Ok(tr);
-    }
-    trace!("symbol_name: {} quantity: {}", symbol_name, quantity);
 
     let symbol = match ei.get_symbol(&symbol_name) {
         Some(s) => s,
@@ -62,6 +51,44 @@ pub async fn market_order(
     };
     trace!("Got symbol");
 
+    let adj_order_type: TradeOrderType;
+
+    let avg_price: AvgPrice = get_avg_price(config, &symbol.symbol).await?;
+    let quantity = match order_type {
+        TradeOrderType::Market(MarketQuantityType::Quantity(qty)) => {
+            // Adjust quantity and verify the quantity meets the LotSize criteria
+            let qty = adj_quantity_verify_lot_size(symbol, *qty);
+
+            // Could have gone zero, if so return an error
+            if qty <= dec!(0) {
+                let tr = TradeResponse::FailureInternal(ier_new!(
+                    3,
+                    &format!("adjusted quantity: {} <= 0", qty)
+                ));
+                log_order_response(&mut log_writer, &tr)?;
+                return Ok(tr);
+            }
+
+            // We may have modified!
+            adj_order_type = TradeOrderType::Market(MarketQuantityType::Quantity(qty));
+
+            qty
+        }
+        TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(qty)) => {
+            // Unmodified
+            adj_order_type = order_type.clone();
+
+            qty / avg_price.price
+        }
+    };
+
+    // Verify the quantity meets the min_notional criteria
+    if let Err(e) = verify_min_notional(&avg_price, symbol, quantity) {
+        let tr = TradeResponse::FailureInternal(ier_new!(4, &e.to_string()));
+        log_order_response(&mut log_writer, &tr)?;
+        return Ok(tr);
+    }
+
     let ai = get_account_info(config).await?;
     trace!("Got AccountInfo");
 
@@ -70,36 +97,15 @@ pub async fn market_order(
     // Verify the maximum number of orders isn't exceeded.
     verify_open_orders(&open_orders, symbol)?;
 
-    // Adjust quantity and verify the quantity meets the LotSize criteria
-    quantity = adj_quantity_verify_lot_size(symbol, quantity);
-
-    // Could have gone zero, if so return an error
-    if quantity <= dec!(0) {
-        let tr = TradeResponse::FailureInternal(ier_new!(
-            3,
-            &format!("adjusted quantity: {} <= 0", quantity)
-        ));
-        log_order_response(&mut log_writer, &tr)?;
-        return Ok(tr);
-    }
-
-    // Verify the quantity meets the min_notional criteria
-    let avg_price: AvgPrice = get_avg_price(config, &symbol.symbol).await?;
-    if let Err(e) = verify_min_notional(&avg_price, symbol, quantity) {
-        let tr = TradeResponse::FailureInternal(ier_new!(4, &e.to_string()));
-        log_order_response(&mut log_writer, &tr)?;
-        return Ok(tr);
-    }
-
-    // Verify MaxPosition
-    verify_max_position(&ai, &open_orders, symbol, quantity)?;
-
-    // Could use if matches!(side, Side::SELL) but this is safer if Side changes
     match side {
         Side::SELL => {
+            // Selling, be sure we have enough to sell
             verify_quanity_is_greater_than_free(&ai, symbol, quantity)?;
         }
-        Side::BUY => {}
+        Side::BUY => {
+            // Buying, verify we don't exceed MaxPosition
+            verify_max_position(&ai, &open_orders, symbol, quantity)?;
+        }
     }
 
     let tr = binance_new_order_or_test(
@@ -108,7 +114,7 @@ pub async fn market_order(
         ei,
         &symbol_name,
         side,
-        TradeOrderType::Market(MarketQuantityType::Quantity(quantity)),
+        adj_order_type,
         test,
     )
     .await?;
@@ -130,17 +136,17 @@ pub struct MarketCmdRec {
 pub async fn buy_market_order_cmd(
     config: &Configuration,
     sym_name: &str,
-    quantity: Decimal,
+    order_type: TradeOrderType,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!(
-        "buy_market_order: sym_name: {} quantity: {} config:\n{:#?}",
+        "buy_market_order: sym_name: {} {} config:\n{:#?}",
         sym_name,
-        quantity,
+        order_type,
         config
     );
 
     let ei = &get_exchange_info(config).await?;
-    let tr = market_order(config, ei, sym_name, quantity, Side::BUY, config.test).await?;
+    let tr = market_order(config, ei, sym_name, &order_type, Side::BUY, config.test).await?;
     println!("{}", tr);
 
     Ok(())
@@ -150,17 +156,17 @@ pub async fn buy_market_order_cmd(
 pub async fn sell_market_order_cmd(
     config: &Configuration,
     sym_name: &str,
-    quantity: Decimal,
+    order_type: TradeOrderType,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!(
-        "sell_market_order: sym_name: {} quantity: {} config:\n{:#?}",
+        "sell_market_order: sym_name: {} {} config:\n{:#?}",
         sym_name,
-        quantity,
+        order_type,
         config
     );
 
     let ei = &get_exchange_info(config).await?;
-    let tr = market_order(config, ei, sym_name, quantity, Side::BUY, config.test).await?;
+    let tr = market_order(config, ei, sym_name, &order_type, Side::BUY, config.test).await?;
     println!("{}", tr);
 
     Ok(())
