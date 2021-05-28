@@ -92,19 +92,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (config, subcmd) = get_configuration_and_sub_command()?;
     // println!("subcmd: {:#?}", subcmd);
 
-    fn xx(
+    fn get_sym_qty_or_val(
         subcmd: &SubCommand,
         quantity_or_value: &str,
     ) -> Result<(String, Decimal), Box<dyn std::error::Error>> {
-        // TODO: make fn and share
         let sym_name = subcmd
             .matches
             .value_of("SYMBOL")
-            .expect("SYMBOL is missing");
+            .unwrap_or_else(|| panic!("SYMBOL is missing"));
         let q = subcmd
             .matches
             .value_of(quantity_or_value)
-            .expect(&format!("{}is missing", quantity_or_value));
+            .unwrap_or_else(|| panic!("{} is missing", quantity_or_value));
         let quantity = match Decimal::from_str(q) {
             Ok(qty) => qty,
             Err(e) => {
@@ -124,77 +123,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             auto_buy_cmd(&config).await?;
         }
         "buy-market-value" => {
-            let (sym_name, value) = xx(&subcmd, "VALUE")?;
-            //let sym_name = subcmd
-            //    .matches
-            //    .value_of("SYMBOL")
-            //    .expect("SYMBOL is missing");
-            //let v = subcmd
-            //    .matches
-            //    .value_of("VALUE")
-            //    .expect("VALUE is missing");
-            //let value = match Decimal::from_str(v) {
-            //    Ok(qty) => qty,
-            //    Err(e) => return Err(format!("converting VALUE to Decimal: e={}", e).into()),
-            //};
-
+            let (sym_name, value) = get_sym_qty_or_val(&subcmd, "VALUE")?;
             let order_type = TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(value));
             buy_market_order_cmd(&config, &sym_name, order_type).await?;
         }
         "buy-market" => {
-            let (sym_name, quantity) = xx(&subcmd, "QUANTITY")?;
-            // TODO: make fn and share
-            //let sym_name = subcmd
-            //    .matches
-            //    .value_of("SYMBOL")
-            //    .expect("SYMBOL is missing");
-            //let q = subcmd
-            //    .matches
-            //    .value_of("QUANTITY")
-            //    .expect("QUANTITY is missing");
-            //let quantity = match Decimal::from_str(q) {
-            //    Ok(qty) => qty,
-            //    Err(e) => return Err(format!("converting QUANTITY to Decimal: e={}", e).into()),
-            //};
-
+            let (sym_name, quantity) = get_sym_qty_or_val(&subcmd, "QUANTITY")?;
             let order_type = TradeOrderType::Market(MarketQuantityType::Quantity(quantity));
             buy_market_order_cmd(&config, &sym_name, order_type).await?;
         }
         "sell-market-value" => {
-            let (sym_name, value) = xx(&subcmd, "VALUE")?;
-            //// TODO: make fn and share
-            //let sym_name = subcmd
-            //    .matches
-            //    .value_of("SYMBOL")
-            //    .expect("SYMBOL is missing");
-            //let v = subcmd
-            //    .matches
-            //    .value_of("VALUE")
-            //    .expect("VALUE is missing");
-            //let value = match Decimal::from_str(v) {
-            //    Ok(qty) => qty,
-            //    Err(e) => return Err(format!("converting VALUE to Decimal: e={}", e).into()),
-            //};
-
+            let (sym_name, value) = get_sym_qty_or_val(&subcmd, "VALUE")?;
             let order_type = TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(value));
             sell_market_order_cmd(&config, &sym_name, order_type).await?;
         }
         "sell-market" => {
-            let (sym_name, quantity) = xx(&subcmd, "QUANTITY")?;
-            //// TODO: make fn and share
-            //let sym_name = subcmd
-            //    .matches
-            //    .value_of("SYMBOL")
-            //    .expect("SYMBOL is missing");
-            //let q = subcmd
-            //    .matches
-            //    .value_of("QUANTITY")
-            //    .expect("QUANTITY is missing");
-            //let quantity = match Decimal::from_str(q) {
-            //    Ok(qty) => qty,
-            //    Err(e) => return Err(format!("converting QUANTITY to Decimal: e={}", e).into()),
-            //};
-
+            let (sym_name, quantity) = get_sym_qty_or_val(&subcmd, "QUANTITY")?;
             let order_type = TradeOrderType::Market(MarketQuantityType::Quantity(quantity));
             sell_market_order_cmd(&config, &sym_name, order_type).await?;
         }
