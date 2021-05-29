@@ -12,7 +12,7 @@ default_quote_asset = "USD"
 test = false
 
 # Default scheme for make_url
-scheme: "https"
+scheme = "https"
 
 # Default domain for make_url, binance.us or binance.com
-domain: "binance.us"
+domain = "binance.us"

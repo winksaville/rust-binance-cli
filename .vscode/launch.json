@@ -1,0 +1,116 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug cargo buy-market-value",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [ "buy-market-value", "-t", "SOLUSD", "10" ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "BINANCE_CONFIG": "data/config.toml",
+                "RUST_LOG": "binance_auto_sell=trace"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug cargo sell-market-value",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [ "sell-market-value", "-t", "SOLUSD", "10" ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "BINANCE_CONFIG": "data/config.toml",
+                "RUST_LOG": "binance_auto_sell=trace"
+            }
+        },
+        {
+            "name": "Debug buy-market-value",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/binance-auto-sell",
+            "args": [ "buy-market-value", "SOLUSD", "10", "-t" ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'binance-auto-sell'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'binance-auto-sell'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'cli'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=cli",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "cli",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -112,7 +112,7 @@ $ cargo clean ; cargo build
 ```
 
 Run with no parameters
-````
+```
 wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
 $ cargo run
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
@@ -120,14 +120,16 @@ $ cargo run
 Usage: binance-auto-sell help, --help or -h
 ```
 
-And here is the help:
+And here we build and then run showing the help message:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
-$ cargo run help
-    Finished dev [unoptimized + debuginfo] target(s) in 0.04s
-     Running `target/debug/binance-auto-sell help`
-Exper clap config 0.1.0
-Experiment using a config file
+wink@3900x:~/prgs/rust/projects/binance-auto-sell (wip)
+$ cargo build
+    Finished dev [unoptimized + debuginfo] target(s) in 0.05s
+
+wink@3900x:~/prgs/rust/projects/binance-auto-sell (wip)
+$ ./target/debug/binance-auto-sell help
+binance-auto-sell 0.1.0-e865e61
+Binance cli app
 
 USAGE:
     binance-auto-sell [FLAGS] [OPTIONS] [SUBCOMMAND]
@@ -138,31 +140,89 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-        --api-key <API-KEY>              Define the api key [env: BINANCE_US_API_KEY=]
+        --api-key <API-KEY>              Define the api key [env: BINANCE_API_KEY=]
     -c, --config <FILE>                  Sets a custom config file [env: BINANCE_CONFIG=]  [default: config.toml]
         --default-quote-asset <ASSET>    The name of the asset that is used to buy or sell another asset
         --domain <BINANCE_DOMAIN>        Domain such as binance.us or binance.com
-        --log-path <PATH>                Define log path
+        --order-log-path <PATH>          Define order log path
         --scheme <BINANCE_SCHEME>        Scheme such as https
-        --secret-key <SECRET-KEY>        Define the secret key [env: BINANCE_US_SECRET_KEY=]
+        --secret-key <SECRET-KEY>        Define the secret key [env: BINANCE_SECRET_KEY=]
 
 SUBCOMMANDS:
-    ai             Display the account info
-    ao             Dispaly all orders
-    auto-sell      Automatically sell assets as defined in the configuration keep section
-    buy-market     Buy an asset
-    do-nothing     Do nothing used for testing
-    ei             Display the exchange info
-    help           Prints this message or the help of the given subcommand(s)
-    ol             Dispaly order log
-    oo             Display a symbols open orders
-    sap            Display a symbols 5 minute average price
-    sei            Display a symbols exchange information
-    sell-market    Sell an asset
-    skr            Display a symbols current kline record
-    skrs           Display a symbols kline records
-    st             Display a symbols trades
+    ai                   Display the account info
+    ao                   Dispaly all orders
+    auto-buy             Automatically buy assets as defined in the configuration buy section
+    auto-sell            Automatically sell assets as defined in the configuration keep section
+    buy-market           Buy a number of assets
+    buy-market-value     Buy asset using quote asset value
+    do-nothing           Do nothing used for testing
+    ei                   Display the exchange info
+    help                 Prints this message or the help of the given subcommand(s)
+    ol                   Dispaly order log
+    oo                   Display a symbols open orders
+    sap                  Display a symbols 5 minute average price
+    sei                  Display a symbols exchange information
+    sell-market          Sell a number of assets
+    sell-market-value    Sell asset using quote asset value
+    skr                  Display a symbols current kline record
+    skrs                 Display a symbols kline records
+    st                   Display a symbols trades```
 ```
+
+> Note: you'll need
+> [binance API_KEY and SECRET_KEY](https://www.binance.com/en/support/faq/360002502072)
+> to use most commands. I suggest `mkdir data ; cp config.toml data/config.toml`
+> adding a real real keys to `data/config.toml` and then
+> `export BINANCE_CONFIG=data/config.toml`. As you can see in the `OPTIONS`
+> section if you prefer you can `export BINANCE_SECRET_KEY=xxx` and
+> `export BINANCE_API_KEY=yyy` or pass them on the command line with
+> `--secret-key xxx` and `--api-key=yyy`.
+
+## Debug
+
+There are trace!() statements they can be seen by using `RUST_LOG=trace cargo run`.
+Too see only "binance-auto-sell" traces use `RUST_LOG=binance_auto_sell=trace cargo run`.
+And as a small real example, to see only traces from the configuration module use.
+Here we see that there is an error because the default config.toml doesn't
+have real keys, API_KEY and SECRET_KEY:
+```
+wink@3900x:~/prgs/rust/projects/binance-auto-sell (wip)
+$ RUST_LOG=binance_auto_sell::configuration=trace cargo run ai
+    Finished dev [unoptimized + debuginfo] target(s) in 0.05s
+     Running `target/debug/binance-auto-sell ai`
+[2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] Configuration::new: opt_config=Some(
+        "config.toml",
+    )
+[2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] config from file:
+    Configuration {
+        secret_key: "a secret key",
+        api_key: "an api key",
+        order_log_path: None,
+        default_quote_asset: "USD",
+        test: false,
+        keep: {},
+        buy: {},
+        scheme: "https",
+        domain: "binance.us",
+    }
+[2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] config after update_config:
+    Configuration {
+        secret_key: "a secret key",
+        api_key: "an api key",
+        order_log_path: None,
+        default_quote_asset: "USD",
+        test: false,
+        keep: {},
+        buy: {},
+        scheme: "https",
+        domain: "binance.us",
+    }
+Error: "response status=401 Unauthorized body={\"code\":-2014,\"msg\":\"API-key format invalid.\"}"
+```
+
+I've also dabbled using vscode debugger and there is a
+`.vscode/launch.json` file, but YMMV.
+
 
 ## Test
 
