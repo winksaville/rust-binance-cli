@@ -55,6 +55,10 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .short("t")
         .long("test")
         .help("Enable test mode");
+    let no_test_arg = Arg::with_name("no-test")
+        .global(true)
+        .long("no-test")
+        .help("Disable test mode");
     let scheme_arg = Arg::with_name("scheme")
         .global(true)
         .long("scheme")
@@ -77,6 +81,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .arg(order_log_path_arg.clone())
         .arg(default_quote_asset_arg.clone())
         .arg(test_arg.clone())
+        .arg(no_test_arg.clone())
         .arg(scheme_arg.clone())
         .arg(domain_arg.clone())
         .subcommand(SubCommand::with_name("do-nothing").about("Do nothing used for testing"))

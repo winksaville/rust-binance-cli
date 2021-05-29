@@ -230,6 +230,10 @@ impl Configuration {
             self.test = true;
         }
 
+        if matches.is_present("no-test") {
+            self.test = false;
+        }
+
         if let Some(value) = matches.value_of("scheme") {
             self.scheme = value.to_string();
         }
