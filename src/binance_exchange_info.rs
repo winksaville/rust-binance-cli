@@ -8,8 +8,8 @@ use std::collections::HashMap;
 
 use crate::common::get_req_get_response;
 //use crate::de_string_or_number::u32_de_string_or_number;
-use crate::de_string_or_number::de_string_or_number_to_u64;
 use crate::de_string_or_number::de_string_or_number_to_u32;
+use crate::de_string_or_number::de_string_or_number_to_u64;
 use crate::{common::OrderType, configuration::Configuration};
 
 use strum_macros::IntoStaticStr;

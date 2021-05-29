@@ -76,7 +76,13 @@ pub async fn auto_sell(
                 symbol_name = asset.clone() + quote_asset;
                 let sym = match ei.get_symbol(&symbol_name) {
                     Some(s) => s,
-                    None => return Err(format!("{} is not a valid symbol on the exchange", symbol_name).into()),
+                    None => {
+                        return Err(format!(
+                            "{} is not a valid symbol on the exchange",
+                            symbol_name
+                        )
+                        .into())
+                    }
                 };
                 let precision = sym.quote_precision as usize;
                 let sell_qty = sell_qty.round_dp(sym.quote_precision);

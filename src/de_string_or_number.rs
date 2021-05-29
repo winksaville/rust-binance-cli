@@ -13,16 +13,14 @@ pub fn de_string_or_number_to_i32<'de, D: Deserializer<'de>>(
         Value::String(s) => s.parse::<i32>().map_err(de::Error::custom)?,
         Value::Number(num) => {
             let v_i64 = num
-            .as_i64()
-            .ok_or_else(|| de::Error::custom("Invalid number as_i32"))?;
+                .as_i64()
+                .ok_or_else(|| de::Error::custom("Invalid number as_i32"))?;
 
-            let v_i32 = if v_i64 >= i32::MIN as i64 && v_i64 <= i32::MAX as i64 {
+            if v_i64 >= i32::MIN as i64 && v_i64 <= i32::MAX as i64 {
                 v_i64 as i32
             } else {
                 return Err(de::Error::custom("Invalid number as i32"));
-            };
-
-            v_i32
+            }
         }
         _ => return Err(de::Error::custom("Expecting String or Number")),
     })
@@ -35,16 +33,14 @@ pub fn de_string_or_number_to_u32<'de, D: Deserializer<'de>>(
         Value::String(s) => s.parse::<u32>().map_err(de::Error::custom)?,
         Value::Number(num) => {
             let v_u64 = num
-            .as_u64()
-            .ok_or_else(|| de::Error::custom("Invalid number as_u32"))?;
+                .as_u64()
+                .ok_or_else(|| de::Error::custom("Invalid number as_u32"))?;
 
-            let v_u32 = if v_u64 <= i32::MAX as u64 {
+            if v_u64 <= i32::MAX as u64 {
                 v_u64 as u32
             } else {
                 return Err(de::Error::custom("Invalid number as u32"));
-            };
-
-            v_u32
+            }
         }
         _ => return Err(de::Error::custom("Expecting String or Number")),
     })

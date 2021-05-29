@@ -34,7 +34,10 @@ pub async fn auto_buy(
         } else {
             dec!(0)
         };
-    trace!("auto-buy: default_quote_asset_value: {}", default_quote_asset_value);
+    trace!(
+        "auto-buy: default_quote_asset_value: {}",
+        default_quote_asset_value
+    );
 
     struct ProcessRec {
         symbol_name: String,
@@ -60,16 +63,24 @@ pub async fn auto_buy(
         } else {
             ("NONE", dec!(0))
         };
-        trace!("auto-buy: quote_asset: {} quote_asset_value: {}", quote_asset, quote_asset_value);
+        trace!(
+            "auto-buy: quote_asset: {} quote_asset_value: {}",
+            quote_asset,
+            quote_asset_value
+        );
 
         let buy_value = (br.percent / dec!(100)) * quote_asset_value;
         trace!("auto-buy: buy_value: {}", buy_value);
 
-        if buy_value > dec!(0)  && br.name != quote_asset {
+        if buy_value > dec!(0) && br.name != quote_asset {
             let symbol_name = br.name.clone() + quote_asset;
             let sym = match ei.get_symbol(&symbol_name) {
                 Some(s) => s,
-                None => return Err(format!("{} is not a valid symbol on the exchange", symbol_name).into()),
+                None => {
+                    return Err(
+                        format!("{} is not a valid symbol on the exchange", symbol_name).into(),
+                    )
+                }
             };
 
             if !sym.quote_order_qty_market_allowed {
@@ -91,8 +102,10 @@ pub async fn auto_buy(
 
     // Print assets being bought
     for pr in &process_recs {
-        println!("{0:8} {2:14.1$} of {3:10}", "BUYING", pr.precision as usize, pr.buy_value, pr.symbol_name,);
-
+        println!(
+            "{0:8} {2:14.1$} of {3:10}",
+            "BUYING", pr.precision as usize, pr.buy_value, pr.symbol_name,
+        );
     }
 
     if !process_recs.is_empty() {
