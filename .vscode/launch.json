@@ -2,12 +2,82 @@
     // Use IntelliSense to learn about possible attributes.
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    //
+    // Debugging page in docs: https://code.visualstudio.com/docs/editor/debugging
+    //
+    // Variable-references: https://code.visualstudio.com/docs/editor/variables-reference
+    // for things like ${workspaceFolder} ...
     "version": "0.2.0",
     "configurations": [
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug cargo buy-market-value",
+            "name": "Debug do-nothing",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [ "do-nothing", "-t" ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "binance_auto_sell=trace"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug auto-buy",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [ "auto-buy", "-t" ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "BINANCE_CONFIG": "data/config.toml",
+                "RUST_LOG": "binance_auto_sell=trace"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug auto-sell",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=binance-auto-sell",
+                    "--package=binance-auto-sell"
+                ],
+                "filter": {
+                    "name": "binance-auto-sell",
+                    "kind": "bin"
+                }
+            },
+            "args": [ "auto-sell", "-t" ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "BINANCE_CONFIG": "data/config.toml",
+                "RUST_LOG": "binance_auto_sell=trace"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug buy-market-value",
             "cargo": {
                 "args": [
                     "build",
@@ -29,7 +99,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug cargo sell-market-value",
+            "name": "Debug sell-market-value",
             "cargo": {
                 "args": [
                     "build",
@@ -49,35 +119,9 @@
             }
         },
         {
-            "name": "Debug buy-market-value",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/binance-auto-sell",
-            "args": [ "buy-market-value", "SOLUSD", "10", "-t" ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug executable 'binance-auto-sell'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
-                ],
-                "filter": {
-                    "name": "binance-auto-sell",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'binance-auto-sell'",
+            "name": "Debug unit tests",
             "cargo": {
                 "args": [
                     "test",
