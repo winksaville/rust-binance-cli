@@ -1,9 +1,55 @@
+// TODO: Could these be combined and generalized into a single
+//       generic implemenation over all iX, uX and fX numeric types?
+
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
-// TODO: Could these be combined and generalized into a single
-//       generic implemenation over all iX, uX and fX numeric types?
-//
+// Convert a string or number to i32
+#[allow(unused)]
+pub fn de_string_or_number_to_i32<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<i32, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(s) => s.parse::<i32>().map_err(de::Error::custom)?,
+        Value::Number(num) => {
+            let v_i64 = num
+            .as_i64()
+            .ok_or_else(|| de::Error::custom("Invalid number as_i32"))?;
+
+            let v_i32 = if v_i64 >= i32::MIN as i64 && v_i64 <= i32::MAX as i64 {
+                v_i64 as i32
+            } else {
+                return Err(de::Error::custom("Invalid number as i32"));
+            };
+
+            v_i32
+        }
+        _ => return Err(de::Error::custom("Expecting String or Number")),
+    })
+}
+
+pub fn de_string_or_number_to_u32<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<u32, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(s) => s.parse::<u32>().map_err(de::Error::custom)?,
+        Value::Number(num) => {
+            let v_u64 = num
+            .as_u64()
+            .ok_or_else(|| de::Error::custom("Invalid number as_u32"))?;
+
+            let v_u32 = if v_u64 <= i32::MAX as u64 {
+                v_u64 as u32
+            } else {
+                return Err(de::Error::custom("Invalid number as u32"));
+            };
+
+            v_u32
+        }
+        _ => return Err(de::Error::custom("Expecting String or Number")),
+    })
+}
+
 // Convert a string or number to i64
 pub fn de_string_or_number_to_i64<'de, D: Deserializer<'de>>(
     deserializer: D,

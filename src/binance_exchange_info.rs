@@ -7,7 +7,9 @@ use rust_decimal::prelude::*;
 use std::collections::HashMap;
 
 use crate::common::get_req_get_response;
+//use crate::de_string_or_number::u32_de_string_or_number;
 use crate::de_string_or_number::de_string_or_number_to_u64;
+use crate::de_string_or_number::de_string_or_number_to_u32;
 use crate::{common::OrderType, configuration::Configuration};
 
 use strum_macros::IntoStaticStr;
@@ -242,22 +244,22 @@ impl SymbolFilters {
 pub struct Symbol {
     pub symbol: String,     // +enum BTCUSD?
     pub base_asset: String, // +enum BTC?
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub base_asset_precision: u64,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub base_commission_precision: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_u32")]
+    pub base_asset_precision: u32,
+    #[serde(deserialize_with = "de_string_or_number_to_u32")]
+    pub base_commission_precision: u32,
     pub iceberg_allowed: bool,
     pub is_margin_trading_allowed: bool,
     pub is_spot_trading_allowed: bool,
     pub oco_allowed: bool,
     pub quote_asset: String, // +enum USD?
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub quote_asset_precision: u64,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub quote_commission_precision: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_u32")]
+    pub quote_asset_precision: u32,
+    #[serde(deserialize_with = "de_string_or_number_to_u32")]
+    pub quote_commission_precision: u32,
     pub quote_order_qty_market_allowed: bool,
-    #[serde(deserialize_with = "de_string_or_number_to_u64")]
-    pub quote_precision: u64,
+    #[serde(deserialize_with = "de_string_or_number_to_u32")]
+    pub quote_precision: u32,
     pub status: String, // +enum TRADING?
     pub permissions: Vec<String>,
     pub order_types: Vec<OrderType>, // +HashSet<OrderType>?

@@ -95,14 +95,10 @@ where
 pub struct BuyRec {
     pub name: String,
 
-    #[serde(default)]
     pub percent: Decimal,
 
     #[serde(default)]
     pub quote_asset: String,
-
-    #[serde(default, skip)]
-    pub buy_qty: Decimal,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -295,7 +291,6 @@ mod test {
                 name: "ABC".to_string(),
                 percent: dec!(20),
                 quote_asset: "".to_string(),
-                buy_qty: dec!(0),
             }
         );
         assert_eq!(
@@ -304,7 +299,6 @@ mod test {
                 name: "DEF".to_string(),
                 percent: dec!(23.5),
                 quote_asset: "USD".to_string(),
-                buy_qty: dec!(0),
             }
         );
     }

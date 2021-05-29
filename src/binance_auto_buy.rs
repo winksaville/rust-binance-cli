@@ -18,24 +18,27 @@ pub async fn auto_buy(
     ei: &ExchangeInfo,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let test = config.test;
-    trace!("auto_buy:+ test: {} config: {:?}", test, config);
+    trace!("auto_buy:+ test: {} config: {:#?}", test, config);
 
     let mut ai = get_account_info(config).await?;
     ai.update_values_in_usd(config, true).await;
     //ai.print().await;
 
-    // We assume the default_quote_asset is NOT empty
+    // Verify the default_quote_asset is NOT empty
     assert!(!config.default_quote_asset.is_empty());
 
+    // Value held by the account of the default_quote_asset
     let default_quote_asset_value =
         if let Some(b) = ai.balances_map.get(&config.default_quote_asset) {
             b.free
         } else {
             dec!(0)
         };
+    trace!("auto-buy: default_quote_asset_value: {}", default_quote_asset_value);
 
     struct ProcessRec {
         symbol_name: String,
+        precision: usize,
         buy_value: Decimal,
         order_type: TradeOrderType,
     }
@@ -44,6 +47,7 @@ pub async fn auto_buy(
 
     // Iterate over the BuyRec's and determine the buy_qty
     for br in config.buy.values() {
+        trace!("auto-buy: tol adding process_recs br: {:#?}", br);
         let (quote_asset, quote_asset_value) = if !br.quote_asset.is_empty() {
             if let Some(b) = ai.balances_map.get(&br.quote_asset) {
                 (br.quote_asset.as_str(), b.free)
@@ -56,15 +60,29 @@ pub async fn auto_buy(
         } else {
             ("NONE", dec!(0))
         };
+        trace!("auto-buy: quote_asset: {} quote_asset_value: {}", quote_asset, quote_asset_value);
 
-        let buy_value = br.percent * quote_asset_value;
-        if buy_value > dec!(0) {
+        let buy_value = (br.percent / dec!(100)) * quote_asset_value;
+        trace!("auto-buy: buy_value: {}", buy_value);
+
+        if buy_value > dec!(0)  && br.name != quote_asset {
+            let symbol_name = br.name.clone() + quote_asset;
+            let sym = match ei.get_symbol(&symbol_name) {
+                Some(s) => s,
+                None => return Err(format!("{} is not a valid symbol on the exchange", symbol_name).into()),
+            };
+
+            if !sym.quote_order_qty_market_allowed {
+                return Err(format!("{} is not allowed to be a QuoteOrderQty", symbol_name).into());
+            }
+            let precision = sym.quote_precision as usize;
+            let buy_value = buy_value.round_dp(sym.quote_precision);
+            trace!("auto-sell: rounded buy_value: {}", buy_value);
+
             let order_type = TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(buy_value));
-            let mut symbol_name = br.name.clone();
-            symbol_name.push_str(quote_asset);
-
             process_recs.push(ProcessRec {
                 symbol_name,
+                precision,
                 buy_value,
                 order_type,
             })
@@ -73,7 +91,8 @@ pub async fn auto_buy(
 
     // Print assets being bought
     for pr in &process_recs {
-        print!("BUYING {:10.2} of {:10}", pr.buy_value, pr.symbol_name,);
+        println!("{0:8} {2:14.1$} of {3:10}", "BUYING", pr.precision as usize, pr.buy_value, pr.symbol_name,);
+
     }
 
     if !process_recs.is_empty() {
@@ -93,15 +112,16 @@ pub async fn auto_buy(
                     Ok(tr) => match tr {
                         TradeResponse::SuccessTest(_) => {
                             println!(
-                                "{:8} ${} of {:10}",
-                                "TEST OK", pr.order_type, pr.symbol_name,
+                                "{0:8} {2:14.1$} of {3:10}",
+                                "TEST OK", pr.precision, pr.buy_value, pr.symbol_name,
                             );
                         }
                         TradeResponse::SuccessAck(atrr) => {
                             println!(
-                                    "{:8} ${} of {:10} order_id: {}, order_list_id: {}, client_order_id: {}, transact_time: {}",
+                                    "{0:8} {2:14.1$} of {3:10} order_id: {4}, order_list_id: {5}, client_order_id: {6}, transact_time: {7}",
                                     "PENDING",
-                                    pr.order_type,
+                                    pr.precision,
+                                    pr.buy_value,
                                     atrr.symbol,
                                     atrr.order_id,
                                     atrr.order_list_id,
@@ -109,17 +129,23 @@ pub async fn auto_buy(
                                     time_ms_to_utc(atrr.transact_time).to_string()
                                 );
                         }
+                        TradeResponse::SuccessResult(rtrr) => {
+                            println!("{}", rtrr);
+                        }
+                        TradeResponse::SuccessFull(ftrr) => {
+                            println!("{}", ftrr);
+                        }
+                        TradeResponse::SuccessUnknown(utrr) => {
+                            println!("{}", utrr);
+                        }
                         TradeResponse::FailureResponse(rer) => {
-                            println!("{:8}, {} {}", "SKIPPING", pr.symbol_name, rer);
+                            println!("{:8}, {:10} {}", "SKIPPING", pr.symbol_name, rer);
                         }
                         TradeResponse::FailureInternal(ier) => {
-                            println!("{:8}, {} {}", "SKIPPING", pr.symbol_name, ier.msg);
+                            println!("{:8}, {:10} {}", "SKIPPING", pr.symbol_name, ier.msg);
                         }
-                        TradeResponse::SuccessResult(_) => {}
-                        TradeResponse::SuccessFull(_) => {}
-                        TradeResponse::SuccessUnknown(_) => {}
                     },
-                    Err(e) => println!("SKIPPING {}, {}", pr.symbol_name, e),
+                    Err(e) => println!("{:8} {:10}, {}", "SKIPPING", pr.symbol_name, e),
                 }
             }
         }
@@ -128,7 +154,7 @@ pub async fn auto_buy(
     }
     println!();
 
-    trace!("auto_buy:- test: {} config_file: {:?}", config.test, config);
+    trace!("auto_buy:- test: {}", config.test);
     Ok(())
 }
 

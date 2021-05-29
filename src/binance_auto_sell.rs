@@ -30,8 +30,9 @@ pub async fn auto_sell(
     #[derive(Default)]
     struct ProcessRec {
         asset: String,
+        precision: usize,
+        symbol_name: String,
         price_in_usd: Decimal,
-        quote_asset: String,
         owned_qty: Decimal,
         sell_value_in_usd: Decimal,
         sell_qty: Decimal,
@@ -44,6 +45,8 @@ pub async fn auto_sell(
         let keep_qty: Decimal;
         let sell_qty: Decimal;
         let quote_asset: &str;
+        let symbol_name: String;
+        let asset: String = balance.asset.clone();
 
         assert!(!config.default_quote_asset.is_empty());
 
@@ -69,16 +72,27 @@ pub async fn auto_sell(
                 quote_asset = &config.default_quote_asset;
             }
 
-            vec_process_rec.push(ProcessRec {
-                asset: balance.asset.clone(),
-                price_in_usd: balance.price_in_usd,
-                quote_asset: quote_asset.to_string(),
-                owned_qty,
-                sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
-                sell_qty,
-                keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
-                keep_qty,
-            });
+            if asset != quote_asset {
+                symbol_name = asset.clone() + quote_asset;
+                let sym = match ei.get_symbol(&symbol_name) {
+                    Some(s) => s,
+                    None => return Err(format!("{} is not a valid symbol on the exchange", symbol_name).into()),
+                };
+                let precision = sym.quote_precision as usize;
+                let sell_qty = sell_qty.round_dp(sym.quote_precision);
+
+                vec_process_rec.push(ProcessRec {
+                    asset,
+                    precision,
+                    symbol_name,
+                    price_in_usd: balance.price_in_usd,
+                    owned_qty,
+                    sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
+                    sell_qty,
+                    keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
+                    keep_qty,
+                });
+            }
         }
     }
 
@@ -88,7 +102,9 @@ pub async fn auto_sell(
         if kr.sell_qty <= dec!(0) {
             kept_cnt += 1;
             println!(
-                "Keeping {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2} selling NONE",
+                "{0:8} {2:14.1$} of {3:10} at about ${4:10.2}/per worth ${5:10.2} selling NONE",
+                "Keeping",
+                kr.precision,
                 kr.owned_qty,
                 kr.asset,
                 kr.price_in_usd,
@@ -106,7 +122,9 @@ pub async fn auto_sell(
     for kr in &vec_process_rec {
         if kr.sell_qty > dec!(0) {
             print!(
-                "SELLING {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2} keeping ",
+                "{0:8} {2:14.1$} of {3:10} at about ${4:10.2}/per worth ${5:10.2} keeping ",
+                "SELLING",
+                kr.precision,
                 kr.sell_qty,
                 kr.asset,
                 kr.price_in_usd,
@@ -138,32 +156,33 @@ pub async fn auto_sell(
             }
             for kr in &vec_process_rec {
                 if kr.sell_qty > dec!(0) {
-                    let symbol_name: String = kr.asset.clone() + &kr.quote_asset;
                     print!(
                         "{:8} {:14.6} of {:10}\r",
-                        "Selling", kr.sell_qty, symbol_name
+                        "Selling", kr.sell_qty, kr.symbol_name
                     );
                     let _ = stdout().flush();
                     let order_type =
                         TradeOrderType::Market(MarketQuantityType::Quantity(kr.sell_qty));
-                    match market_order(config, ei, &symbol_name, &order_type, Side::SELL, test)
+                    match market_order(config, ei, &kr.symbol_name, &order_type, Side::SELL, test)
                         .await
                     {
                         Ok(tr) => match tr {
                             TradeResponse::SuccessTest(_) => {
                                 println!(
-                                    "{:8} {:14.6} of {:10} at about ${:10.2}/per worth ${:10.2}",
+                                    "{0:8} {2:14.1$} of {3:10} at about ${4:10.2}/per worth ${5:10.2}",
                                     "TEST OK",
+                                    kr.precision,
                                     kr.sell_qty,
-                                    symbol_name,
+                                    kr.symbol_name,
                                     kr.price_in_usd,
                                     kr.sell_value_in_usd.round_dp(2)
                                 );
                             }
                             TradeResponse::SuccessAck(atrr) => {
                                 println!(
-                                        "{:8} {:14.6} of {:10} order_id: {}, order_list_id: {}, client_order_id: {}, transact_time: {}",
+                                        "{0:8} {2:14.1$} of {3:10} order_id: {4}, order_list_id: {5}, client_order_id: {6}, transact_time: {7}",
                                         "PENDING",
+                                        kr.precision,
                                         kr.sell_qty,
                                         atrr.symbol,
                                         atrr.order_id,
@@ -172,15 +191,23 @@ pub async fn auto_sell(
                                         time_ms_to_utc(atrr.transact_time).to_string()
                                     );
                             }
+                            TradeResponse::SuccessResult(rtrr) => {
+                                println!("{}", rtrr);
+                            }
+                            TradeResponse::SuccessFull(ftrr) => {
+                                println!("{}", ftrr);
+                            }
+                            TradeResponse::SuccessUnknown(utrr) => {
+                                println!("{}", utrr);
+                            }
                             TradeResponse::FailureResponse(rer) => {
-                                println!("{:8}, {} {}", "SKIPPING", symbol_name, rer);
+                                println!("{:8}, {} {}", "SKIPPING", kr.symbol_name, rer);
                             }
                             TradeResponse::FailureInternal(ier) => {
-                                println!("{:8}, {} {}", "SKIPPING", symbol_name, ier.msg);
+                                println!("{:8}, {} {}", "SKIPPING", kr.symbol_name, ier.msg);
                             }
-                            _ => println!("{}", tr),
                         },
-                        Err(e) => println!("SKIPPING {}, {}", symbol_name, e),
+                        Err(e) => println!("SKIPPING {}, {}", kr.symbol_name, e),
                     }
                 }
             }
