@@ -9,7 +9,7 @@ deata_log_path = "data/log-1.txt"
 default_quote_asset = "USD"
 
 # Test mode "true" | "false"
-test = false
+test = true
 
 # Default scheme for make_url
 scheme = "https"
