@@ -16,18 +16,18 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
+                    "--bin=binance-cli",
+                    "--package=binance-cli"
                 ],
                 "filter": {
-                    "name": "binance-auto-sell",
+                    "name": "binance-cli",
                     "kind": "bin"
                 }
             },
             "args": [ "do-nothing", "-t" ],
             "cwd": "${workspaceFolder}",
             "env": {
-                "RUST_LOG": "binance_auto_sell=trace"
+                "RUST_LOG": "binance_cli=trace"
             }
         },
         {
@@ -37,11 +37,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
+                    "--bin=binance-cli",
+                    "--package=binance-cli"
                 ],
                 "filter": {
-                    "name": "binance-auto-sell",
+                    "name": "binance-cli",
                     "kind": "bin"
                 }
             },
@@ -49,7 +49,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "BINANCE_CONFIG": "data/config.toml",
-                "RUST_LOG": "binance_auto_sell=trace"
+                "RUST_LOG": "binance_cli=trace"
             }
         },
         {
@@ -59,11 +59,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
+                    "--bin=binance-cli",
+                    "--package=binance-cli"
                 ],
                 "filter": {
-                    "name": "binance-auto-sell",
+                    "name": "binance-cli",
                     "kind": "bin"
                 }
             },
@@ -71,7 +71,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "BINANCE_CONFIG": "data/config.toml",
-                "RUST_LOG": "binance_auto_sell=trace"
+                "RUST_LOG": "binance_cli=trace"
             }
         },
         {
@@ -81,11 +81,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
+                    "--bin=binance-cli",
+                    "--package=binance-cli"
                 ],
                 "filter": {
-                    "name": "binance-auto-sell",
+                    "name": "binance-cli",
                     "kind": "bin"
                 }
             },
@@ -93,7 +93,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "BINANCE_CONFIG": "data/config.toml",
-                "RUST_LOG": "binance_auto_sell=trace"
+                "RUST_LOG": "binance_cli=trace"
             }
         },
         {
@@ -103,11 +103,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
+                    "--bin=binance-cli",
+                    "--package=binance-cli"
                 ],
                 "filter": {
-                    "name": "binance-auto-sell",
+                    "name": "binance-cli",
                     "kind": "bin"
                 }
             },
@@ -115,7 +115,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "BINANCE_CONFIG": "data/config.toml",
-                "RUST_LOG": "binance_auto_sell=trace"
+                "RUST_LOG": "binance_cli=trace"
             }
         },
         {
@@ -126,11 +126,11 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=binance-auto-sell",
-                    "--package=binance-auto-sell"
+                    "--bin=binance-cli",
+                    "--package=binance-cli"
                 ],
                 "filter": {
-                    "name": "binance-auto-sell",
+                    "name": "binance-cli",
                     "kind": "bin"
                 }
             },
@@ -146,7 +146,7 @@
                     "test",
                     "--no-run",
                     "--test=cli",
-                    "--package=binance-auto-sell"
+                    "--package=binance-cli"
                 ],
                 "filter": {
                     "name": "cli",

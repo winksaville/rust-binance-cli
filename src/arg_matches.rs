@@ -2,14 +2,14 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::error::Error;
 
-use crate::common::APP_VERSION;
+use crate::common::{APP_NAME, APP_VERSION};
 
 pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
     // The config option is the only option that has a default_value,
     // all others get their defaults from the Configuration.
     // Also, these are all "global(true)" for two reasons:
     //  1) This allows them to be used after the subcommand, i.e.:
-    //      binance-auto-sell ai --config data/wink-config.toml
+    //      binance-cli ai --config data/wink-config.toml
     //  2) The configuration::update_config() only updates
     //     the configuration struct for "globals". Changing this
     //     mean update_config has to know about each subcommands
@@ -72,7 +72,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .help("Domain such as binance.us or binance.com")
         .takes_value(true);
 
-    let matches = App::new("binance-auto-sell")
+    let matches = App::new(APP_NAME.as_str())
         .version(APP_VERSION.as_str())
         .about("Binance cli app")
         .arg(config_arg.clone())

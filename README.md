@@ -1,5 +1,5 @@
 # Binance auto sell
-[![codecov](https://codecov.io/gh/winksaville/rust-binance-auto-sell/branch/main/graph/badge.svg?token=5l3L7yVGTj)](https://codecov.io/gh/winksaville/rust-binance-auto-sell)
+[![codecov](https://codecov.io/gh/winksaville/rust-binance-cli/branch/main/graph/badge.svg?token=cowZtK1KK1)](https://codecov.io/gh/winksaville/rust-binance-cli)
 
 A command line interface to some of the binance.us REST API's.
 Including some higher level capabilities such as automatically
@@ -28,7 +28,7 @@ $ cargo tarpaulin --help | grep 'follow-exe'
 
 Copy `cargo-precommit` to ~/.cargo/bin/
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cp ./cargo-precommit ~/.cargo/bin/
 ```
 
@@ -42,7 +42,7 @@ check
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
 fmt
 test
-   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
     Finished test [unoptimized + debuginfo] target(s) in 2.95s
      Running target/debug/deps/binance_auto_sell-10c26e09c2475d07
 
@@ -93,7 +93,7 @@ clippy
 
     Checking reqwest v0.11.3
    Compiling rust_decimal_macros v1.12.4
-    Checking binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+    Checking binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
     Finished dev [unoptimized + debuginfo] target(s) in 14.62s
 ```
 
@@ -101,38 +101,38 @@ clippy
 
 Building
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo clean ; cargo build
    Compiling proc-macro2 v1.0.26
    Compiling unicode-xid v0.2.2
 ...
    Compiling reqwest v0.11.3
-   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
     Finished dev [unoptimized + debuginfo] target(s) in 23.47s
 ```
 
 Run with no parameters
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo run
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
-     Running `target/debug/binance-auto-sell`
-Usage: binance-auto-sell help, --help or -h
+     Running `target/debug/binance-cli`
+Usage: binance-cli help, --help or -h
 ```
 
 And here we build and then run showing the help message:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (wip)
+wink@3900x:~/prgs/rust/projects/binance-cli (wip)
 $ cargo build
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
 
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (wip)
-$ ./target/debug/binance-auto-sell help
-binance-auto-sell 0.1.0-e865e61
+wink@3900x:~/prgs/rust/projects/binance-cli (wip)
+$ ./target/debug/binance-cli help
+binance-cli 0.1.0-e865e61
 Binance cli app
 
 USAGE:
-    binance-auto-sell [FLAGS] [OPTIONS] [SUBCOMMAND]
+    binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
     -h, --help       Prints help information
@@ -181,15 +181,15 @@ SUBCOMMANDS:
 ## Debug
 
 There are trace!() statements they can be seen by using `RUST_LOG=trace cargo run`.
-Too see only "binance-auto-sell" traces use `RUST_LOG=binance_auto_sell=trace cargo run`.
+Too see only "binance-cli" traces use `RUST_LOG=binance_auto_sell=trace cargo run`.
 And as a small real example, to see only traces from the configuration module use.
 Here we see that there is an error because the default config.toml doesn't
 have real keys, API_KEY and SECRET_KEY:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (wip)
+wink@3900x:~/prgs/rust/projects/binance-cli (wip)
 $ RUST_LOG=binance_auto_sell::configuration=trace cargo run ai
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
-     Running `target/debug/binance-auto-sell ai`
+     Running `target/debug/binance-cli ai`
 [2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] Configuration::new: opt_config=Some(
         "config.toml",
     )
@@ -228,9 +228,9 @@ I've also dabbled using vscode debugger and there is a
 
 Test using `cargo test`:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo test
-   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
     Finished test [unoptimized + debuginfo] target(s) in 4.22s
      Running target/debug/deps/binance_auto_sell-e94ca3f569a2653a
 
@@ -286,13 +286,13 @@ test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ## Code coverage
 
 > Note: tarpaulin is being used for code coverage, but you must use 0.18.0+.
-> Because of [issue #1 in this repo](https://github.com/winksaville/rust-binance-auto-sell/issues/1)
+> Because of [issue #1 in this repo](https://github.com/winksaville/rust-binance-cli/issues/1)
 > when you want to run `cargo build|run|test` after `cargo tarpaulin` you
 > must do a `cargo clean` first.
 
 So the first time run `cargo tarpaulin`:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo tarpaulin
 May 26 08:31:33.926  INFO cargo_tarpaulin: Running Tarpaulin
 May 26 08:31:33.926  INFO cargo_tarpaulin: Building project
@@ -304,10 +304,10 @@ May 26 08:31:34.102  INFO cargo_tarpaulin::cargo: Cleaning project
    Compiling function_name v0.2.0
    Compiling hyper-tls v0.5.0
    Compiling reqwest v0.11.3
-   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
     Finished test [unoptimized + debuginfo] target(s) in 26.27s
 May 26 08:32:00.474  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:32:00.474  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/cli-165364053a395b57
+May 26 08:32:00.474  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/cli-165364053a395b57
 
 running 4 tests
 test test_req_params_as_env_vars ... ok
@@ -318,7 +318,7 @@ test test_help ... ok
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 
 May 26 08:32:01.667  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:32:01.667  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/binance_auto_sell-e94ca3f569a2653a
+May 26 08:32:01.667  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_auto_sell-e94ca3f569a2653a
 
 running 34 tests
 test binance_signature::test::test_query_vec_u8_no_data ... ok
@@ -384,13 +384,13 @@ May 26 08:32:06.567  INFO cargo_tarpaulin::report: Coverage Results:
 
 For subsequent runs you can use `--skip-clean` to save time:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo tarpaulin --skip-clean
 May 26 08:33:36.424  INFO cargo_tarpaulin: Running Tarpaulin
 May 26 08:33:36.424  INFO cargo_tarpaulin: Building project
     Finished test [unoptimized + debuginfo] target(s) in 0.04s
 May 26 08:33:36.631  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:33:36.631  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/binance_auto_sell-e94ca3f569a2653a
+May 26 08:33:36.631  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_auto_sell-e94ca3f569a2653a
 
 running 34 tests
 test binance_signature::test::test_query_vec_u8_no_data ... ok
@@ -431,7 +431,7 @@ test binance_trade::test::test_convertcommission ... ok
 test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
 
 May 26 08:33:41.647  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:33:41.647  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/cli-165364053a395b57
+May 26 08:33:41.647  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/cli-165364053a395b57
 
 running 4 tests
 test test_req_params_as_env_vars ... ok
@@ -469,39 +469,39 @@ May 26 08:33:42.795  INFO cargo_tarpaulin::report: Coverage Results:
 commands the first one will need to be preceeded by a `cargo clean`
 otherwise you'll get an error from the linker:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo run help
    Compiling proc-macro2 v1.0.26
    Compiling unicode-xid v0.2.2
 ...
-          /home/wink/prgs/rust/projects/binance-auto-sell/src/common.rs:20: undefined reference to `core::ptr::drop_in_place<alloc::string::String>'
-          /usr/bin/ld: /home/wink/prgs/rust/projects/binance-auto-sell/target/debug/deps/binance_auto_sell-f54f02dcf7d07658.y4lov3w4ip2lx2c.rcgu.o:/home/wink/prgs/rust/projects/binance-auto-sell/src/common.rs:20: more undefined references to `core::ptr::drop_in_place<alloc::string::String>' follow
+          /home/wink/prgs/rust/projects/binance-cli/src/common.rs:20: undefined reference to `core::ptr::drop_in_place<alloc::string::String>'
+          /usr/bin/ld: /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_auto_sell-f54f02dcf7d07658.y4lov3w4ip2lx2c.rcgu.o:/home/wink/prgs/rust/projects/binance-cli/src/common.rs:20: more undefined references to `core::ptr::drop_in_place<alloc::string::String>' follow
           collect2: error: ld returned 1 exit status
           
 
 error: aborting due to previous error
 
-error: could not compile `binance-auto-sell`
+error: could not compile `binance-cli`
 
 To learn more, run the command again with --verbose.
 ```
 
 Here is what you need to do:
 ```
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo clean ; cargo run help
    Compiling proc-macro2 v1.0.26
    Compiling unicode-xid v0.2.2
 ...
    Compiling reqwest v0.11.3
-   Compiling binance-auto-sell v0.1.0 (/home/wink/prgs/rust/projects/binance-auto-sell)
+   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
     Finished dev [unoptimized + debuginfo] target(s) in 23.45s
-     Running `target/debug/binance-auto-sell help`
+     Running `target/debug/binance-cli help`
 Exper clap config 0.1.0
 Experiment using a config file
 
 USAGE:
-    binance-auto-sell [FLAGS] [OPTIONS] [SUBCOMMAND]
+    binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
     -h, --help       Prints help information
@@ -538,7 +538,7 @@ For subseqent `build|run|test`'s it is not necessary:
 
 And, of course, subquent runs don't need the `cargo clean`:
 ``
-wink@3900x:~/prgs/rust/projects/binance-auto-sell (main)
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo build
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
 ```

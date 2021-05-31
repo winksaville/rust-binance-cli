@@ -20,12 +20,14 @@ use crate::de_string_or_number::de_string_or_number_to_i64;
 
 const PKG_VER: &str = env!("CARGO_PKG_VERSION");
 const GIT_SHORT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 lazy_static! {
     // I'm not sure this is the right approach but
     // having a static String seems to be reasonable
     // so it's computed only once.
     pub static ref APP_VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
+    pub static ref APP_NAME: String = PKG_NAME.to_string();
 }
 
 #[derive(Debug, Deserialize, Serialize)]

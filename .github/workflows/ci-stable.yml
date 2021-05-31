@@ -84,10 +84,10 @@ jobs:
           #  https://www.edwardthomson.com/blog/github_actions_11_secrets.html
           #
           # Added CODECOV_TOKEN to repo in Settings -> Secrets:
-          #    https://github.com/winksaville/rust-binance-auto-sell/settings/secrets/actions
+          #    https://github.com/winksaville/rust-binance-cli/settings/secrets/actions
           # Then click "New repository secret" adding CODECOV_TOKEN as name and
           # the token from:
-          #    https://app.codecov.io/gh/winksaville/rust-binance-auto-sell/settings
+          #    https://app.codecov.io/gh/winksaville/rust-binance-cli/settings
           #
           token: ${{secrets.CODECOV_TOKEN}}
 
