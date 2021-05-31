@@ -213,7 +213,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(10),
+                        .index(1),
                 )
                 .arg(
                     Arg::with_name("START-TIME")
@@ -250,7 +250,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(10),
+                        .index(1),
                 ),
         )
         .subcommand(
@@ -266,7 +266,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(10),
+                        .index(1),
                 ),
         )
         .subcommand(
