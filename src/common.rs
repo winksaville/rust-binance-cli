@@ -1,6 +1,8 @@
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use lazy_static::lazy_static;
 use log::trace;
+use rust_decimal::Decimal;
+use rusty_money::{iso, Money};
 
 use reqwest::{
     self,
@@ -357,6 +359,16 @@ pub fn are_you_sure_stdout_stdin() -> bool {
         }
         Err(_) => false,
     }
+}
+
+pub fn dec_to_money_string(v: Decimal) -> String {
+    let v_string = v.round_dp(2).to_string();
+    let money_string: String = match Money::from_str(&v_string, iso::USD) {
+        Ok(v) => format!("{}", v),
+        Err(e) => format!("({} {})", v_string, e.to_string()),
+    };
+
+    money_string
 }
 
 #[cfg(test)]

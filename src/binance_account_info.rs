@@ -11,7 +11,7 @@ use std::{
 use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 use crate::{
     binance_klines::get_kline,
-    common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
+    common::{dec_to_money_string, get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
     Configuration,
 };
@@ -131,17 +131,28 @@ impl AccountInfo {
 
     pub async fn print(&mut self) {
         self.print_header_fields();
+        println!();
+
         let mut total_value = dec!(0);
+        println!(
+            "{:<6} {:>12} {:>12} {:>15} {:>15} {:>15}",
+            "Asset", "USD value", "USD/coin", "Total Coins", "Free", "locked"
+        );
         for balance in self.balances_map.values() {
             if balance.value_in_usd > dec!(0) {
                 total_value += balance.value_in_usd;
                 println!(
-                    "  {:6}: value: ${:10.2} free: {:15.8} locked: {}",
-                    balance.asset, balance.value_in_usd, balance.free, balance.locked
+                    "{:<6} {:>12} {:>12} {:>15.8} {:>15.8} {:>15.8}",
+                    balance.asset,
+                    dec_to_money_string(balance.value_in_usd),
+                    dec_to_money_string(balance.price_in_usd),
+                    balance.free + balance.locked,
+                    balance.free,
+                    balance.locked
                 );
             }
         }
-        println!("total: ${:.2}", total_value);
+        println!("total: {}", dec_to_money_string(total_value));
     }
 
     pub async fn update_and_print(&mut self, config: &Configuration) {

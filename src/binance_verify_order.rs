@@ -5,7 +5,7 @@ use rust_decimal_macros::dec;
 
 use crate::{
     binance_account_info::AccountInfo, binance_avg_price::AvgPrice, binance_exchange_info::Symbol,
-    binance_orders::Orders,
+    binance_orders::Orders, common::dec_to_money_string,
 };
 
 pub fn verify_open_orders(
@@ -49,10 +49,10 @@ pub fn verify_min_notional(
             let min_notional_quantity = mnr.min_notional / avg_price.price;
             if quantity < min_notional_quantity {
                 return Err(format!(
-                    "quantity: {} must be >= {:.6} so value is >= ${:.2}",
+                    "quantity: {} must be >= {:.6} so value is >= {}",
                     quantity,
                     min_notional_quantity,
-                    (min_notional_quantity * avg_price.price).round_dp(2)
+                    dec_to_money_string((min_notional_quantity * avg_price.price).round_dp(2)),
                 )
                 .into());
             }

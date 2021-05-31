@@ -8,7 +8,7 @@ use rust_decimal_macros::dec;
 use semver::Version;
 
 use crate::{
-    common::{time_ms_to_utc, InternalErrorRec, ResponseErrorRec, Side},
+    common::{dec_to_money_string, time_ms_to_utc, InternalErrorRec, ResponseErrorRec, Side},
     de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
 };
 
@@ -148,12 +148,12 @@ impl fmt::Display for ResultTradeResponseRec {
         };
         write!(
             f,
-            "{:8} {:14.6} at {:.4}/per of {:10} valued at ${:.2}",
+            "{:8} {:14.6} at {:.4}/per of {:10} valued at {}",
             self.side,
             self.executed_qty,
             price.round_dp(4),
             self.symbol,
-            self.cummulative_quote_qty
+            dec_to_money_string(self.cummulative_quote_qty),
         )
     }
 }
@@ -199,12 +199,12 @@ impl fmt::Display for FullTradeResponseRec {
         };
         write!(
             f,
-            "{:8} {:14.6} at {:.4}/per of {:10} valued at ${:.2}",
+            "{:8} {:14.6} at {:.4}/per of {:10} valued at {}",
             self.side,
             self.executed_qty,
             price.round_dp(4),
             self.symbol,
-            self.cummulative_quote_qty
+            dec_to_money_string(self.cummulative_quote_qty),
         )
     }
 }

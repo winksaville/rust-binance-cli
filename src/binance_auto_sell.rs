@@ -12,7 +12,7 @@ use crate::{
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
     binance_trade::{MarketQuantityType, TradeOrderType},
-    common::{are_you_sure_stdout_stdin, time_ms_to_utc, Side},
+    common::{are_you_sure_stdout_stdin, dec_to_money_string, time_ms_to_utc, Side},
     configuration::Configuration,
 };
 
@@ -108,13 +108,13 @@ pub async fn auto_sell(
         if kr.sell_qty <= dec!(0) {
             kept_cnt += 1;
             println!(
-                "{0:8} {2:14.1$} of {3:10} at about ${4:10.2}/per worth ${5:10.2} selling NONE",
+                "{0:8} {2:14.1$} of {3:10} at about {4:10}/per worth {5:10} selling NONE",
                 "Keeping",
                 kr.precision,
                 kr.owned_qty,
                 kr.asset,
-                kr.price_in_usd,
-                kr.keep_value_in_usd.round_dp(2)
+                dec_to_money_string(kr.price_in_usd),
+                dec_to_money_string(kr.keep_value_in_usd.round_dp(2)),
             );
         }
     }
@@ -128,19 +128,19 @@ pub async fn auto_sell(
     for kr in &vec_process_rec {
         if kr.sell_qty > dec!(0) {
             print!(
-                "{0:8} {2:14.1$} of {3:10} at about ${4:10.2}/per worth ${5:10.2} keeping ",
+                "{0:8} {2:14.1$} of {3:10} at about {4:10}/per worth {5:10} keeping ",
                 "SELLING",
                 kr.precision,
                 kr.sell_qty,
                 kr.asset,
-                kr.price_in_usd,
-                kr.sell_value_in_usd.round_dp(2),
+                dec_to_money_string(kr.price_in_usd),
+                dec_to_money_string(kr.sell_value_in_usd.round_dp(2)),
             );
             if kr.keep_qty > dec!(0) {
                 println!(
-                    "{:6} worth ${:10.2}",
+                    "{:6} worth {:10}",
                     kr.keep_qty,
-                    kr.keep_value_in_usd.round_dp(2),
+                    dec_to_money_string(kr.keep_value_in_usd.round_dp(2)),
                 );
             } else {
                 println!("NONE");
@@ -152,9 +152,9 @@ pub async fn auto_sell(
 
     if total_assets_selling_some_or_all > 0 {
         println!(
-            "\nSELLING {} assets for ${:10.2}",
+            "\nSELLING {} assets for {:10}",
             total_assets_selling_some_or_all,
-            total_sell_in_usd.round_dp(2)
+            dec_to_money_string(total_sell_in_usd.round_dp(2)),
         );
         if test || are_you_sure_stdout_stdin() {
             if test {
@@ -175,13 +175,13 @@ pub async fn auto_sell(
                         Ok(tr) => match tr {
                             TradeResponse::SuccessTest(_) => {
                                 println!(
-                                    "{0:8} {2:14.1$} of {3:10} at about ${4:10.2}/per worth ${5:10.2}",
+                                    "{0:8} {2:14.1$} of {3:10} at about {4:10}/per worth {5:10}",
                                     "TEST OK",
                                     kr.precision,
                                     kr.sell_qty,
                                     kr.symbol_name,
-                                    kr.price_in_usd,
-                                    kr.sell_value_in_usd.round_dp(2)
+                                    dec_to_money_string(kr.price_in_usd),
+                                    dec_to_money_string(kr.sell_value_in_usd.round_dp(2)),
                                 );
                             }
                             TradeResponse::SuccessAck(atrr) => {
