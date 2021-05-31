@@ -84,55 +84,136 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .arg(no_test_arg.clone())
         .arg(scheme_arg.clone())
         .arg(domain_arg.clone())
-        .subcommand(SubCommand::with_name("do-nothing").about("Do nothing used for testing"))
-        .subcommand(SubCommand::with_name("ai").about("Display the account info"))
-        .subcommand(SubCommand::with_name("ei").about("Display the exchange info"))
         .subcommand(
-            SubCommand::with_name("auto-sell")
-                .about("Automatically sell assets as defined in the configuration keep section"),
+            SubCommand::with_name("ai")
+                .display_order(1)
+                .about("Display the account info"),
         )
         .subcommand(
             SubCommand::with_name("auto-buy")
+                .display_order(2)
                 .about("Automatically buy assets as defined in the configuration buy section"),
         )
         .subcommand(
+            SubCommand::with_name("auto-sell")
+                .display_order(2)
+                .about("Automatically sell assets as defined in the configuration keep section"),
+        )
+        .subcommand(
+            SubCommand::with_name("buy-market-value")
+                .display_order(5)
+                .about("Buy asset using quote asset value")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("VALUE")
+                        .help("Value of asset to buy in the quote asset")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("buy-market")
+                .display_order(5)
+                .about("Buy a number of assets")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("QUANTITY")
+                        .help("Number of assets to buy")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("sell-market")
+                .display_order(5)
+                .about("Sell a number of assets")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("QUANTITY")
+                        .help("Number of assets to sell")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("sell-market-value")
+                .display_order(5)
+                .about("Sell asset using quote asset value")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("VALUE")
+                        .help("Value of asset to sell in the quote asset")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("ei")
+                .display_order(10)
+                .about("Display the exchange info"),
+        )
+        .subcommand(
             SubCommand::with_name("sei")
+                .display_order(10)
                 .about("Display a symbols exchange information")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(1),
+                        .index(10),
                 ),
         )
         .subcommand(
             SubCommand::with_name("sap")
+                .display_order(10)
                 .about("Display a symbols 5 minute average price")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(1),
+                        .index(10),
                 ),
         )
         .subcommand(
             SubCommand::with_name("skr")
+                .display_order(10)
                 .about("Display a symbols current kline record")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(1),
+                        .index(10),
                 ),
         )
         .subcommand(
             SubCommand::with_name("skrs")
+                .display_order(10)
                 .about("Display a symbols kline records")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(1),
+                        .index(10),
                 )
                 .arg(
                     Arg::with_name("START-TIME")
@@ -163,89 +244,40 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         )
         .subcommand(
             SubCommand::with_name("oo")
+                .display_order(10)
                 .about("Display a symbols open orders")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(1),
+                        .index(10),
                 ),
         )
-        .subcommand(SubCommand::with_name("ao").about("Dispaly all orders"))
+        .subcommand(
+            SubCommand::with_name("ao")
+                .display_order(10)
+                .about("Dispaly all orders"),
+        )
         .subcommand(
             SubCommand::with_name("st")
+                .display_order(10)
                 .about("Display a symbols trades")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
                         .required(true)
-                        .index(1),
-                ),
-        )
-        .subcommand(SubCommand::with_name("ol").about("Dispaly order log"))
-        .subcommand(
-            SubCommand::with_name("buy-market-value")
-                .about("Buy asset using quote asset value")
-                .arg(
-                    Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("VALUE")
-                        .help("Value of asset to buy in the quote asset")
-                        .required(true)
-                        .index(2),
+                        .index(10),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("buy-market")
-                .about("Buy a number of assets")
-                .arg(
-                    Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("QUANTITY")
-                        .help("Number of assets to buy")
-                        .required(true)
-                        .index(2),
-                ),
-        )
+            SubCommand::with_name("ol")
+                .display_order(10)
+                .about("Dispaly order log"),
+            )
         .subcommand(
-            SubCommand::with_name("sell-market-value")
-                .about("Sell asset using quote asset value")
-                .arg(
-                    Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("VALUE")
-                        .help("Value of asset to sell in the quote asset")
-                        .required(true)
-                        .index(2),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("sell-market")
-                .about("Sell a number of assets")
-                .arg(
-                    Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("QUANTITY")
-                        .help("Number of assets to sell")
-                        .required(true)
-                        .index(2),
-                ),
+            SubCommand::with_name("do-nothing")
+                .display_order(99)
+                .about("Do nothing used for testing"),
         )
         .get_matches();
 
