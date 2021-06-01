@@ -44,7 +44,7 @@ use crate::{
     binance_order_response::TradeResponse,
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
-    common::{time_ms_to_utc, utc_now_to_time_ms},
+    common::{dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms},
 };
 
 fn get_configuration_and_sub_command(
@@ -239,16 +239,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             for tr in &mt.trades {
                 println!("Date: {}", time_ms_to_utc(tr.time));
                 println!("{:#?}", tr);
-                total_qty += tr.qty;
-                total_quote_value += tr.quote_qty;
-                println!(
+                total_qty += tr.is_buyer_factor() * tr.qty;
+                total_quote_value += tr.is_buyer_factor() * tr.quote_qty;
+                trace!(
                     "total_qty: {}, total_quote_value: {}",
-                    total_qty, total_quote_value
+                    total_qty,
+                    total_quote_value
                 );
             }
             println!(
                 "total_qty: {}, total_quote_value: {}",
-                total_qty, total_quote_value
+                dec_to_separated_string(total_qty, 4),
+                dec_to_separated_string(total_quote_value, 2)
             );
         }
         "ol" => {

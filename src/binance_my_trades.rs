@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use log::trace;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
@@ -30,9 +31,19 @@ pub struct TradeRec {
     pub commission_asset: String,
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub time: i64, // Consider being chrono::Utc or creating a Utc
-    is_buyer: bool,
-    is_maker: bool,
-    is_best_match: bool,
+    pub is_buyer: bool,
+    pub is_maker: bool,
+    pub is_best_match: bool,
+}
+
+impl TradeRec {
+    pub fn is_buyer_factor(&self) -> Decimal {
+        if self.is_buyer {
+            dec!(1)
+        } else {
+            dec!(-1)
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -150,4 +161,55 @@ pub async fn get_my_trades(
     trades_get_req_and_response(config, "myTrades", params).await
 }
 
-// TODO: Add some tests
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rust_decimal_macros::dec;
+
+    const TRADE_REC_1: &str = r#"{
+        "symbol": "ETHUSD",
+        "id": 7203346,
+        "orderId": 226649654,
+        "orderListId": -1,
+        "price": 4260.0000,
+        "qty": 1.85538000,
+        "quoteQty": 7903.9188,
+        "commission": 0.00185538,
+        "commissionAsset": "ETH",
+        "time": 1620832760334,
+        "isBuyer": true,
+        "isMaker": true,
+        "isBestMatch": true
+    }"#;
+
+    #[test]
+    fn test_trade_rec() {
+        let tr: TradeRec = match serde_json::from_str(TRADE_REC_1) {
+            Ok(info) => info,
+            Err(e) => panic!("Error processing response: e={}", e),
+        };
+        assert_eq!("ETHUSD", tr.symbol);
+        assert_eq!(7203346, tr.id);
+        assert_eq!(226649654, tr.order_id);
+        assert_eq!(dec!(4260), tr.price);
+        assert_eq!(dec!(1.85538), tr.qty);
+        assert_eq!(dec!(7903.9188), tr.quote_qty);
+        assert_eq!(dec!(0.00185538), tr.commission);
+        assert_eq!("ETH", tr.commission_asset);
+        assert_eq!(1620832760334, tr.time);
+        assert_eq!(true, tr.is_buyer);
+        assert_eq!(true, tr.is_maker);
+        assert_eq!(true, tr.is_best_match);
+    }
+
+    #[test]
+    fn test_trade_rec_is_buyer_factor() {
+        let mut tr: TradeRec = match serde_json::from_str(TRADE_REC_1) {
+            Ok(info) => info,
+            Err(e) => panic!("Error processing response: e={}", e),
+        };
+        assert_eq!(dec!(1), tr.is_buyer_factor());
+        tr.is_buyer = false;
+        assert_eq!(dec!(-1), tr.is_buyer_factor());
+    }
+}
