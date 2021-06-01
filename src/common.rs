@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
 use rusty_money::{iso, Money};
+use separator::Separatable;
 
 use reqwest::{
     self,
@@ -371,8 +372,16 @@ pub fn dec_to_money_string(v: Decimal) -> String {
     money_string
 }
 
+pub fn dec_to_separated_string(v: Decimal, dp: u32) -> String {
+    let v_string = v.round_dp(dp).to_string();
+    let v_f64: f64 = v_string.parse().unwrap();
+    v_f64.separated_string()
+}
+
 #[cfg(test)]
 mod test {
+    use rust_decimal_macros::dec;
+
     use super::*;
     use std::time::Instant;
 
@@ -463,5 +472,19 @@ mod test {
         assert_eq!(ie1.code, 1);
         assert_eq!(ie1.line, line!() - 3);
         assert_eq!(ie1.file, file!());
+    }
+
+    #[test]
+    fn test_dec_to_money_string() {
+        assert_eq!(dec_to_money_string(dec!(1.024)), "$1.02");
+        assert_eq!(dec_to_money_string(dec!(1.026)), "$1.03");
+        assert_eq!(dec_to_money_string(dec!(1000.026)), "$1,000.03");
+    }
+
+    #[test]
+    fn test_dec_to_separated_string() {
+        assert_eq!(dec_to_separated_string(dec!(1.024), 2), "1.02");
+        assert_eq!(dec_to_separated_string(dec!(1.026), 2), "1.03");
+        assert_eq!(dec_to_separated_string(dec!(1000.026), 2), "1,000.03");
     }
 }
