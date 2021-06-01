@@ -259,9 +259,9 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Dispaly all orders"),
         )
         .subcommand(
-            SubCommand::with_name("st")
+            SubCommand::with_name("mt")
                 .display_order(10)
-                .about("Display a symbols trades")
+                .about("Display my trades for a symbol")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")

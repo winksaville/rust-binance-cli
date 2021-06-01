@@ -227,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        "st" => {
+        "mt" => {
             // TODO: Add support for getting from_id, start_data_time, end_data_time and limit
             let sym_name = subcmd
                 .matches
