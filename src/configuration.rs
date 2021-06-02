@@ -237,11 +237,14 @@ impl Configuration {
                         )
                     }
                 },
-                Err(e) => {
-                    return Err(ier_new!(9, &format!("Error reading {}: {}", path_str, e))
-                        .to_string()
-                        .into())
-                }
+                Err(e) => match e.kind() {
+                    std::io::ErrorKind::NotFound => Configuration::default(),
+                    _ => {
+                        return Err(ier_new!(9, &format!("Error reading {}: {}", path_str, e))
+                            .to_string()
+                            .into());
+                    }
+                },
             };
             config
         } else {
