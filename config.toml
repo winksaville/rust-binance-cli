@@ -1,4 +1,6 @@
-# Define keys
+# This is a commnet line and is ignored
+
+# Define keys for your account
 API_KEY = "an api key"
 SECRET_KEY = "a secret key"
 
@@ -9,6 +11,7 @@ deata_log_path = "data/log-1.txt"
 default_quote_asset = "USD"
 
 # Test mode "true" | "false"
+# Default is currently true so buy and sell do nothing.
 test = true
 
 # Default scheme for make_url
@@ -16,3 +19,46 @@ scheme = "https"
 
 # Default domain for make_url, binance.us or binance.com
 domain = "binance.us"
+
+# The "auto-sell" subcommand uses the "keep" entries asset
+# as a list of assets to keep, if an asset isn't listed
+# it will be SOLD, BE VERY CAREFUL!
+#
+# Each "keep" entry is the name of a coin to
+# keep at least some. Each entry can have
+# 1 to 3 fields; name, min, quote_asset:
+#   name: must be present.
+#   min: is the minimum number of coins to keep.
+#   quote_asset: can override the default_quote_asset
+#
+# A complete example is "BNB" below where at least 510
+# BNB is kept and the rest is sold for USDT (BNBUSDT).
+#
+# ONE at least 100 coins are kept using the default_quote_asset
+# and finaly "all" of ADA is sold. Note: because of minimums
+# there is likely some "dust" (a small fractional amount) unsold.
+keep = [
+    #{ name = "BNB", min = 510, quote_asset = "USDT" },
+    #{ name = "ONE", min = 100 },
+    #{ name = "ADA" },
+]
+
+# The "auto-buy" subcommand uses the "buy" as a list of assets
+# to buy. It buys approximately ((percent / 100) * quote_asset)
+# "free" (i.e. unlocked) quote_asset.
+#
+# It consits of 3 fields; name, percent and quote_asset:
+#   name: must be present.
+#   percent: percentage of the quote_asset that will be
+#            used to by the named asset above.
+#   quote_asset: is the asset to use to buy, it overrides
+#            the default_quote_asset
+#
+# So MATIC is bought using 10% of the currently free USD.
+# and what percentage of that quote
+#
+# Note: 
+buy = [
+    #{ name = "MATIC", percent = 10, quote_asset = "USD" },
+    #{ name = "ZEN", percent = 15 }
+]
