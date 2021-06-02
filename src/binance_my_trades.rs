@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize};
 use rust_decimal::prelude::*;
 
 use crate::{
-    binance_order_response::TradeResponse,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     common::{get_req_get_response, ResponseErrorRec},
-    common::{utc_now_to_time_ms, utc_to_time_ms},
+    common::{utc_now_to_time_ms, utc_to_time_ms, InternalErrorRec},
     configuration::Configuration,
     de_string_or_number::de_string_or_number_to_i64,
+    ier_new,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,7 +88,7 @@ async fn trades_get_req_and_response(
     let response_status = response.status();
     let response_body = response.text().await?;
 
-    // Log the response
+    // Process the response
     let result = if response_status == 200 {
         trace!("response_body={}", response_body);
         let trade_rec: Vec<TradeRec> = serde_json::from_str(&response_body)?;
@@ -104,17 +104,13 @@ async fn trades_get_req_and_response(
             &query_string,
             &response_body,
         );
-        let binance_error_response = TradeResponse::FailureResponse(rer);
-
         trace!(
             "{}",
-            format!(
-                "my_trades: binance_error_response={:#?}",
-                &binance_error_response
-            )
+            format!("trades_get_req_and_response: ResponseErrRec={:#?}", &rer)
         );
 
-        Err(binance_error_response.into())
+        let ier: InternalErrorRec = ier_new!(8, &rer.to_string());
+        Err(format!("{}", &ier.to_string()).into())
     };
 
     result
