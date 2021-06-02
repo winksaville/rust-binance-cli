@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             None => &args[0],
         };
         println!(
-            "Usage: {} help, --help or -h\nver: {}",
+            "Usage:   {} help, --help or -h\napp-ver: {}",
             name,
             APP_VERSION.as_str()
         );
