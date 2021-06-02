@@ -22,7 +22,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .value_name("FILE")
         .help("Sets a custom config file")
         .env("BINANCE_CONFIG")
-        .default_value("config.toml")
+        .default_value("configs/config.toml")
         .takes_value(true);
     let api_key_arg = Arg::with_name("api-key")
         .global(true)
