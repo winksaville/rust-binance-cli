@@ -13,33 +13,81 @@ use crate::{
     ier_new,
 };
 
+// Example response_body
+//{
+//    "insertTime":1620402126963,
+//    "amount":0.14496705,
+//    "creator":null,
+//    "address":"1AALZKmCQzLrmfgRLu5ENu99ierxnnYfEs",
+//    "addressTag":"",
+//    "txId":"44893c41090adb75053221f69c7dbd0e8f09b7a9c1936cc108b72f8ff830fdd4",
+//    "asset":"BTC",
+//    "status":1},
+//}
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HistoryRec {
-    pub asset: String,
-    pub amount: Decimal,
-    #[serde(default)]
-    pub transaction_fee: Decimal,
-    #[serde(default, deserialize_with = "de_string_or_number_to_i64")]
+pub struct DepositRec {
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub insert_time: i64,
-    #[serde(default, deserialize_with = "de_string_or_number_to_i64")]
-    pub apply_time: i64,
-    //pub creator: Option<String>,
+    pub amount: Decimal,
     pub address: String,
-    pub tx_id: Option<String>,
-    pub id: Option<String>,
-    pub withdraw_order_id: Option<String>,
-    pub address_tag: Option<String>,
+    pub asset: String,
     #[serde(deserialize_with = "de_string_or_number_to_i32")]
     pub status: i32,
-    pub network: Option<String>,
+
+    // Always Some
+    pub tx_id: Option<String>,
+
+    // Always Some but an empty string
+    pub address_tag: Option<String>,
+
+    // Always None
+    pub creator: Option<String>,
+}
+
+// Example response_body
+//{
+//    "amount":15.98520052,
+//    "transactionFee":0.013,
+//    "address":"0xd989942D49De163A54273af6De971Ba80308D5cD",
+//    "withdrawOrderId":null,
+//    "addressTag":null,
+//    "txId":"0x7972ee7e7e83d3fd356c85f0ac234c2bb95b5a668fb95bd6023c429b77516915",
+//    "id":"5f28c73fce8b40f784c07d8655bab732",
+//    "asset":"ETH",
+//    "applyTime":1620970959336,
+//    "status":6,
+//    "network":"ETH"
+//}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WithdrawRec {
+    pub amount: Decimal,
+    pub transaction_fee: Decimal,
+    pub address: String,
+    pub id: String,
+    pub asset: String,
+    #[serde(deserialize_with = "de_string_or_number_to_i64")]
+    pub apply_time: i64,
+    #[serde(deserialize_with = "de_string_or_number_to_i32")]
+    pub status: i32,
+    pub network: String,
+
+    // One None the rest were Some
+    pub tx_id: Option<String>,
+
+    // Always None
+    pub address_tag: Option<String>,
+
+    // Always None
+    pub withdraw_order_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Histories {
-    pub deposit_list: Option<Vec<HistoryRec>>,
-    pub withdraw_list: Option<Vec<HistoryRec>>,
+    pub deposit_list: Option<Vec<DepositRec>>,
+    pub withdraw_list: Option<Vec<WithdrawRec>>,
     pub success: bool,
 }
 
@@ -154,7 +202,7 @@ pub async fn get_deposit_history(
     status: Option<u32>,
     start_date_time: Option<DateTime<Utc>>,
     end_date_time: Option<DateTime<Utc>>,
-) -> Result<Vec<HistoryRec>, Box<dyn std::error::Error>> {
+) -> Result<Vec<DepositRec>, Box<dyn std::error::Error>> {
     let histories = get_history(
         config,
         "depositHistory.html",
@@ -170,9 +218,9 @@ pub async fn get_deposit_history(
     } else {
         let ier = ier_new!(
             7,
-            "Should not happen; expected deposit_list but it was None: "
+            "Should not happen; expected depositList, but there was None"
         );
-        return Err(format!("{}", ier).into());
+        return Err(ier.to_string().into());
     }
 }
 
@@ -182,7 +230,7 @@ pub async fn get_withdraw_history(
     status: Option<u32>,
     start_date_time: Option<DateTime<Utc>>,
     end_date_time: Option<DateTime<Utc>>,
-) -> Result<Vec<HistoryRec>, Box<dyn std::error::Error>> {
+) -> Result<Vec<WithdrawRec>, Box<dyn std::error::Error>> {
     let histories = get_history(
         config,
         "withdrawHistory.html",
@@ -198,9 +246,9 @@ pub async fn get_withdraw_history(
     } else {
         let ier = ier_new!(
             7,
-            "Should not happen; expected withdraw_list but it was None: "
+            "Should not happen; expected withdrawList, but there was None"
         );
-        return Err(format!("{}", ier).into());
+        return Err(ier.to_string().into());
     }
 }
 

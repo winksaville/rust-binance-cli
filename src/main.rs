@@ -39,7 +39,7 @@ use crate::{
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
-    binance_history::{get_deposit_history, get_withdraw_history, HistoryRec},
+    binance_history::{get_deposit_history, get_withdraw_history, DepositRec, WithdrawRec},
     binance_klines::{get_kline, KlineRec},
     binance_market_order_cmd::{buy_market_order_cmd, sell_market_order_cmd},
     binance_my_trades::{get_my_trades, Trades},
@@ -265,25 +265,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
 
             // Add in deposit History for the sym
-            let dhs: Vec<HistoryRec> =
+            let drs: Vec<DepositRec> =
                 get_deposit_history(&config, Some(asset), None, None, None).await?;
-            for dh in &dhs {
+            for dh in &drs {
                 total_qty += dh.amount;
             }
             trace!(
                 "add {} deposits total_qty: {}",
-                dhs.len(),
+                drs.len(),
                 dec_to_separated_string(total_qty, 4),
             );
 
-            let whs: Vec<HistoryRec> =
+            let wrs: Vec<WithdrawRec> =
                 get_withdraw_history(&config, Some(asset), None, None, None).await?;
-            for wh in &whs {
+            for wh in &wrs {
                 total_qty -= wh.amount + wh.transaction_fee;
             }
             trace!(
                 "sub {} withdraws total_qty: {}",
-                whs.len(),
+                wrs.len(),
                 dec_to_separated_string(total_qty, symbol.base_asset_precision),
             );
 
@@ -298,7 +298,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "dh" => {
             // TODO: Add support for getting status, start_data_time, end_data_time
             let asset = subcmd.matches.value_of("ASSET");
-            let dh: Vec<HistoryRec> = get_deposit_history(&config, asset, None, None, None).await?;
+            let dh: Vec<DepositRec> = get_deposit_history(&config, asset, None, None, None).await?;
             //let mut total_qty: Decimal = dec!(0);
             //let mut total_quote_value: Decimal = dec!(0);
             //for tr in &mt.trades {
@@ -322,7 +322,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "wh" => {
             // TODO: Add support for getting status, start_data_time, end_data_time
             let asset = subcmd.matches.value_of("ASSET");
-            let wh: Vec<HistoryRec> =
+            let wh: Vec<WithdrawRec> =
                 get_withdraw_history(&config, asset, None, None, None).await?;
             //let mut total_qty: Decimal = dec!(0);
             //let mut total_quote_value: Decimal = dec!(0);
