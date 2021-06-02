@@ -1,12 +1,13 @@
 // Based on https://stackoverflow.com/a/55134333/4812090
 use clap::ArgMatches;
+use core::mem::size_of;
 use log::trace;
 use rust_decimal::Decimal;
 use serde::{
     de::{SeqAccess, Visitor},
     Deserialize, Deserializer,
 };
-use std::{collections::HashMap, fs::read_to_string, path::PathBuf};
+use std::{collections::HashMap, fmt, fs::read_to_string, path::PathBuf};
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
@@ -101,8 +102,8 @@ pub struct BuyRec {
     pub quote_asset: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Configuration {
+#[derive(Clone, Deserialize, PartialEq)]
+pub struct Keys {
     #[serde(rename = "SECRET_KEY")]
     #[serde(default)]
     pub secret_key: String,
@@ -110,6 +111,39 @@ pub struct Configuration {
     #[serde(rename = "API_KEY")]
     #[serde(default)]
     pub api_key: String,
+}
+
+impl Default for Keys {
+    fn default() -> Self {
+        Keys {
+            api_key: "".to_string(),
+            secret_key: "".to_string(),
+        }
+    }
+}
+
+/// Never accidentally output the secret_key when doing debug output
+impl fmt::Debug for Keys {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const BEG_LEN: usize = 6;
+        let mut beg_api_key: String = String::with_capacity(size_of::<char>() * BEG_LEN);
+        for (i, ch) in self.api_key.chars().enumerate() {
+            if i >= BEG_LEN {
+                break;
+            }
+            beg_api_key.push(ch);
+        }
+        f.debug_struct("Keys")
+            .field("secret_key", &"******".to_string())
+            .field("api_key", &beg_api_key)
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Configuration {
+    #[serde(flatten)]
+    pub keys: Keys,
 
     #[serde(default)]
     pub order_log_path: Option<PathBuf>,
@@ -150,8 +184,7 @@ fn default_domain() -> String {
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
-            api_key: "".to_string(),
-            secret_key: "".to_string(),
+            keys: Keys::default(),
             order_log_path: None,
             default_quote_asset: default_quote_asset(),
             test: false,
@@ -206,11 +239,11 @@ impl Configuration {
     // and the configuration is not updated.
     fn update_config(&mut self, matches: &ArgMatches) {
         if let Some(value) = matches.value_of("api-key") {
-            self.api_key = value.to_string();
+            self.keys.api_key = value.to_string();
         }
 
         if let Some(value) = matches.value_of("secret-key") {
-            self.secret_key = value.to_string();
+            self.keys.secret_key = value.to_string();
         }
 
         if let Some(value) = matches.value_of("order-log-path") {
@@ -253,8 +286,8 @@ mod test {
     fn test_config_empty() {
         let config: Configuration = toml::from_str("").unwrap();
         // println!("{:#?}", config);
-        assert_eq!(config.api_key, "");
-        assert_eq!(config.secret_key, "");
+        assert_eq!(config.keys.api_key, "");
+        assert_eq!(config.keys.secret_key, "");
         assert!(config.order_log_path.is_none());
         assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(config.scheme, "https");
@@ -278,8 +311,8 @@ mod test {
     fn test_config_buy() {
         let config: Configuration = toml::from_str(TOML_DATA).unwrap();
         // println!("{:#?}", config);
-        assert_eq!(config.api_key, "api key");
-        assert_eq!(config.secret_key, "secret key");
+        assert_eq!(config.keys.api_key, "api key");
+        assert_eq!(config.keys.secret_key, "secret key");
         assert!(config.order_log_path.is_none()); // The default
         assert_eq!(config.default_quote_asset, "USD"); // The default
         assert_eq!(config.scheme, "https"); // The default
@@ -326,8 +359,8 @@ mod test {
     fn test_config_keep() {
         let config: Configuration = toml::from_str(TOML_DATA_KEEP).unwrap();
         // println!("{:#?}", config);
-        assert_eq!(config.api_key, "api key");
-        assert_eq!(config.secret_key, "secret key");
+        assert_eq!(config.keys.api_key, "api key");
+        assert_eq!(config.keys.secret_key, "secret key");
         assert_eq!(
             config.order_log_path,
             Some(PathBuf::from("data/xyz.txt".to_string()))

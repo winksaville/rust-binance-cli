@@ -166,8 +166,8 @@ pub async fn get_account_info<'e>(
 ) -> Result<AccountInfo, Box<dyn std::error::Error>> {
     trace!("get_account_info: +");
 
-    let secret_key = config.secret_key.as_bytes();
-    let api_key = &config.api_key;
+    let secret_key = config.keys.secret_key.as_bytes();
+    let api_key = &config.keys.api_key;
 
     let mut params = vec![];
     let ts_string: String = format!("{}", utc_now_to_time_ms());

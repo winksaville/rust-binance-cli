@@ -174,8 +174,8 @@ pub async fn binance_new_order_or_test(
         }
     };
 
-    let secret_key = config.secret_key.as_bytes();
-    let api_key = &config.api_key;
+    let secret_key = config.keys.secret_key.as_bytes();
+    let api_key = &config.keys.api_key;
 
     let side_str: &str = side.into();
     let mut params = vec![

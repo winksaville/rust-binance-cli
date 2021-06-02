@@ -20,7 +20,7 @@ pub async fn get_avg_price<'e>(
     let url = config.make_url("api", &format!("/api/v3/avgPrice?symbol={}", symbol));
     trace!("get_avg_price: url={}", url);
 
-    let response = get_req_get_response(&config.api_key, &url).await?;
+    let response = get_req_get_response(&config.keys.api_key, &url).await?;
     let response_status = response.status();
     let response_body = response.text().await?;
 

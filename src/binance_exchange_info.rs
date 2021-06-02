@@ -563,7 +563,7 @@ pub async fn get_exchange_info<'e>(
     let url = config.make_url("api", "/api/v3/exchangeInfo");
     trace!("get_exchange_info: url={}", url);
 
-    let response = get_req_get_response(&config.api_key, &url).await?;
+    let response = get_req_get_response(&config.keys.api_key, &url).await?;
     trace!("response={:#?}", response);
 
     let response_status = response.status();
