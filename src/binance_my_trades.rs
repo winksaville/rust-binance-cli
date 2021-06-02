@@ -110,7 +110,7 @@ async fn trades_get_req_and_response(
         );
 
         let ier: InternalErrorRec = ier_new!(8, &rer.to_string());
-        Err(format!("{}", &ier.to_string()).into())
+        Err(ier.to_string().into())
     };
 
     result

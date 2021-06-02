@@ -5,6 +5,7 @@ mod binance_auto_sell;
 mod binance_avg_price;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
+mod binance_history;
 mod binance_klines;
 mod binance_market_order_cmd;
 mod binance_my_trades;
@@ -38,13 +39,17 @@ use crate::{
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
+    binance_history::{get_deposit_history, get_withdraw_history, HistoryRec},
     binance_klines::{get_kline, KlineRec},
     binance_market_order_cmd::{buy_market_order_cmd, sell_market_order_cmd},
     binance_my_trades::{get_my_trades, Trades},
     binance_order_response::TradeResponse,
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
-    common::{dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms},
+    common::{
+        dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
+        InternalErrorRec,
+    },
 };
 
 fn get_configuration_and_sub_command(
@@ -233,25 +238,111 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .matches
                 .value_of("SYMBOL")
                 .expect("SYMBOL is missing");
+            let ei = get_exchange_info(&config).await?;
+            let symbol = if let Some(s) = ei.get_symbol(sym_name) {
+                s
+            } else {
+                let ier_string =
+                    ier_new!(9, &format!("Symbol {} isn't valid: ", sym_name)).to_string();
+                return Err(ier_string.into());
+            };
+            let asset = &symbol.base_asset;
+
             let mt: Trades = get_my_trades(&config, sym_name, None, None, None, None).await?;
             let mut total_qty: Decimal = dec!(0);
-            let mut total_quote_value: Decimal = dec!(0);
             for tr in &mt.trades {
                 println!("Date: {}", time_ms_to_utc(tr.time));
                 println!("{:#?}", tr);
+
+                // Use is_buyer_factor, which is -1 or 1, to add
+                // if Buy and subtract if Sell.
                 total_qty += tr.is_buyer_factor() * tr.qty;
-                total_quote_value += tr.is_buyer_factor() * tr.quote_qty;
-                trace!(
-                    "total_qty: {}, total_quote_value: {}",
-                    total_qty,
-                    total_quote_value
-                );
+                trace!("total_qty: {}", total_qty,);
             }
             println!(
-                "total_qty: {}, total_quote_value: {}",
-                dec_to_separated_string(total_qty, 4),
-                dec_to_separated_string(total_quote_value, 2)
+                "total traded qty: {}",
+                dec_to_separated_string(total_qty, symbol.base_asset_precision)
             );
+
+            // Add in deposit History for the sym
+            let dhs: Vec<HistoryRec> =
+                get_deposit_history(&config, Some(asset), None, None, None).await?;
+            for dh in &dhs {
+                total_qty += dh.amount;
+            }
+            trace!(
+                "add {} deposits total_qty: {}",
+                dhs.len(),
+                dec_to_separated_string(total_qty, 4),
+            );
+
+            let whs: Vec<HistoryRec> =
+                get_withdraw_history(&config, Some(asset), None, None, None).await?;
+            for wh in &whs {
+                total_qty -= wh.amount + wh.transaction_fee;
+            }
+            trace!(
+                "sub {} withdraws total_qty: {}",
+                whs.len(),
+                dec_to_separated_string(total_qty, symbol.base_asset_precision),
+            );
+
+            let ap = get_avg_price(&config, sym_name).await?;
+            let total_value = total_qty * ap.price;
+            println!(
+                "total_qty: {}, total_value: {}",
+                dec_to_separated_string(total_qty, symbol.base_asset_precision),
+                dec_to_money_string(total_value),
+            );
+        }
+        "dh" => {
+            // TODO: Add support for getting status, start_data_time, end_data_time
+            let asset = subcmd.matches.value_of("ASSET");
+            let dh: Vec<HistoryRec> = get_deposit_history(&config, asset, None, None, None).await?;
+            //let mut total_qty: Decimal = dec!(0);
+            //let mut total_quote_value: Decimal = dec!(0);
+            //for tr in &mt.trades {
+            //    println!("Date: {}", time_ms_to_utc(tr.time));
+            //    println!("{:#?}", tr);
+            //    total_qty += tr.is_buyer_factor() * tr.qty;
+            //    total_quote_value += tr.is_buyer_factor() * tr.quote_qty;
+            //    trace!(
+            //        "total_qty: {}, total_quote_value: {}",
+            //        total_qty,
+            //        total_quote_value
+            //    );
+            //}
+            //println!(
+            //    "total_qty: {}, total_quote_value: {}",
+            //    dec_to_separated_string(total_qty, 4),
+            //    dec_to_separated_string(total_quote_value, 2)
+            //);
+            println!("{:#?}", dh);
+        }
+        "wh" => {
+            // TODO: Add support for getting status, start_data_time, end_data_time
+            let asset = subcmd.matches.value_of("ASSET");
+            let wh: Vec<HistoryRec> =
+                get_withdraw_history(&config, asset, None, None, None).await?;
+            //let mut total_qty: Decimal = dec!(0);
+            //let mut total_quote_value: Decimal = dec!(0);
+            //for tr in &mt.trades {
+            //    println!("Date: {}", time_ms_to_utc(tr.time));
+            //    println!("{:#?}", tr);
+            //    total_qty += tr.is_buyer_factor() * tr.qty;
+            //    total_quote_value += tr.is_buyer_factor() * tr.quote_qty;
+            //    trace!(
+            //        "total_qty: {}, total_quote_value: {}",
+            //        total_qty,
+            //        total_quote_value
+            //    );
+            //}
+            //println!(
+            //    "total_qty: {}, total_quote_value: {}",
+            //    dec_to_separated_string(total_qty, 4),
+            //    dec_to_separated_string(total_quote_value, 2)
+            //);
+            println!("{:#?}", wh);
         }
         "ol" => {
             match config.order_log_path {

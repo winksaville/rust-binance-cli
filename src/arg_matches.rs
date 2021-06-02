@@ -254,13 +254,30 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            SubCommand::with_name("ao")
-                .display_order(10)
-                .about("Dispaly all orders"),
+            SubCommand::with_name("dh")
+                .display_order(7)
+                .about("Display deposit history")
+                .arg(
+                    Arg::with_name("ASSET")
+                        .help("Name of aseet or all assets if absent")
+                        .required(false)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("wh")
+                .display_order(7)
+                .about("Display withdrawal history")
+                .arg(
+                    Arg::with_name("ASSET")
+                        .help("Name of aseet or all assets if absent")
+                        .required(false)
+                        .index(1),
+                ),
         )
         .subcommand(
             SubCommand::with_name("mt")
-                .display_order(10)
+                .display_order(8)
                 .about("Display my trades for a symbol")
                 .arg(
                     Arg::with_name("SYMBOL")
@@ -270,9 +287,14 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 ),
         )
         .subcommand(
+            SubCommand::with_name("ao")
+                .display_order(9)
+                .about("Dispaly all orders"),
+        )
+        .subcommand(
             SubCommand::with_name("ol")
-                .display_order(10)
-                .about("Dispaly order log"),
+                .display_order(9)
+                .about("Display order log"),
             )
         .subcommand(
             SubCommand::with_name("do-nothing")
