@@ -1,10 +1,76 @@
 # Binance auto sell
 [![codecov](https://codecov.io/gh/winksaville/rust-binance-cli/branch/main/graph/badge.svg?token=cowZtK1KK1)](https://codecov.io/gh/winksaville/rust-binance-cli)
 
-A command line interface to some of the binance.us REST API's.
-Including some higher level capabilities such as automatically
-selling some assets. Eventually other higher level capabilities
-maybe provoded.
+> **Note: In no case can the authors of this program be held responsible
+> for any damanges or monetary losses.**
+
+This program provides a command line interface to some of the
+binance.us API's. It also Includes some higher level capabilities
+such as automatically buying and selling assets. Eventually other
+higher level capabilities maybe provoded.
+
+Also, there are some **really dangerous** subcommands, such as
+`auto-sell` and `auto-buy`. The `auto-sell` is particularly **DANGEROUS**
+because, by default, it will **SELL** all of your assets.
+
+There is an attempt to mitigate this behavior. The default configuration
+is in test mode and when not in test mode the program will prompt you to
+be sure you want to proceed. You must type, Yes, with a capital "Y" to
+proceed.
+
+As mentioned above the program is controlled by a configuration file.
+There are comments, lines with "#" in them, that provide additional
+information about each field. Refer to that file for up-to-date information.
+
+Use the `help` subcommand.
+```
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
+$ cargo run help
+binance-cli 0.2.0-a6cd35a
+Binance cli app
+
+USAGE:
+    binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
+
+FLAGS:
+    -h, --help       Prints help information
+        --no-test    Disable test mode
+    -t, --test       Enable test mode
+    -V, --version    Prints version information
+
+OPTIONS:
+        --api-key <API-KEY>              Define the api key [env: BINANCE_API_KEY=]
+    -c, --config <FILE>                  Sets a custom config file [env: BINANCE_CONFIG=]  [default:
+                                         configs/config.toml]
+        --default-quote-asset <ASSET>    The name of the asset that is used to buy or sell another asset
+        --domain <BINANCE_DOMAIN>        Domain such as binance.us or binance.com
+        --order-log-path <PATH>          Define order log path
+        --scheme <BINANCE_SCHEME>        Scheme such as https
+        --secret-key <SECRET-KEY>        Define the secret key [env: BINANCE_SECRET_KEY=]
+
+SUBCOMMANDS:
+    ai                   Display the account info
+    auto-buy             Automatically buy assets as defined in the configuration buy section
+    auto-sell            Automatically sell assets as defined in the configuration keep section
+    buy-market           Buy a number of assets
+    buy-market-value     Buy asset using quote asset value
+    sell-market          Sell a number of assets
+    sell-market-value    Sell asset using quote asset value
+    dh                   Display deposit history
+    wh                   Display withdrawal history
+    mt                   Display my trades for a symbol
+    ao                   Dispaly all orders
+    ol                   Display order log
+    ei                   Display the exchange info
+    oo                   Display a symbols open orders
+    sap                  Display a symbols 5 minute average price
+    sei                  Display a symbols exchange information
+    skr                  Display a symbols current kline record
+    skrs                 Display a symbols kline records
+    do-nothing           Do nothing used for testing
+    help                 Prints this message or the help of the given subcommand(s))
+```
+
 
 ## Prerequisites
 
@@ -39,62 +105,73 @@ Run `cargo pre-commit` it runs cargo check, fmt, test, tarpaulin and clippy
 ```
 $ cargo pre-commit
 check
-    Finished dev [unoptimized + debuginfo] target(s) in 0.04s
+    Checking binance-cli v0.2.0 (/home/wink/prgs/rust/projects/binance-cli)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.81s
 fmt
 test
-   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished test [unoptimized + debuginfo] target(s) in 2.95s
-     Running target/debug/deps/binance_auto_sell-10c26e09c2475d07
+    Finished test [unoptimized + debuginfo] target(s) in 0.05s
+     Running target/debug/deps/binance_cli-27b6fa3c5914ceca
 
-running 24 tests
-test binance_account_info::test::test_account_info ... ok
-test binance_signature::test::test_binance_example ... ok
+running 41 tests
+test binance_history::test::test_history_rec ... ok
+test binance_my_trades::test::test_trade_rec ... ok
+test binance_klines::test::test_kline_rec ... ok
 
 ...
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
 tarpaulin
-May 07 09:02:43.508  INFO cargo_tarpaulin: Running Tarpaulin
-May 07 09:02:43.508  INFO cargo_tarpaulin: Building project
-May 07 09:02:43.750  INFO cargo_tarpaulin::cargo: Cleaning project
-   Compiling autocfg v1.0.1
+Jun 02 13:20:40.281  INFO cargo_tarpaulin: Running Tarpaulin
+Jun 02 13:20:40.281  INFO cargo_tarpaulin: Building project
+Jun 02 13:20:40.561  INFO cargo_tarpaulin::cargo: Cleaning project
+   Compiling libc v0.2.94
 
 ...
 
-test binance_verify_order::test::test_adj_quantity_verify_market_lot_size ... ok
-test binance_exchange_info::test::test_exchange_info ... ok
+test binance_trade::test::test_convert ... ok
+test binance_trade::test::test_convertcommission ... ok
 
-test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
 
-May 07 09:03:13.315  INFO cargo_tarpaulin::report: Coverage Results:
+Jun 02 13:21:14.481  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
-|| src/binance_account_info.rs: 27/100
-|| src/binance_auto_sell.rs: 46/70
+|| src/arg_matches.rs: 0/63
+|| src/binance_account_info.rs: 27/113
+|| src/binance_auto_buy.rs: 0/87
+|| src/binance_auto_sell.rs: 0/120
 || src/binance_avg_price.rs: 0/16
-|| src/binance_context.rs: 25/26
-|| src/binance_exchange_info.rs: 202/275
-|| src/binance_open_orders.rs: 0/49
-|| src/binance_order_response.rs: 24/38
-|| src/binance_sell_market.rs: 0/25
+|| src/binance_exchange_info.rs: 202/271
+|| src/binance_get_klines_cmd.rs: 0/21
+|| src/binance_history.rs: 1/63
+|| src/binance_klines.rs: 59/129
+|| src/binance_market_order_cmd.rs: 0/70
+|| src/binance_my_trades.rs: 25/76
+|| src/binance_order_response.rs: 134/225
+|| src/binance_orders.rs: 0/64
 || src/binance_signature.rs: 114/114
-|| src/binance_trade.rs: 0/79
-|| src/binance_verify_order.rs: 91/145
-|| src/common.rs: 60/70
-|| src/de_string_or_number.rs: 52/55
-|| src/main.rs: 0/46
+|| src/binance_trade.rs: 55/185
+|| src/binance_verify_order.rs: 59/116
+|| src/common.rs: 100/173
+|| src/configuration.rs: 114/176
+|| src/de_string_or_number.rs: 60/75
+|| src/main.rs: 0/158
 || 
-57.85% coverage, 641/1108 lines covered
+41.04% coverage, 950/2315 lines covered
 clean
 clippy
+   Compiling libc v0.2.94
    Compiling proc-macro2 v1.0.26
+   Compiling unicode-xid v0.2.2
 
 ...
 
+   Compiling binance-cli v0.2.0 (/home/wink/prgs/rust/projects/binance-cli)
+    Checking hyper-tls v0.5.0
     Checking reqwest v0.11.3
    Compiling rust_decimal_macros v1.12.4
-    Checking binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished dev [unoptimized + debuginfo] target(s) in 14.62s
+    Checking rusty-money v0.4.1
+    Finished dev [unoptimized + debuginfo] target(s) in 18.03s
 ```
 
 ## Building and run
@@ -103,70 +180,25 @@ Building
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo clean ; cargo build
+   Compiling libc v0.2.94
    Compiling proc-macro2 v1.0.26
    Compiling unicode-xid v0.2.2
+   Compiling autocfg v1.0.1
+   Compiling syn v1.0.71
 ...
+   Compiling hyper-tls v0.5.0
    Compiling reqwest v0.11.3
-   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished dev [unoptimized + debuginfo] target(s) in 23.47s
+    Finished dev [unoptimized + debuginfo] target(s) in 25.10s
 ```
 
 Run with no parameters
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo run
-    Finished dev [unoptimized + debuginfo] target(s) in 0.04s
-     Running `target/debug/binance-cli`
-Usage: binance-cli help, --help or -h
-```
-
-And here we build and then run showing the help message:
-```
-wink@3900x:~/prgs/rust/projects/binance-cli (wip)
-$ cargo build
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
-
-wink@3900x:~/prgs/rust/projects/binance-cli (wip)
-$ ./target/debug/binance-cli help
-binance-cli 0.1.0-e865e61
-Binance cli app
-
-USAGE:
-    binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
-
-FLAGS:
-    -h, --help       Prints help information
-    -t, --test       Enable test mode
-    -V, --version    Prints version information
-
-OPTIONS:
-        --api-key <API-KEY>              Define the api key [env: BINANCE_API_KEY=]
-    -c, --config <FILE>                  Sets a custom config file [env: BINANCE_CONFIG=]  [default: config.toml]
-        --default-quote-asset <ASSET>    The name of the asset that is used to buy or sell another asset
-        --domain <BINANCE_DOMAIN>        Domain such as binance.us or binance.com
-        --order-log-path <PATH>          Define order log path
-        --scheme <BINANCE_SCHEME>        Scheme such as https
-        --secret-key <SECRET-KEY>        Define the secret key [env: BINANCE_SECRET_KEY=]
-
-SUBCOMMANDS:
-    ai                   Display the account info
-    ao                   Dispaly all orders
-    auto-buy             Automatically buy assets as defined in the configuration buy section
-    auto-sell            Automatically sell assets as defined in the configuration keep section
-    buy-market           Buy a number of assets
-    buy-market-value     Buy asset using quote asset value
-    do-nothing           Do nothing used for testing
-    ei                   Display the exchange info
-    help                 Prints this message or the help of the given subcommand(s)
-    ol                   Dispaly order log
-    oo                   Display a symbols open orders
-    sap                  Display a symbols 5 minute average price
-    sei                  Display a symbols exchange information
-    sell-market          Sell a number of assets
-    sell-market-value    Sell asset using quote asset value
-    skr                  Display a symbols current kline record
-    skrs                 Display a symbols kline records
-    st                   Display a symbols trades```
+     Running `target/debug/binance-cli`
+Usage:   binance-cli help, --help or -h
+app-ver: 0.2.0-a6cd35a
 ```
 
 > Note: you'll need
@@ -181,44 +213,21 @@ SUBCOMMANDS:
 ## Debug
 
 There are trace!() statements they can be seen by using `RUST_LOG=trace cargo run`.
-Too see only "binance-cli" traces use `RUST_LOG=binance_auto_sell=trace cargo run`.
-And as a small real example, to see only traces from the configuration module use.
-Here we see that there is an error because the default config.toml doesn't
-have real keys, API_KEY and SECRET_KEY:
+To see only "binance-cli" traces use `RUST_LOG=binance_cli=trace cargo run`.
+As a small real example, to see only traces from the configuration module add
+`RUST_LOG=binance_cli::configuration=trace`:
 ```
-wink@3900x:~/prgs/rust/projects/binance-cli (wip)
-$ RUST_LOG=binance_auto_sell::configuration=trace cargo run ai
+wink@3900x:~/prgs/rust/projects/binance-cli (main)
+$ RUST_LOG=binance_cli::configuration=trace cargo run ai -c config.toml
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
-     Running `target/debug/binance-cli ai`
-[2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] Configuration::new: opt_config=Some(
+     Running `target/debug/binance-cli ai -c config.toml`
+[2021-06-02T20:14:04Z TRACE binance_cli::configuration] Configuration::new: opt_config=Some(
         "config.toml",
     )
-[2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] config from file:
-    Configuration {
-        secret_key: "a secret key",
-        api_key: "an api key",
-        order_log_path: None,
-        default_quote_asset: "USD",
-        test: false,
-        keep: {},
-        buy: {},
-        scheme: "https",
-        domain: "binance.us",
-    }
-[2021-05-29T01:38:13Z TRACE binance_auto_sell::configuration] config after update_config:
-    Configuration {
-        secret_key: "a secret key",
-        api_key: "an api key",
-        order_log_path: None,
-        default_quote_asset: "USD",
-        test: false,
-        keep: {},
-        buy: {},
-        scheme: "https",
-        domain: "binance.us",
-    }
-Error: "response status=401 Unauthorized body={\"code\":-2014,\"msg\":\"API-key format invalid.\"}"
+Error: "InternalErrorRec: app-ver: 0.2.0-a6cd35a file: src/configuration.rs line:234 code: 9 msg: Error processing config.toml: invalid TOML value, did you mean to use a quoted string? at line 68 column 5"
 ```
+The above error is expected, to limit the possibility that someone
+could accidentally use the example `config.toml` file.
 
 I've also dabbled using vscode debugger and there is a
 `.vscode/launch.json` file, but YMMV.
@@ -230,55 +239,61 @@ Test using `cargo test`:
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo test
-   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished test [unoptimized + debuginfo] target(s) in 4.22s
-     Running target/debug/deps/binance_auto_sell-e94ca3f569a2653a
+    Finished test [unoptimized + debuginfo] target(s) in 0.05s
+     Running target/debug/deps/binance_cli-27b6fa3c5914ceca
 
-running 34 tests
-test binance_order_response::test::test_order_response_header_rec_app_rec_versions ... ok
-test binance_account_info::test::test_account_info ... ok
+running 41 tests
+test binance_history::test::test_history_rec ... ok
+test binance_my_trades::test::test_trade_rec ... ok
+test binance_my_trades::test::test_trade_rec_is_buyer_factor ... ok
 test binance_klines::test::test_kline_rec ... ok
+test binance_account_info::test::test_account_info ... ok
 test binance_order_response::test::test_order_response_header_rec_min ... ok
+test binance_order_response::test::test_order_response_header_rec_app_rec_versions ... ok
 test binance_order_response::test::test_order_response_semver ... ok
 test binance_order_response::test::test_order_response_header_rec_max ... ok
-test binance_order_response::test::test_order_response_success_unknown ... ok
 test binance_order_response::test::test_order_response_success_ack ... ok
+test binance_order_response::test::test_order_response_success_unknown ... ok
 test binance_order_response::test::test_order_response_success_result ... ok
-test binance_auto_sell::test::test_config_auto_sell_all ... ok
-test binance_signature::test::test_append_signature ... ok
 test binance_signature::test::test_binance_example ... ok
+test binance_signature::test::test_append_signature ... ok
 test binance_order_response::test::test_order_response_success_full ... ok
 test binance_signature::test::test_binance_signature_body_only ... ok
 test binance_signature::test::test_binance_signature_no_query_string_no_body ... ok
 test binance_signature::test::test_binance_signature_query_string_and_body ... ok
 test binance_signature::test::test_query_vec_u8 ... ok
-test binance_signature::test::test_binance_signature_query_string_only ... ok
 test binance_signature::test::test_query_vec_u8_no_data ... ok
+test binance_signature::test::test_binance_signature_query_string_only ... ok
 test binance_exchange_info::test::test_exchange_info ... ok
-test binance_trade::test::test_log_order_response ... ok
 test common::test::test_binance_response_error_rec ... ok
+test common::test::test_dec_to_separated_string ... ok
 test common::test::test_internal_error ... ok
-test common::test::test_binance_response_error_rec_bad_body ... ok
 test common::test::test_timestamp_ms_to_secs_nsecs ... ok
+test common::test::test_binance_response_error_rec_bad_body ... ok
+test configuration::test::test_config_empty ... ok
+test common::test::test_dec_to_money_string ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
+test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
+test configuration::test::test_config_buy ... ok
 test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
 test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
-test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
+test binance_trade::test::test_log_order_response ... ok
+test configuration::test::test_config_keep ... ok
 test common::test::test_utc_now_to_time_ms ... ok
 test binance_trade::test::test_convertcommission ... ok
 test binance_trade::test::test_convert ... ok
 
-test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
 
-     Running target/debug/deps/cli-165364053a395b57
+     Running target/debug/deps/cli-1bc2ccfeadf46ce1
 
 running 4 tests
 test test_no_params ... ok
+test test_help ... ok
 test test_req_params ... ok
 test test_req_params_as_env_vars ... ok
-test test_help ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 ```
@@ -294,33 +309,31 @@ So the first time run `cargo tarpaulin`:
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo tarpaulin
-May 26 08:31:33.926  INFO cargo_tarpaulin: Running Tarpaulin
-May 26 08:31:33.926  INFO cargo_tarpaulin: Building project
-May 26 08:31:34.102  INFO cargo_tarpaulin::cargo: Cleaning project
-   Compiling proc-macro2 v1.0.26
+Jun 02 13:31:02.703  INFO cargo_tarpaulin: Running Tarpaulin
+Jun 02 13:31:02.703  INFO cargo_tarpaulin: Building project
+Jun 02 13:31:02.981  INFO cargo_tarpaulin::cargo: Cleaning project
+   Compiling libc v0.2.94
    Compiling autocfg v1.0.1
-   Compiling unicode-xid v0.2.2
+   Compiling proc-macro2 v1.0.26
 ...
-   Compiling function_name v0.2.0
-   Compiling hyper-tls v0.5.0
    Compiling reqwest v0.11.3
-   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished test [unoptimized + debuginfo] target(s) in 26.27s
-May 26 08:32:00.474  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:32:00.474  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/cli-165364053a395b57
+    Finished test [unoptimized + debuginfo] target(s) in 27.70s
+Jun 02 13:31:30.789  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Jun 02 13:31:30.789  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/cli-1bc2ccfeadf46ce1
 
 running 4 tests
 test test_req_params_as_env_vars ... ok
 test test_req_params ... ok
-test test_no_params ... ok
 test test_help ... ok
+test test_no_params ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 
-May 26 08:32:01.667  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:32:01.667  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_auto_sell-e94ca3f569a2653a
+Jun 02 13:31:31.986  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Jun 02 13:31:31.986  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_cli-27b6fa3c5914ceca
 
-running 34 tests
+running 41 tests
+test binance_history::test::test_history_rec ... ok
 test binance_signature::test::test_query_vec_u8_no_data ... ok
 test binance_order_response::test::test_order_response_semver ... ok
 test binance_signature::test::test_binance_example ... ok
@@ -328,71 +341,80 @@ test binance_signature::test::test_binance_signature_no_query_string_no_body ...
 test binance_order_response::test::test_order_response_header_rec_min ... ok
 test binance_signature::test::test_query_vec_u8 ... ok
 test binance_order_response::test::test_order_response_header_rec_app_rec_versions ... ok
-test binance_trade::test::test_log_order_response ... ok
 test binance_signature::test::test_binance_signature_query_string_only ... ok
 test binance_signature::test::test_binance_signature_query_string_and_body ... ok
 test binance_signature::test::test_binance_signature_body_only ... ok
 test binance_order_response::test::test_order_response_header_rec_max ... ok
 test binance_signature::test::test_append_signature ... ok
 test binance_order_response::test::test_order_response_success_unknown ... ok
-test common::test::test_internal_error ... ok
-test binance_order_response::test::test_order_response_success_ack ... ok
+test binance_my_trades::test::test_trade_rec_is_buyer_factor ... ok
 test common::test::test_binance_response_error_rec_bad_body ... ok
 test common::test::test_binance_response_error_rec ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
+test binance_trade::test::test_log_order_response ... ok
+test binance_order_response::test::test_order_response_success_ack ... ok
+test common::test::test_dec_to_separated_string ... ok
+test common::test::test_dec_to_money_string ... ok
+test binance_my_trades::test::test_trade_rec ... ok
 test binance_klines::test::test_kline_rec ... ok
+test common::test::test_internal_error ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
 test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
 test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
 test common::test::test_utc_now_to_time_ms ... ok
+test configuration::test::test_config_empty ... ok
 test binance_order_response::test::test_order_response_success_result ... ok
 test binance_order_response::test::test_order_response_success_full ... ok
 test binance_account_info::test::test_account_info ... ok
+test configuration::test::test_config_buy ... ok
 test common::test::test_timestamp_ms_to_secs_nsecs ... ok
-test binance_auto_sell::test::test_config_auto_sell_all ... ok
+test configuration::test::test_config_keep ... ok
 test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
 test binance_exchange_info::test::test_exchange_info ... ok
-test binance_trade::test::test_convert ... ok
 test binance_trade::test::test_convertcommission ... ok
+test binance_trade::test::test_convert ... ok
 
-test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
 
-May 26 08:32:06.567  INFO cargo_tarpaulin::report: Coverage Results:
+Jun 02 13:31:37.136  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
-|| src/arg_matches.rs: 0/45
-|| src/binance_account_info.rs: 27/106
-|| src/binance_auto_sell.rs: 37/136
+|| src/arg_matches.rs: 0/63
+|| src/binance_account_info.rs: 27/113
+|| src/binance_auto_buy.rs: 0/87
+|| src/binance_auto_sell.rs: 0/120
 || src/binance_avg_price.rs: 0/16
 || src/binance_exchange_info.rs: 202/271
-|| src/binance_get_klines_cmd.rs: 0/22
+|| src/binance_get_klines_cmd.rs: 0/21
+|| src/binance_history.rs: 1/63
 || src/binance_klines.rs: 59/129
-|| src/binance_market_order_cmd.rs: 0/67
-|| src/binance_my_trades.rs: 0/50
+|| src/binance_market_order_cmd.rs: 0/70
+|| src/binance_my_trades.rs: 25/76
 || src/binance_order_response.rs: 134/225
 || src/binance_orders.rs: 0/64
 || src/binance_signature.rs: 114/114
-|| src/binance_trade.rs: 55/165
+|| src/binance_trade.rs: 55/185
 || src/binance_verify_order.rs: 59/116
-|| src/common.rs: 85/145
-|| src/configuration.rs: 22/57
-|| src/de_string_or_number.rs: 52/55
-|| src/main.rs: 0/112
+|| src/common.rs: 100/173
+|| src/configuration.rs: 114/176
+|| src/de_string_or_number.rs: 60/75
+|| src/main.rs: 0/158
 || 
-44.64% coverage, 846/1895 lines covered
+41.04% coverage, 950/2315 lines covered
 ```
 
 For subsequent runs you can use `--skip-clean` to save time:
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo tarpaulin --skip-clean
-May 26 08:33:36.424  INFO cargo_tarpaulin: Running Tarpaulin
-May 26 08:33:36.424  INFO cargo_tarpaulin: Building project
-    Finished test [unoptimized + debuginfo] target(s) in 0.04s
-May 26 08:33:36.631  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:33:36.631  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_auto_sell-e94ca3f569a2653a
+Jun 02 13:32:45.299  INFO cargo_tarpaulin: Running Tarpaulin
+Jun 02 13:32:45.299  INFO cargo_tarpaulin: Building project
+    Finished test [unoptimized + debuginfo] target(s) in 0.05s
+Jun 02 13:32:45.523  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Jun 02 13:32:45.523  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_cli-27b6fa3c5914ceca
 
-running 34 tests
+running 41 tests
+test binance_history::test::test_history_rec ... ok
 test binance_signature::test::test_query_vec_u8_no_data ... ok
 test binance_order_response::test::test_order_response_semver ... ok
 test binance_signature::test::test_binance_example ... ok
@@ -404,65 +426,74 @@ test binance_signature::test::test_binance_signature_query_string_only ... ok
 test binance_signature::test::test_binance_signature_query_string_and_body ... ok
 test binance_signature::test::test_binance_signature_body_only ... ok
 test binance_order_response::test::test_order_response_header_rec_max ... ok
-test binance_trade::test::test_log_order_response ... ok
 test binance_signature::test::test_append_signature ... ok
 test binance_order_response::test::test_order_response_success_unknown ... ok
-test common::test::test_internal_error ... ok
 test common::test::test_binance_response_error_rec_bad_body ... ok
 test common::test::test_binance_response_error_rec ... ok
+test binance_trade::test::test_log_order_response ... ok
+test binance_my_trades::test::test_trade_rec_is_buyer_factor ... ok
+test common::test::test_dec_to_separated_string ... ok
 test binance_order_response::test::test_order_response_success_ack ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
+test common::test::test_dec_to_money_string ... ok
 test binance_klines::test::test_kline_rec ... ok
+test common::test::test_internal_error ... ok
+test binance_my_trades::test::test_trade_rec ... ok
+test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
 test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
 test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
-test common::test::test_utc_now_to_time_ms ... ok
 test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
+test common::test::test_utc_now_to_time_ms ... ok
+test configuration::test::test_config_empty ... ok
 test binance_order_response::test::test_order_response_success_result ... ok
-test binance_account_info::test::test_account_info ... ok
 test binance_order_response::test::test_order_response_success_full ... ok
+test binance_account_info::test::test_account_info ... ok
+test configuration::test::test_config_buy ... ok
 test common::test::test_timestamp_ms_to_secs_nsecs ... ok
-test binance_auto_sell::test::test_config_auto_sell_all ... ok
+test configuration::test::test_config_keep ... ok
 test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
 test binance_exchange_info::test::test_exchange_info ... ok
 test binance_trade::test::test_convert ... ok
 test binance_trade::test::test_convertcommission ... ok
 
-test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
 
-May 26 08:33:41.647  INFO cargo_tarpaulin::process_handling::linux: Launching test
-May 26 08:33:41.647  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/cli-165364053a395b57
+Jun 02 13:32:50.679  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Jun 02 13:32:50.679  INFO cargo_tarpaulin::process_handling: running /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/cli-1bc2ccfeadf46ce1
 
 running 4 tests
 test test_req_params_as_env_vars ... ok
 test test_req_params ... ok
-test test_no_params ... ok
 test test_help ... ok
+test test_no_params ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
 
-May 26 08:33:42.795  INFO cargo_tarpaulin::report: Coverage Results:
+Jun 02 13:32:51.852  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
-|| src/arg_matches.rs: 0/45 +0%
-|| src/binance_account_info.rs: 27/106 +0%
-|| src/binance_auto_sell.rs: 37/136 +0%
+|| src/arg_matches.rs: 0/63 +0%
+|| src/binance_account_info.rs: 27/113 +0%
+|| src/binance_auto_buy.rs: 0/87 +0%
+|| src/binance_auto_sell.rs: 0/120 +0%
 || src/binance_avg_price.rs: 0/16 +0%
 || src/binance_exchange_info.rs: 202/271 +0%
-|| src/binance_get_klines_cmd.rs: 0/22 +0%
+|| src/binance_get_klines_cmd.rs: 0/21 +0%
+|| src/binance_history.rs: 1/63 +0%
 || src/binance_klines.rs: 59/129 +0%
-|| src/binance_market_order_cmd.rs: 0/67 +0%
-|| src/binance_my_trades.rs: 0/50 +0%
+|| src/binance_market_order_cmd.rs: 0/70 +0%
+|| src/binance_my_trades.rs: 25/76 +0%
 || src/binance_order_response.rs: 134/225 +0%
 || src/binance_orders.rs: 0/64 +0%
 || src/binance_signature.rs: 114/114 +0%
-|| src/binance_trade.rs: 55/165 +0%
+|| src/binance_trade.rs: 55/185 +0%
 || src/binance_verify_order.rs: 59/116 +0%
-|| src/common.rs: 85/145 +0%
-|| src/configuration.rs: 22/57 +0%
-|| src/de_string_or_number.rs: 52/55 +0%
-|| src/main.rs: 0/112 +0%
+|| src/common.rs: 100/173 +0%
+|| src/configuration.rs: 114/176 +0%
+|| src/de_string_or_number.rs: 60/75 +0%
+|| src/main.rs: 0/158 +0%
 || 
-44.64% coverage, 846/1895 lines covered, +0% change in coverage
+41.04% coverage, 950/2315 lines covered, +0% change in coverage
+
 ```
 
 **But**, as mentioned above, run `cargo build|run|test`
@@ -470,12 +501,12 @@ commands the first one will need to be preceeded by a `cargo clean`
 otherwise you'll get an error from the linker:
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
-$ cargo run help
+$ cargo run
+   Compiling libc v0.2.94
    Compiling proc-macro2 v1.0.26
    Compiling unicode-xid v0.2.2
 ...
-          /home/wink/prgs/rust/projects/binance-cli/src/common.rs:20: undefined reference to `core::ptr::drop_in_place<alloc::string::String>'
-          /usr/bin/ld: /home/wink/prgs/rust/projects/binance-cli/target/debug/deps/binance_auto_sell-f54f02dcf7d07658.y4lov3w4ip2lx2c.rcgu.o:/home/wink/prgs/rust/projects/binance-cli/src/common.rs:20: more undefined references to `core::ptr::drop_in_place<alloc::string::String>' follow
+          /home/wink/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_json-1.0.64/src/de.rs:1725: undefined reference to `core::ptr::drop_in_place<alloc::vec::Vec<alloc::string::String>>'
           collect2: error: ld returned 1 exit status
           
 
@@ -484,56 +515,23 @@ error: aborting due to previous error
 error: could not compile `binance-cli`
 
 To learn more, run the command again with --verbose.
+
 ```
 
 Here is what you need to do:
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
-$ cargo clean ; cargo run help
+$ cargo clean ; cargo run
+   Compiling libc v0.2.94
    Compiling proc-macro2 v1.0.26
    Compiling unicode-xid v0.2.2
 ...
+   Compiling hyper-tls v0.5.0
    Compiling reqwest v0.11.3
-   Compiling binance-cli v0.1.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished dev [unoptimized + debuginfo] target(s) in 23.45s
-     Running `target/debug/binance-cli help`
-Exper clap config 0.1.0
-Experiment using a config file
-
-USAGE:
-    binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
-
-FLAGS:
-    -h, --help       Prints help information
-    -t, --test       Enable test mode
-    -V, --version    Prints version information
-
-OPTIONS:
-        --api-key <API-KEY>              Define the api key [env: BINANCE_US_API_KEY=]
-    -c, --config <FILE>                  Sets a custom config file [env: BINANCE_CONFIG=]  [default: config.toml]
-        --default-quote-asset <ASSET>    The name of the asset that is used to buy or sell another asset
-        --domain <BINANCE_DOMAIN>        Domain such as binance.us or binance.com
-        --log-path <PATH>                Define log path
-        --scheme <BINANCE_SCHEME>        Scheme such as https
-        --secret-key <SECRET-KEY>        Define the secret key [env: BINANCE_US_SECRET_KEY=]
-
-SUBCOMMANDS:
-    ai             Display the account info
-    ao             Dispaly all orders
-    auto-sell      Automatically sell assets as defined in the configuration keep section
-    buy-market     Buy an asset
-    do-nothing     Do nothing used for testing
-    ei             Display the exchange info
-    help           Prints this message or the help of the given subcommand(s)
-    ol             Dispaly order log
-    oo             Display a symbols open orders
-    sap            Display a symbols 5 minute average price
-    sei            Display a symbols exchange information
-    sell-market    Sell an asset
-    skr            Display a symbols current kline record
-    skrs           Display a symbols kline records
-    st             Display a symbols trades
-For subseqent `build|run|test`'s it is not necessary:
+    Finished dev [unoptimized + debuginfo] target(s) in 24.96s
+     Running `target/debug/binance-cli`
+Usage:   binance-cli help, --help or -h
+app-ver: 0.2.0-a6cd35a
 ```
 
 And, of course, subquent runs don't need the `cargo clean`:
