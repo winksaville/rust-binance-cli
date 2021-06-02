@@ -1,17 +1,39 @@
 # This is a commnet line and is ignored
 
-# Define keys for your account
+# This file contains configuration information for
+# binance_cli. Of particular importance is that it
+# may contina your binance keys. As such you should
+# NEVER EVER add real keys to this file as in instance
+# default location it is saved to the source control
+# system and is public.
+#
+# The easiest thing to do is to copy this file to configs/
+# as by default configs/config.toml is the default location
+# for this fil3e. If you'd rather you can move it to some
+# other directory and then create a BINANCE_CONFIG
+# environment variable with the full path to that file.
+#
+# For instance:
+#    $ cp config.toml /home/wink/wink-binance-config.toml
+#    $ export BINANCE_CONFIG=/home/wink/wink-binance-config.toml
+#
+# Note: the reason configs/ is ok is that by default configs/
+# si not saved to the source control system, see .gitignore
+
+# Add "real" keys here, but NEVER save this file to source control.
 API_KEY = "an api key"
 SECRET_KEY = "a secret key"
 
 # Path and file name for the log file
-deata_log_path = "data/log-1.txt"
+deata_log_path = "data/an_order_log.txt"
 
 # The name of the asset that is used to buy or sell another asset.
 default_quote_asset = "USD"
 
 # Test mode "true" | "false"
-# Default is currently true so buy and sell do nothing.
+# Default is currently true so auto-buy and auto-sell do nothing
+# if you trust this program and binance to do the right thing.
+# BE VERY CAREFUL!
 test = true
 
 # Default scheme for make_url
@@ -41,6 +63,9 @@ keep = [
     #{ name = "BNB", min = 510, quote_asset = "USDT" },
     #{ name = "ONE", min = 100 },
     #{ name = "ADA" },
+
+    # So we don't accidentally use this file
+    this will generate an error, delete or comment out
 ]
 
 # The "auto-buy" subcommand uses the "buy" as a list of assets
@@ -61,4 +86,7 @@ keep = [
 buy = [
     #{ name = "MATIC", percent = 10, quote_asset = "USD" },
     #{ name = "ZEN", percent = 15 }
+
+    # So we don't accidentally use this file
+    this will generate an error, delete or comment out
 ]
