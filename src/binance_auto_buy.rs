@@ -2,15 +2,15 @@ use log::trace;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-use crate::binance_trade::{MarketQuantityType, TradeOrderType};
-
 use crate::{
     binance_account_info::get_account_info,
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
-    common::{are_you_sure_stdout_stdin, time_ms_to_utc, Side},
+    binance_trade::{MarketQuantityType, TradeOrderType},
+    common::{are_you_sure_stdout_stdin, time_ms_to_utc, InternalErrorRec, Side},
     configuration::Configuration,
+    ier_new,
 };
 
 pub async fn auto_buy(
@@ -48,8 +48,16 @@ pub async fn auto_buy(
 
     let mut process_recs = Vec::<ProcessRec>::new();
 
+    let buy_recs = if let Some(brs) = &config.buy {
+        brs
+    } else {
+        return Err(ier_new!(8, "Missing `buy` field in configuration")
+            .to_string()
+            .into());
+    };
+
     // Iterate over the BuyRec's and determine the buy_qty
-    for br in config.buy.values() {
+    for br in buy_recs.values() {
         trace!("auto-buy: tol adding process_recs br: {:#?}", br);
         let (quote_asset, quote_asset_value) = if !br.quote_asset.is_empty() {
             if let Some(b) = ai.balances_map.get(&br.quote_asset) {

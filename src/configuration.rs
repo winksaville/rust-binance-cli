@@ -1,4 +1,6 @@
 // Based on https://stackoverflow.com/a/55134333/4812090
+use crate::common::InternalErrorRec;
+use crate::ier_new;
 use clap::ArgMatches;
 use core::mem::size_of;
 use log::trace;
@@ -11,7 +13,9 @@ use std::{collections::HashMap, fmt, fs::read_to_string, path::PathBuf};
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
-fn de_vec_keep_rec_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, KeepRec>, D::Error>
+fn de_vec_keep_rec_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<Option<HashMap<String, KeepRec>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -40,7 +44,13 @@ where
         }
     }
 
-    deserializer.deserialize_seq(ItemsVisitor)
+    println!("dev_vec_keep_rec_to_hashmap: in Visitor");
+    let result = deserializer.deserialize_seq(ItemsVisitor);
+
+    match result {
+        Ok(v) => Ok(Some(v)),
+        Err(e) => Err(e),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -60,7 +70,9 @@ fn default_min() -> Decimal {
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?
-fn de_vec_buy_rec_to_hashmap<'de, D>(deserializer: D) -> Result<HashMap<String, BuyRec>, D::Error>
+fn de_vec_buy_rec_to_hashmap<'de, D>(
+    deserializer: D,
+) -> Result<Option<HashMap<String, BuyRec>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -89,7 +101,13 @@ where
         }
     }
 
-    deserializer.deserialize_seq(ItemsVisitor)
+    println!("dev_vec_buy_rec_to_hashmap: in Visitor");
+    let result = deserializer.deserialize_seq(ItemsVisitor);
+
+    match result {
+        Ok(v) => Ok(Some(v)),
+        Err(e) => Err(e),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -154,19 +172,21 @@ pub struct Configuration {
     #[serde(default)]
     pub test: bool,
 
+    #[serde(default)]
     #[serde(deserialize_with = "de_vec_keep_rec_to_hashmap")]
-    #[serde(default)]
-    pub keep: HashMap<String, KeepRec>,
+    pub keep: Option<HashMap<String, KeepRec>>,
 
-    #[serde(deserialize_with = "de_vec_buy_rec_to_hashmap")]
     #[serde(default)]
-    pub buy: HashMap<String, BuyRec>,
+    #[serde(deserialize_with = "de_vec_buy_rec_to_hashmap")]
+    pub buy: Option<HashMap<String, BuyRec>>,
 
     #[serde(default = "default_scheme")]
     pub scheme: String,
 
     #[serde(default = "default_domain")]
     pub domain: String,
+
+    pub xyz: Option<String>,
 }
 
 fn default_quote_asset() -> String {
@@ -190,8 +210,9 @@ impl Default for Configuration {
             test: false,
             scheme: default_scheme(),
             domain: default_domain(),
-            keep: HashMap::<String, KeepRec>::new(),
-            buy: HashMap::<String, BuyRec>::new(),
+            keep: None,
+            buy: None,
+            xyz: None,
         }
     }
 }
@@ -208,9 +229,19 @@ impl Configuration {
                         trace!("config from file:\n{:#?}", cfg);
                         cfg
                     }
-                    Err(e) => return Err(format!("Error processing {}: {}", path_str, e).into()),
+                    Err(e) => {
+                        return Err(
+                            ier_new!(9, &format!("Error processing {}: {}", path_str, e))
+                                .to_string()
+                                .into(),
+                        )
+                    }
                 },
-                Err(e) => return Err(format!("Error reading {}: {}", path_str, e).into()),
+                Err(e) => {
+                    return Err(ier_new!(9, &format!("Error reading {}: {}", path_str, e))
+                        .to_string()
+                        .into())
+                }
             };
             config
         } else {
@@ -293,8 +324,8 @@ mod test {
         assert_eq!(config.scheme, "https");
         assert_eq!(config.domain, "binance.us");
         assert_eq!(config.test, false);
-        assert!(config.keep.is_empty());
-        assert!(config.buy.is_empty());
+        assert!(config.keep.is_none());
+        assert!(config.buy.is_none());
     }
 
     const TOML_DATA: &str = r#"
@@ -318,8 +349,9 @@ mod test {
         assert_eq!(config.scheme, "https"); // The default
         assert_eq!(config.domain, "binance.us"); // The default
         assert_eq!(config.test, false); // The default
+        let brs = &config.buy.unwrap();
         assert_eq!(
-            config.buy.get("ABC").unwrap(),
+            brs.get("ABC").unwrap(),
             &BuyRec {
                 name: "ABC".to_string(),
                 percent: dec!(20),
@@ -327,7 +359,7 @@ mod test {
             }
         );
         assert_eq!(
-            config.buy.get("DEF").unwrap(),
+            brs.get("DEF").unwrap(),
             &BuyRec {
                 name: "DEF".to_string(),
                 percent: dec!(23.5),
@@ -369,8 +401,9 @@ mod test {
         assert_eq!(config.scheme, "http");
         assert_eq!(config.domain, "binance.com");
         assert_eq!(config.test, true);
+        let krs = &config.keep.unwrap();
         assert_eq!(
-            config.keep.get("USD").unwrap(),
+            krs.get("USD").unwrap(),
             &KeepRec {
                 name: "USD".to_string(),
                 min: Decimal::MAX,
@@ -378,7 +411,7 @@ mod test {
             }
         );
         assert_eq!(
-            config.keep.get("USDT").unwrap(),
+            krs.get("USDT").unwrap(),
             &KeepRec {
                 name: "USDT".to_string(),
                 min: Decimal::MAX,
@@ -386,7 +419,7 @@ mod test {
             }
         );
         assert_eq!(
-            config.keep.get("USDC").unwrap(),
+            krs.get("USDC").unwrap(),
             &KeepRec {
                 name: "USDC".to_string(),
                 min: Decimal::MAX,
@@ -394,7 +427,7 @@ mod test {
             }
         );
         assert_eq!(
-            config.keep.get("BNB").unwrap(),
+            krs.get("BNB").unwrap(),
             &KeepRec {
                 name: "BNB".to_string(),
                 min: dec!(500),
@@ -404,7 +437,7 @@ mod test {
 
         // ABC says sell everything to BTC
         assert_eq!(
-            config.keep.get("ABC").unwrap(),
+            krs.get("ABC").unwrap(),
             &KeepRec {
                 name: "ABC".to_string(),
                 min: dec!(0),
@@ -414,7 +447,7 @@ mod test {
 
         // XYZ is odd as nothing will be sold since KeepRec.min default is MAX so quote_asset is ignored
         assert_eq!(
-            config.keep.get("XYZ").unwrap(),
+            krs.get("XYZ").unwrap(),
             &KeepRec {
                 name: "XYZ".to_string(),
                 min: Decimal::MAX,

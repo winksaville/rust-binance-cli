@@ -12,8 +12,11 @@ use crate::{
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
     binance_trade::{MarketQuantityType, TradeOrderType},
-    common::{are_you_sure_stdout_stdin, dec_to_money_string, time_ms_to_utc, Side},
+    common::{
+        are_you_sure_stdout_stdin, dec_to_money_string, time_ms_to_utc, InternalErrorRec, Side,
+    },
     configuration::Configuration,
+    ier_new,
 };
 
 pub async fn auto_sell(
@@ -52,7 +55,15 @@ pub async fn auto_sell(
 
         let owned_qty = balance.free + balance.locked;
         if owned_qty > dec!(0) {
-            if let Some(keeping) = config.keep.get(&balance.asset) {
+            let keep_recs = if let Some(krs) = &config.keep {
+                krs
+            } else {
+                return Err(ier_new!(8, "Missing `keep` field in configuration, make it empty if everything is to be sold: `keep = []`")
+                    .to_string()
+                    .into());
+            };
+
+            if let Some(keeping) = keep_recs.get(&balance.asset) {
                 keep_qty = if keeping.min < Decimal::MAX && keeping.min < owned_qty {
                     keeping.min
                 } else {
