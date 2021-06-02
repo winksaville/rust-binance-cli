@@ -58,12 +58,13 @@ impl InternalErrorRec {
 
 impl Display for InternalErrorRec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let ver = &APP_VERSION;
         trace!("Display::InternalErrorRec: {:#?}", self);
         if !self.fn_name.is_empty() {
             write!(
                 f,
-                "InternalErrorRec ver: {:?} file: {} fn: {} line: {} code: {} msg: {}",
-                APP_VERSION.as_str(),
+                "InternalErrorRec app-ver: {} file: {} fn: {} line: {} code: {} msg: {}",
+                ver.as_str(),
                 self.file,
                 self.fn_name,
                 self.line,
@@ -73,8 +74,8 @@ impl Display for InternalErrorRec {
         } else {
             write!(
                 f,
-                "InternalErrorRec: ver: {:?} file: {} line:{} code: {} msg: {}",
-                APP_VERSION.as_str(),
+                "InternalErrorRec: app-ver: {} file: {} line:{} code: {} msg: {}",
+                ver.as_str(),
                 self.file,
                 self.line,
                 self.code,
