@@ -83,19 +83,63 @@ pub struct WithdrawRec {
     pub withdraw_order_id: Option<String>,
 }
 
+// {
+//     "orderId":"6c2ff984890145fdac2b7160299062f0",
+//     "paymentAccount": "4a992541-c12d-4cca-bbd6-df637f801526",
+//     "paymentChannel": "PRIMETRUST",
+//     "paymentMethod": "WIRE_INTERNATIONAL",
+//     "orderStatus": "Processing",
+//     "amount": "65",
+//     "transactionFee": "20",
+//     "platformFee": "0"
+// }
+// {
+//     "orderId":"a67cf36288c5408e94ec4436cb8357b7",
+//     "paymentChannel":"PRIMETRUST",
+//     "paymentMethod":"WIRE",
+//     "orderStatus":"Successful",
+//     "amount":"450",
+//     "transactionFee":"0",
+//     "platformFee":"0"
+// }
+
+// {
+//     "orderId":"70c95675dfd645ae93cb5951b281de20",
+//     "paymentAccount":"24c58fbc-c203-400b-8885-8162c1c7f11b",
+//     "paymentChannel":"PRIMETRUST",
+//     "paymentMethod":"CREDIT_CARD",
+//     "orderStatus":"Successful",
+//     "amount":"95.5",
+//     "transactionFee":"4.5",
+//     "platformFee":"0"
+// }
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetLogRec {
+    order_id: String,
+    payment_account: Option<String>,
+    payment_method: String,
+    order_status: String,
+    amount: Decimal,
+    transaction_fee: Decimal,
+    platform_fee: Decimal,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Histories {
     pub deposit_list: Option<Vec<DepositRec>>,
     pub withdraw_list: Option<Vec<WithdrawRec>>,
-    pub success: bool,
+    pub asset_log_record_list: Option<Vec<AssetLogRec>>,
+    pub success: Option<bool>,
 }
 
 /// TODO: Consider making generic or process macro as is
 /// copy/paste fo orders_get_req_response
 async fn history_get_req_and_response(
     config: &Configuration,
-    cmd: &str,
+    full_path: &str,
     mut params: Vec<(&str, &str)>,
 ) -> Result<Histories, Box<dyn std::error::Error>> {
     let secret_key = config.keys.secret_key.as_bytes();
@@ -121,7 +165,7 @@ async fn history_get_req_and_response(
         &query_string
     );
 
-    let mut url = config.make_url("api", &format!("/wapi/v3/{}?", cmd));
+    let mut url = config.make_url("api", &format!("{}?", full_path));
     url.push_str(&query_string);
     trace!("history_get_req_and_response: url={}", url);
 
@@ -163,7 +207,7 @@ async fn history_get_req_and_response(
 
 pub async fn get_history(
     config: &Configuration,
-    url_page: &str,
+    full_path: &str,
     asset: Option<&str>,
     status: Option<u32>,
     start_date_time: Option<DateTime<Utc>>,
@@ -193,7 +237,7 @@ pub async fn get_history(
         params.push(("endTime", &etms_string));
     }
 
-    history_get_req_and_response(config, url_page, params).await
+    history_get_req_and_response(config, full_path, params).await
 }
 
 pub async fn get_deposit_history(
@@ -205,7 +249,7 @@ pub async fn get_deposit_history(
 ) -> Result<Vec<DepositRec>, Box<dyn std::error::Error>> {
     let histories = get_history(
         config,
-        "depositHistory.html",
+        "/wapi/v3/depositHistory.html",
         asset,
         status,
         start_date_time,
@@ -233,7 +277,7 @@ pub async fn get_withdraw_history(
 ) -> Result<Vec<WithdrawRec>, Box<dyn std::error::Error>> {
     let histories = get_history(
         config,
-        "withdrawHistory.html",
+        "/wapi/v3/withdrawHistory.html",
         asset,
         status,
         start_date_time,
@@ -250,6 +294,117 @@ pub async fn get_withdraw_history(
         );
         return Err(ier.to_string().into());
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn get_fiat_currency_history(
+    config: &Configuration,
+    full_path: &str,
+    fiat_currency: Option<&str>,
+    order_id: Option<&str>,
+    offset: Option<i64>,
+    payment_channel: Option<&str>,
+    payment_method: Option<&str>,
+    start_date_time: Option<DateTime<Utc>>,
+    end_date_time: Option<DateTime<Utc>>,
+) -> Result<Vec<AssetLogRec>, Box<dyn std::error::Error>> {
+    let mut params: Vec<(&str, &str)> = Vec::new();
+
+    if let Some(fc) = fiat_currency {
+        params.push(("fiatCurrency", fc));
+    }
+
+    if let Some(ois) = order_id {
+        params.push(("orderId", ois));
+    }
+
+    let offset_string: String;
+    if let Some(o) = offset {
+        offset_string = o.to_string();
+        params.push(("offset", &offset_string));
+    }
+
+    if let Some(pcs) = payment_channel {
+        params.push(("paymentChannel", pcs));
+    }
+
+    if let Some(pm) = payment_method {
+        params.push(("paymentMethod", pm));
+    }
+
+    let stms_string: String;
+    if let Some(sdt) = start_date_time {
+        stms_string = utc_to_time_ms(&sdt).to_string();
+        params.push(("startTime", &stms_string));
+    }
+
+    let etms_string: String;
+    if let Some(edt) = end_date_time {
+        etms_string = utc_to_time_ms(&edt).to_string();
+        params.push(("endTime", &etms_string));
+    }
+
+    let histories = history_get_req_and_response(config, full_path, params).await?;
+
+    if let Some(alrs) = histories.asset_log_record_list {
+        Ok(alrs)
+    } else {
+        let ier = ier_new!(
+            7,
+            "Should not happen; expected assetLogRecordList, but there was None"
+        );
+        return Err(ier.to_string().into());
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn get_fiat_currency_deposit_history(
+    config: &Configuration,
+    fiat_currency: Option<&str>,
+    order_id: Option<&str>,
+    offset: Option<i64>,
+    payment_channel: Option<&str>,
+    payment_method: Option<&str>,
+    start_date_time: Option<DateTime<Utc>>,
+    end_date_time: Option<DateTime<Utc>>,
+) -> Result<Vec<AssetLogRec>, Box<dyn std::error::Error>> {
+    Ok(get_fiat_currency_history(
+        config,
+        "/sapi/v1/fiatpayment/query/deposit/history",
+        fiat_currency,
+        order_id,
+        offset,
+        payment_channel,
+        payment_method,
+        start_date_time,
+        end_date_time,
+    )
+    .await?)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn get_fiat_currency_withdraw_history(
+    config: &Configuration,
+    fiat_currency: Option<&str>,
+    order_id: Option<&str>,
+    offset: Option<i64>,
+    payment_channel: Option<&str>,
+    payment_method: Option<&str>,
+    start_date_time: Option<DateTime<Utc>>,
+    end_date_time: Option<DateTime<Utc>>,
+) -> Result<Vec<AssetLogRec>, Box<dyn std::error::Error>> {
+    Ok(get_fiat_currency_history(
+        config,
+        "/sapi/v1/fiatpayment/query/withdraw/history",
+        fiat_currency,
+        order_id,
+        offset,
+        payment_channel,
+        payment_method,
+        start_date_time,
+        end_date_time,
+    )
+    .await?)
 }
 
 #[cfg(test)]

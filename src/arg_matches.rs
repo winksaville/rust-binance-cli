@@ -276,6 +276,28 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 ),
         )
         .subcommand(
+            SubCommand::with_name("fcdh")
+                .display_order(7)
+                .about("Display fiat currency deposit history")
+                .arg(
+                    Arg::with_name("FIAT_CURRENCY")
+                        .help("Name of fiat currency or USD if absent")
+                        .required(false)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("fcwh")
+                .display_order(7)
+                .about("Display fiat currency withdraw history")
+                .arg(
+                    Arg::with_name("FIAT_CURRENCY")
+                        .help("Name of fiat currency or USD if absent")
+                        .required(false)
+                        .index(1),
+                ),
+        )
+        .subcommand(
             SubCommand::with_name("mt")
                 .display_order(8)
                 .about("Display my trades for a symbol")

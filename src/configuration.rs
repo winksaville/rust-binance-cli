@@ -44,7 +44,7 @@ where
         }
     }
 
-    println!("dev_vec_keep_rec_to_hashmap: in Visitor");
+    // println!("dev_vec_keep_rec_to_hashmap: in Visitor");
     let result = deserializer.deserialize_seq(ItemsVisitor);
 
     match result {
@@ -101,7 +101,7 @@ where
         }
     }
 
-    println!("dev_vec_buy_rec_to_hashmap: in Visitor");
+    // println!("dev_vec_buy_rec_to_hashmap: in Visitor");
     let result = deserializer.deserialize_seq(ItemsVisitor);
 
     match result {

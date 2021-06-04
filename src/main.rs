@@ -39,7 +39,10 @@ use crate::{
     binance_avg_price::{get_avg_price, AvgPrice},
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
-    binance_history::{get_deposit_history, get_withdraw_history, DepositRec, WithdrawRec},
+    binance_history::{
+        get_deposit_history, get_fiat_currency_deposit_history, get_fiat_currency_withdraw_history,
+        get_withdraw_history, AssetLogRec, DepositRec, WithdrawRec,
+    },
     binance_klines::{get_kline, KlineRec},
     binance_market_order_cmd::{buy_market_order_cmd, sell_market_order_cmd},
     binance_my_trades::{get_my_trades, Trades},
@@ -299,24 +302,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // TODO: Add support for getting status, start_data_time, end_data_time
             let asset = subcmd.matches.value_of("ASSET");
             let dh: Vec<DepositRec> = get_deposit_history(&config, asset, None, None, None).await?;
-            //let mut total_qty: Decimal = dec!(0);
-            //let mut total_quote_value: Decimal = dec!(0);
-            //for tr in &mt.trades {
-            //    println!("Date: {}", time_ms_to_utc(tr.time));
-            //    println!("{:#?}", tr);
-            //    total_qty += tr.is_buyer_factor() * tr.qty;
-            //    total_quote_value += tr.is_buyer_factor() * tr.quote_qty;
-            //    trace!(
-            //        "total_qty: {}, total_quote_value: {}",
-            //        total_qty,
-            //        total_quote_value
-            //    );
-            //}
-            //println!(
-            //    "total_qty: {}, total_quote_value: {}",
-            //    dec_to_separated_string(total_qty, 4),
-            //    dec_to_separated_string(total_quote_value, 2)
-            //);
             println!("{:#?}", dh);
         }
         "wh" => {
@@ -324,25 +309,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let asset = subcmd.matches.value_of("ASSET");
             let wh: Vec<WithdrawRec> =
                 get_withdraw_history(&config, asset, None, None, None).await?;
-            //let mut total_qty: Decimal = dec!(0);
-            //let mut total_quote_value: Decimal = dec!(0);
-            //for tr in &mt.trades {
-            //    println!("Date: {}", time_ms_to_utc(tr.time));
-            //    println!("{:#?}", tr);
-            //    total_qty += tr.is_buyer_factor() * tr.qty;
-            //    total_quote_value += tr.is_buyer_factor() * tr.quote_qty;
-            //    trace!(
-            //        "total_qty: {}, total_quote_value: {}",
-            //        total_qty,
-            //        total_quote_value
-            //    );
-            //}
-            //println!(
-            //    "total_qty: {}, total_quote_value: {}",
-            //    dec_to_separated_string(total_qty, 4),
-            //    dec_to_separated_string(total_quote_value, 2)
-            //);
             println!("{:#?}", wh);
+        }
+        "fcdh" => {
+            // TODO: Add support for getting status, start_data_time, end_data_time
+            let asset = subcmd.matches.value_of("FIAT_CURRENCY");
+            let dhfc: Vec<AssetLogRec> = get_fiat_currency_deposit_history(
+                &config, asset, None, None, None, None, None, None,
+            )
+            .await?;
+            println!("{:#?}", dhfc);
+        }
+        "fcwh" => {
+            // TODO: Add support for getting status, start_data_time, end_data_time
+            let asset = subcmd.matches.value_of("FIAT_CURRENCY");
+            let whfc: Vec<AssetLogRec> = get_fiat_currency_withdraw_history(
+                &config, asset, None, None, None, None, None, None,
+            )
+            .await?;
+            println!("{:#?}", whfc);
         }
         "ol" => {
             match config.order_log_path {
