@@ -59,16 +59,18 @@ pub async fn auto_buy(
     // Iterate over the BuyRec's and determine the buy_qty
     for br in buy_recs.values() {
         trace!("auto-buy: tol adding process_recs br: {:#?}", br);
-        let (quote_asset, quote_asset_value) = if !br.quote_asset.is_empty() {
-            if let Some(b) = ai.balances_map.get(&br.quote_asset) {
-                (br.quote_asset.as_str(), b.free)
-            } else {
-                (
-                    config.default_quote_asset.as_str(),
-                    default_quote_asset_value,
-                )
-            }
+        let (quote_asset, quote_asset_value) = if br.quote_asset.is_empty() {
+            (
+                config.default_quote_asset.as_str(),
+                default_quote_asset_value,
+            )
+        } else if let Some(b) = ai.balances_map.get(&br.quote_asset) {
+            (br.quote_asset.as_str(), b.free)
         } else {
+            println!(
+                "{:8}, {} is not a valid symbol or not owned",
+                "SKIPPING", br.quote_asset
+            );
             ("NONE", dec!(0))
         };
         trace!(
@@ -96,7 +98,7 @@ pub async fn auto_buy(
             }
             let precision = sym.quote_precision as usize;
             let buy_value = buy_value.round_dp(sym.quote_precision);
-            trace!("auto-sell: rounded buy_value: {}", buy_value);
+            trace!("auto-buy: rounded buy_value: {}", buy_value);
 
             let order_type = TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(buy_value));
             process_recs.push(ProcessRec {
