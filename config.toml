@@ -1,39 +1,48 @@
-# This is a commnet line and is ignored
-
-# This file contains configuration information for
-# binance_cli. Of particular importance is that it
-# may contina your binance keys. As such you should
-# NEVER EVER add real keys to this file as in instance
-# default location it is saved to the source control
-# system and is public.
+# This file contains configuration information for binance_cli.
+# Of particular importance is that it may contian your binance keys.
+# As such you should NEVER EVER add real keys to this particular
+# file as in its default location, the root of the project, it is
+# saved to the source control system and is public!
 #
-# The easiest thing to do is to copy this file to configs/
-# as by default configs/config.toml is the default location
-# for this fil3e. If you'd rather you can move it to some
-# other directory and then create a BINANCE_CONFIG
-# environment variable with the full path to that file.
+# The easiest thing to do is to copy this file to configs/ directory
+# and then modify that copy to your liking. Copying to configs/ is
+# is convenient because configs/ is the default location that the program
+# looks for this file.  You can move it to some other directory and
+# then create a BINANCE_CONFIG environment variable with the full path
+# to that file.
 #
 # For instance:
 #    $ cp config.toml /home/wink/wink-binance-config.toml
 #    $ export BINANCE_CONFIG=/home/wink/wink-binance-config.toml
 #
-# Note: the reason configs/ is ok is that by default configs/
-# si not saved to the source control system, see .gitignore
+# Or you can use the `--config path-to-file` or `-c path-to-file`
+# as a final option.
+#
+# Note: the reason configs/ is ok is that by default `configs/`
+# and data*/ are not saved to the source control system.
+# See .gitignore for other ignored items.
 
-# Add "real" keys here, but NEVER save this file to source control.
+# Add your "real" api-key here or use --api-key="xxx" cli option
+# or set BINANCE_API_KEY environment variable.
 API_KEY = "an api key"
+
+# Add your "real" secret-key here or use --secret-key="xxx" cli option
+# or set BINANCE_SECRET_KEY environment variable.
 SECRET_KEY = "a secret key"
 
-# Path and file name for the log file
+# Path and file name for the log file. This log file contians information
+# about each trade that is made.
 order_log_path = "data/an_order_log.txt"
 
 # The name of the asset that is used to buy or sell another asset.
 default_quote_asset = "USD"
 
-# Test mode "true" | "false"
-# Default is currently true so auto-buy and auto-sell do nothing
-# if you trust this program and binance to do the right thing.
-# BE VERY CAREFUL!
+# Test mode "true" | "false". The default is currently true so
+# trade commands such as auto-buy, auto-sell, buy-market, buy-market-value
+# , sell-market and sell-market-value do nothing. My suggestion is
+# to leave this `test = true` and when you're ready to do a trade
+# pass the `--no-test` flag on the command line. In anycase I cannot
+# stress enough this program is DANGEROUS.
 test = true
 
 # Default scheme for make_url
@@ -62,10 +71,10 @@ domain = "binance.us"
 keep = [
     #{ name = "BNB", min = 510, quote_asset = "USDT" },
     #{ name = "ONE", min = 100 },
-    #{ name = "ADA" },
+    #{ name = "ADA" },  # Comments may follow fields
 
     # So we don't accidentally use this file
-    this will generate an error, delete or comment out
+    this will generate an error. Delete or comment out.
 ]
 
 # The "auto-buy" subcommand uses the "buy" as a list of assets
@@ -88,5 +97,5 @@ buy = [
     #{ name = "ZEN", percent = 15 }
 
     # So we don't accidentally use this file
-    this will generate an error, delete or comment out
+    this will generate an error. Delete or comment out.
 ]

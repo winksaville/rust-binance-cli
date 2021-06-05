@@ -1,4 +1,4 @@
-# Binance auto sell
+# Binance-cli
 [![codecov](https://codecov.io/gh/winksaville/rust-binance-cli/branch/main/graph/badge.svg?token=cowZtK1KK1)](https://codecov.io/gh/winksaville/rust-binance-cli)
 
 > **Note: In no case can the authors of this program be held responsible
@@ -6,7 +6,7 @@
 
 This program provides a command line interface to some of the
 binance.us API's. It also Includes some higher level capabilities
-such as automatically buying and selling assets. Eventually other
+such as automatically buying and selling of assets. Eventually other
 higher level capabilities maybe provoded.
 
 Also, there are some **really dangerous** subcommands, such as
@@ -14,15 +14,23 @@ Also, there are some **really dangerous** subcommands, such as
 because, by default, it will **SELL** all of your assets.
 
 There is an attempt to mitigate this behavior. The default configuration
-is in test mode and when not in test mode the program will prompt you to
-be sure you want to proceed. You must type, Yes, with a capital "Y" to
-proceed.
+has test mode enabled and it should not do any trades. Also, when not in
+test mode the program will prompt you to be sure you want to proceed.
+You must type, Yes, with a capital "Y" to proceed. A convenient parameter
+is `--no-test`, this allows you to leave the default configuration with
+`test = true` and then when you're ready to do trades, automatic or
+manual, pass the `--no-test` flag.
 
-As mentioned above the program is controlled by a configuration file.
-There are comments, lines with "#" in them, that provide additional
-information about each field. Refer to that file for up-to-date information.
+As mentioned above the program is uses a configuration file. There are
+comments, lines with "#" in them, that provide additional information
+about each field. Refer to that file for up-to-date information.
 
-Use the `help` subcommand.
+A suggestion is to copy `config.toml` to a `configs` diretory and then
+have your keys in the config file. See `config.toml` for more options.
+
+Finally, use the `help` subcommand or `--help` or `-h` flags as a
+source of information while using the program.
+
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo run help
@@ -74,105 +82,38 @@ SUBCOMMANDS:
 
 ## Prerequisites
 
-Along with the normal rust tools installed via `rustup` and `cargo install`.
+1.  [Install rust](https://www.rust-lang.org/tools/install) on your computer,
+    this needs to include the `rust compiler` and `cargo`. Typically this
+    should be done using `rustup`.
 
-> Note: rustup must be 1.24.1 as I'm using `rust-toolchain.toml` for rustup
-> configuration.
-(Add more specific docs here)
+    > Note: rustup must be 1.24.1 as I'm using `rust-toolchain.toml` for rustup
+    > configuration.
+    (Add more specific docs here)
 
-You must install a version of Tarpaulin >= `0.18.0-alpha1` as I'm using the
---follow-exec option, currently I'm installing with:
-```
-$ cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
-```
+2.  Install a version of Tarpaulin >= `0.18.0-alpha1` as I'm using the --follow-exec option,
+    currently I'm installing it with with:
+    ```
+    $ cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
+    ```
 
-You should verify `follow-exec` is in the help:
-```
-$ cargo tarpaulin --help | grep 'follow-exe'
-        --follow-exec            Follow executed processes capturing coverage information if they're part of your
-```
+    You should verify `follow-exec` is in the help:
+    ```
+    $ cargo tarpaulin --help | grep 'follow-exe'
+            --follow-exec            Follow executed processes capturing coverage information if they're part of your
+    ```
 
-Copy `cargo-precommit` to ~/.cargo/bin/
-```
-wink@3900x:~/prgs/rust/projects/binance-cli (main)
-$ cp ./cargo-precommit ~/.cargo/bin/
-```
+3.  Copy `cargo-precommit` to `~/.cargo/bin/`
+    ```
+    wink@3900x:~/prgs/rust/projects/binance-cli (main)
+    $ cp ./cargo-precommit ~/.cargo/bin/
+    ```
 
-## Before committing
-
-Run `cargo pre-commit` it runs cargo check, fmt, test, tarpaulin and clippy
-
-```
-$ cargo pre-commit
-check
-    Checking binance-cli v0.2.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Finished dev [unoptimized + debuginfo] target(s) in 0.81s
-fmt
-test
-    Finished test [unoptimized + debuginfo] target(s) in 0.05s
-     Running target/debug/deps/binance_cli-27b6fa3c5914ceca
-
-running 41 tests
-test binance_history::test::test_history_rec ... ok
-test binance_my_trades::test::test_trade_rec ... ok
-test binance_klines::test::test_kline_rec ... ok
-
-...
-
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-
-tarpaulin
-Jun 02 13:20:40.281  INFO cargo_tarpaulin: Running Tarpaulin
-Jun 02 13:20:40.281  INFO cargo_tarpaulin: Building project
-Jun 02 13:20:40.561  INFO cargo_tarpaulin::cargo: Cleaning project
-   Compiling libc v0.2.94
-
-...
-
-test binance_trade::test::test_convert ... ok
-test binance_trade::test::test_convertcommission ... ok
-
-test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
-
-Jun 02 13:21:14.481  INFO cargo_tarpaulin::report: Coverage Results:
-|| Tested/Total Lines:
-|| src/arg_matches.rs: 0/63
-|| src/binance_account_info.rs: 27/113
-|| src/binance_auto_buy.rs: 0/87
-|| src/binance_auto_sell.rs: 0/120
-|| src/binance_avg_price.rs: 0/16
-|| src/binance_exchange_info.rs: 202/271
-|| src/binance_get_klines_cmd.rs: 0/21
-|| src/binance_history.rs: 1/63
-|| src/binance_klines.rs: 59/129
-|| src/binance_market_order_cmd.rs: 0/70
-|| src/binance_my_trades.rs: 25/76
-|| src/binance_order_response.rs: 134/225
-|| src/binance_orders.rs: 0/64
-|| src/binance_signature.rs: 114/114
-|| src/binance_trade.rs: 55/185
-|| src/binance_verify_order.rs: 59/116
-|| src/common.rs: 100/173
-|| src/configuration.rs: 114/176
-|| src/de_string_or_number.rs: 60/75
-|| src/main.rs: 0/158
-|| 
-41.04% coverage, 950/2315 lines covered
-clean
-clippy
-   Compiling libc v0.2.94
-   Compiling proc-macro2 v1.0.26
-   Compiling unicode-xid v0.2.2
-
-...
-
-   Compiling binance-cli v0.2.0 (/home/wink/prgs/rust/projects/binance-cli)
-    Checking hyper-tls v0.5.0
-    Checking reqwest v0.11.3
-   Compiling rust_decimal_macros v1.12.4
-    Checking rusty-money v0.4.1
-    Finished dev [unoptimized + debuginfo] target(s) in 18.03s
-```
+4.  Copy `config.toml` to `configs/` and update appropriately
+    ```
+    wink@3900x:~/prgs/rust/projects/binance-cli (main)
+    $ mkdir configs
+    $ cp config.toml configs/
+    ```
 
 ## Building and run
 
@@ -245,43 +186,8 @@ $ cargo test
 running 41 tests
 test binance_history::test::test_history_rec ... ok
 test binance_my_trades::test::test_trade_rec ... ok
-test binance_my_trades::test::test_trade_rec_is_buyer_factor ... ok
+...
 test binance_klines::test::test_kline_rec ... ok
-test binance_account_info::test::test_account_info ... ok
-test binance_order_response::test::test_order_response_header_rec_min ... ok
-test binance_order_response::test::test_order_response_header_rec_app_rec_versions ... ok
-test binance_order_response::test::test_order_response_semver ... ok
-test binance_order_response::test::test_order_response_header_rec_max ... ok
-test binance_order_response::test::test_order_response_success_ack ... ok
-test binance_order_response::test::test_order_response_success_unknown ... ok
-test binance_order_response::test::test_order_response_success_result ... ok
-test binance_signature::test::test_binance_example ... ok
-test binance_signature::test::test_append_signature ... ok
-test binance_order_response::test::test_order_response_success_full ... ok
-test binance_signature::test::test_binance_signature_body_only ... ok
-test binance_signature::test::test_binance_signature_no_query_string_no_body ... ok
-test binance_signature::test::test_binance_signature_query_string_and_body ... ok
-test binance_signature::test::test_query_vec_u8 ... ok
-test binance_signature::test::test_query_vec_u8_no_data ... ok
-test binance_signature::test::test_binance_signature_query_string_only ... ok
-test binance_exchange_info::test::test_exchange_info ... ok
-test common::test::test_binance_response_error_rec ... ok
-test common::test::test_dec_to_separated_string ... ok
-test common::test::test_internal_error ... ok
-test common::test::test_timestamp_ms_to_secs_nsecs ... ok
-test common::test::test_binance_response_error_rec_bad_body ... ok
-test configuration::test::test_config_empty ... ok
-test common::test::test_dec_to_money_string ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
-test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
-test configuration::test::test_config_buy ... ok
-test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
-test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
-test binance_trade::test::test_log_order_response ... ok
-test configuration::test::test_config_keep ... ok
-test common::test::test_utc_now_to_time_ms ... ok
 test binance_trade::test::test_convertcommission ... ok
 test binance_trade::test::test_convert ... ok
 
@@ -335,43 +241,7 @@ Jun 02 13:31:31.986  INFO cargo_tarpaulin::process_handling: running /home/wink/
 running 41 tests
 test binance_history::test::test_history_rec ... ok
 test binance_signature::test::test_query_vec_u8_no_data ... ok
-test binance_order_response::test::test_order_response_semver ... ok
-test binance_signature::test::test_binance_example ... ok
-test binance_signature::test::test_binance_signature_no_query_string_no_body ... ok
-test binance_order_response::test::test_order_response_header_rec_min ... ok
-test binance_signature::test::test_query_vec_u8 ... ok
-test binance_order_response::test::test_order_response_header_rec_app_rec_versions ... ok
-test binance_signature::test::test_binance_signature_query_string_only ... ok
-test binance_signature::test::test_binance_signature_query_string_and_body ... ok
-test binance_signature::test::test_binance_signature_body_only ... ok
-test binance_order_response::test::test_order_response_header_rec_max ... ok
-test binance_signature::test::test_append_signature ... ok
-test binance_order_response::test::test_order_response_success_unknown ... ok
-test binance_my_trades::test::test_trade_rec_is_buyer_factor ... ok
-test common::test::test_binance_response_error_rec_bad_body ... ok
-test common::test::test_binance_response_error_rec ... ok
-test binance_trade::test::test_log_order_response ... ok
-test binance_order_response::test::test_order_response_success_ack ... ok
-test common::test::test_dec_to_separated_string ... ok
-test common::test::test_dec_to_money_string ... ok
-test binance_my_trades::test::test_trade_rec ... ok
-test binance_klines::test::test_kline_rec ... ok
-test common::test::test_internal_error ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
-test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
-test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
-test common::test::test_utc_now_to_time_ms ... ok
-test configuration::test::test_config_empty ... ok
-test binance_order_response::test::test_order_response_success_result ... ok
-test binance_order_response::test::test_order_response_success_full ... ok
-test binance_account_info::test::test_account_info ... ok
-test configuration::test::test_config_buy ... ok
-test common::test::test_timestamp_ms_to_secs_nsecs ... ok
-test configuration::test::test_config_keep ... ok
-test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
-test binance_exchange_info::test::test_exchange_info ... ok
+...
 test binance_trade::test::test_convertcommission ... ok
 test binance_trade::test::test_convert ... ok
 
@@ -416,43 +286,7 @@ Jun 02 13:32:45.523  INFO cargo_tarpaulin::process_handling: running /home/wink/
 running 41 tests
 test binance_history::test::test_history_rec ... ok
 test binance_signature::test::test_query_vec_u8_no_data ... ok
-test binance_order_response::test::test_order_response_semver ... ok
-test binance_signature::test::test_binance_example ... ok
-test binance_signature::test::test_binance_signature_no_query_string_no_body ... ok
-test binance_order_response::test::test_order_response_header_rec_min ... ok
-test binance_signature::test::test_query_vec_u8 ... ok
-test binance_order_response::test::test_order_response_header_rec_app_rec_versions ... ok
-test binance_signature::test::test_binance_signature_query_string_only ... ok
-test binance_signature::test::test_binance_signature_query_string_and_body ... ok
-test binance_signature::test::test_binance_signature_body_only ... ok
-test binance_order_response::test::test_order_response_header_rec_max ... ok
-test binance_signature::test::test_append_signature ... ok
-test binance_order_response::test::test_order_response_success_unknown ... ok
-test common::test::test_binance_response_error_rec_bad_body ... ok
-test common::test::test_binance_response_error_rec ... ok
-test binance_trade::test::test_log_order_response ... ok
-test binance_my_trades::test::test_trade_rec_is_buyer_factor ... ok
-test common::test::test_dec_to_separated_string ... ok
-test binance_order_response::test::test_order_response_success_ack ... ok
-test common::test::test_dec_to_money_string ... ok
-test binance_klines::test::test_kline_rec ... ok
-test common::test::test_internal_error ... ok
-test binance_my_trades::test::test_trade_rec ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_u64_errors ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_i64_errors ... ok
-test de_string_or_number::tests::test_de_string_or_number_from_strings ... ok
-test de_string_or_number::tests::test_de_string_or_number_from_numbers ... ok
-test de_string_or_number::tests::test_de_sting_or_number_to_f64_errors ... ok
-test common::test::test_utc_now_to_time_ms ... ok
-test configuration::test::test_config_empty ... ok
-test binance_order_response::test::test_order_response_success_result ... ok
-test binance_order_response::test::test_order_response_success_full ... ok
-test binance_account_info::test::test_account_info ... ok
-test configuration::test::test_config_buy ... ok
-test common::test::test_timestamp_ms_to_secs_nsecs ... ok
-test configuration::test::test_config_keep ... ok
-test binance_verify_order::test::test_adj_quantity_verify_lot_size ... ok
-test binance_exchange_info::test::test_exchange_info ... ok
+...
 test binance_trade::test::test_convert ... ok
 test binance_trade::test::test_convertcommission ... ok
 
@@ -473,21 +307,7 @@ Jun 02 13:32:51.852  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
 || src/arg_matches.rs: 0/63 +0%
 || src/binance_account_info.rs: 27/113 +0%
-|| src/binance_auto_buy.rs: 0/87 +0%
-|| src/binance_auto_sell.rs: 0/120 +0%
-|| src/binance_avg_price.rs: 0/16 +0%
-|| src/binance_exchange_info.rs: 202/271 +0%
-|| src/binance_get_klines_cmd.rs: 0/21 +0%
-|| src/binance_history.rs: 1/63 +0%
-|| src/binance_klines.rs: 59/129 +0%
-|| src/binance_market_order_cmd.rs: 0/70 +0%
-|| src/binance_my_trades.rs: 25/76 +0%
-|| src/binance_order_response.rs: 134/225 +0%
-|| src/binance_orders.rs: 0/64 +0%
-|| src/binance_signature.rs: 114/114 +0%
-|| src/binance_trade.rs: 55/185 +0%
-|| src/binance_verify_order.rs: 59/116 +0%
-|| src/common.rs: 100/173 +0%
+...
 || src/configuration.rs: 114/176 +0%
 || src/de_string_or_number.rs: 60/75 +0%
 || src/main.rs: 0/158 +0%
@@ -539,6 +359,69 @@ And, of course, subquent runs don't need the `cargo clean`:
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo build
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
+```
+
+## Before committing
+
+If you like to submit a PR please Run `cargo pre-commit` before uploading.
+It runs cargo check, fmt, test, tarpaulin and clippy
+
+```
+$ cargo pre-commit
+check
+    Checking binance-cli v0.2.0 (/home/wink/prgs/rust/projects/binance-cli)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.81s
+fmt
+test
+    Finished test [unoptimized + debuginfo] target(s) in 0.05s
+     Running target/debug/deps/binance_cli-27b6fa3c5914ceca
+
+running 41 tests
+test binance_history::test::test_history_rec ... ok
+test binance_my_trades::test::test_trade_rec ... ok
+test binance_klines::test::test_kline_rec ... ok
+
+...
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+tarpaulin
+Jun 02 13:20:40.281  INFO cargo_tarpaulin: Running Tarpaulin
+Jun 02 13:20:40.281  INFO cargo_tarpaulin: Building project
+Jun 02 13:20:40.561  INFO cargo_tarpaulin::cargo: Cleaning project
+   Compiling libc v0.2.94
+
+...
+
+test binance_trade::test::test_convert ... ok
+test binance_trade::test::test_convertcommission ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+Jun 02 13:21:14.481  INFO cargo_tarpaulin::report: Coverage Results:
+|| Tested/Total Lines:
+|| src/arg_matches.rs: 0/63
+|| src/binance_account_info.rs: 27/113
+...
+|| src/configuration.rs: 114/176
+|| src/de_string_or_number.rs: 60/75
+|| src/main.rs: 0/158
+|| 
+41.04% coverage, 950/2315 lines covered
+clean
+clippy
+   Compiling libc v0.2.94
+   Compiling proc-macro2 v1.0.26
+   Compiling unicode-xid v0.2.2
+
+...
+
+   Compiling binance-cli v0.2.0 (/home/wink/prgs/rust/projects/binance-cli)
+    Checking hyper-tls v0.5.0
+    Checking reqwest v0.11.3
+   Compiling rust_decimal_macros v1.12.4
+    Checking rusty-money v0.4.1
+    Finished dev [unoptimized + debuginfo] target(s) in 18.03s
 ```
 
 ## License
