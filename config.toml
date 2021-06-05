@@ -25,7 +25,7 @@ API_KEY = "an api key"
 SECRET_KEY = "a secret key"
 
 # Path and file name for the log file
-deata_log_path = "data/an_order_log.txt"
+order_log_path = "data/an_order_log.txt"
 
 # The name of the asset that is used to buy or sell another asset.
 default_quote_asset = "USD"
