@@ -82,6 +82,14 @@ SUBCOMMANDS:
 
 ## Prerequisites
 
+1.  Install git, this is platform specific [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+    is a place to start.
+
+1.  Clone this repo, for instance:
+    ```
+    git clone https://github.com/winksaville/rust-binance-cli
+    ```
+
 1.  [Install rust](https://www.rust-lang.org/tools/install) on your computer,
     this needs to include the `rust compiler` and `cargo`. Typically this
     should be done using `rustup`.
@@ -90,29 +98,33 @@ SUBCOMMANDS:
     > configuration.
     (Add more specific docs here)
 
-2.  Install a version of Tarpaulin >= `0.18.0-alpha1` as I'm using the --follow-exec option,
+1.  Install a version of Tarpaulin >= `0.18.0-alpha1` as I'm using the --follow-exec option,
     currently I'm installing it with with:
     ```
-    $ cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
+    cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
     ```
 
     You should verify `follow-exec` is in the help:
     ```
-    $ cargo tarpaulin --help | grep 'follow-exe'
+    cargo tarpaulin --help | grep 'follow-exe'
             --follow-exec            Follow executed processes capturing coverage information if they're part of your
     ```
 
-3.  Copy `cargo-precommit` to `~/.cargo/bin/`
+1.  Copy `cargo-precommit` to `~/.cargo/bin/`
     ```
-    wink@3900x:~/prgs/rust/projects/binance-cli (main)
-    $ cp ./cargo-precommit ~/.cargo/bin/
+    cp ./cargo-precommit ~/.cargo/bin/
     ```
 
-4.  Copy `config.toml` to `configs/` and update appropriately
+1.  Copy `config.toml` to `configs/`
     ```
     wink@3900x:~/prgs/rust/projects/binance-cli (main)
-    $ mkdir configs
-    $ cp config.toml configs/
+    mkdir configs
+    cp config.toml configs/
+    ```
+
+1.  Edit configs/config.toml:
+    ```
+    <editor> configs/config.toml
     ```
 
 ## Building and run
