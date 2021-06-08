@@ -26,8 +26,11 @@ pub async fn auto_sell(
     let test = config.test;
     trace!("auto_sell:+ test: {} config: {:?}", test, config);
 
+    trace!("auto_sell: call get_account_info");
     let mut ai = get_account_info(config).await?;
+    trace!("auto_sell: call ai.update_values_in_usd");
     ai.update_values_in_usd(config, true).await;
+    trace!("auto_sell: retf ai.update_values_in_usd");
     //ai.print().await;
 
     #[derive(Default)]
@@ -50,6 +53,7 @@ pub async fn auto_sell(
         let quote_asset: &str;
         let symbol_name: String;
         let asset: String = balance.asset.clone();
+        trace!("auto_sell: TOL balance: {:?}", balance);
 
         assert!(!config.default_quote_asset.is_empty());
 
@@ -85,30 +89,24 @@ pub async fn auto_sell(
 
             if asset != quote_asset {
                 symbol_name = asset.clone() + quote_asset;
-                let sym = match ei.get_symbol(&symbol_name) {
-                    Some(s) => s,
-                    None => {
-                        return Err(format!(
-                            "{} is not a valid symbol on the exchange",
-                            symbol_name
-                        )
-                        .into())
-                    }
-                };
-                let precision = sym.quote_precision as usize;
-                let sell_qty = sell_qty.round_dp(sym.quote_precision);
+                if let Some(symbol) = ei.get_symbol(&symbol_name) {
+                    let precision = symbol.quote_precision as usize;
+                    let sell_qty = sell_qty.round_dp(symbol.quote_precision);
 
-                vec_process_rec.push(ProcessRec {
-                    asset,
-                    precision,
-                    symbol_name,
-                    price_in_usd: balance.price_in_usd,
-                    owned_qty,
-                    sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
-                    sell_qty,
-                    keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
-                    keep_qty,
-                });
+                    vec_process_rec.push(ProcessRec {
+                        asset,
+                        precision,
+                        symbol_name,
+                        price_in_usd: balance.price_in_usd,
+                        owned_qty,
+                        sell_value_in_usd: (sell_qty / owned_qty) * balance.value_in_usd,
+                        sell_qty,
+                        keep_value_in_usd: (keep_qty / owned_qty) * balance.value_in_usd,
+                        keep_qty,
+                    });
+                } else {
+                    trace!("auto_sell: {} not found, must be suspended", symbol_name);
+                }
             }
         }
     }
