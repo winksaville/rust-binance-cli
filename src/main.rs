@@ -329,22 +329,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await?;
             println!("{:#?}", whfc);
         }
-        "ol" => {
-            match config.order_log_path {
-                Some(path) => {
-                    let file = File::open(path)?;
-                    let reader = BufReader::new(file);
-                    for result in reader.lines() {
-                        let line = result?;
-                        let tr: TradeResponse = serde_json::from_str(&line)?;
-                        println!("{:#?}", tr);
-                    }
-                }
-                None => {
-                    println!("No order log path, set it in the config file or use -l or --order_log_path");
+        "ol" => match config.order_log_path {
+            Some(path) => {
+                let file = File::open(path)?;
+                let reader = BufReader::new(file);
+                for result in reader.lines() {
+                    let line = result?;
+                    let tr: TradeResponse = serde_json::from_str(&line)?;
+                    println!("{:#?}", tr);
                 }
             }
-        }
+            None => {
+                println!("No order log path, set it in the config file or use --order_log_path");
+            }
+        },
         _ => println!("Unknown subcommand: {}", subcmd.name),
     }
 

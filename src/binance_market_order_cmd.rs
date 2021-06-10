@@ -15,7 +15,7 @@ use crate::{
     },
     binance_verify_order::{
         adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
-        verify_quanity_is_greater_than_free,
+        verify_quanity_is_less_than_or_eq_free,
     },
     common::{InternalErrorRec, Side},
     configuration::Configuration,
@@ -39,7 +39,12 @@ pub async fn market_order(
         side,
         test
     );
-    let order_log_path = config.order_log_path.as_ref().unwrap(); // FIXME: NO UNWRAP
+    let order_log_path = if let Some(olp) = &config.order_log_path {
+        olp
+    } else {
+        return Err("No order log path, set it in the config file or use --order_log_path".into());
+    };
+
     let mut log_writer = order_log_file(order_log_path)?;
 
     let symbol = match ei.get_symbol(&symbol_name) {
@@ -104,7 +109,7 @@ pub async fn market_order(
     match side {
         Side::SELL => {
             // Selling, be sure we have enough to sell
-            verify_quanity_is_greater_than_free(&ai, symbol, quantity)?;
+            verify_quanity_is_less_than_or_eq_free(&ai, symbol, quantity)?;
         }
         Side::BUY => {
             // Buying, verify we don't exceed MaxPosition

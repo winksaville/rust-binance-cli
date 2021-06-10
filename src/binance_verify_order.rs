@@ -118,12 +118,12 @@ pub fn verify_max_position(
     Ok(())
 }
 
-pub fn verify_quanity_is_greater_than_free(
+pub fn verify_quanity_is_less_than_or_eq_free(
     ai: &AccountInfo,
     symbol: &Symbol,
     quantity: Decimal,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    trace!("verify_max_position");
+    trace!("verify_quanity_is_less_than_or_eq_free");
 
     let balance = match ai.balances_map.get(&symbol.base_asset) {
         Some(b) => b,
@@ -134,7 +134,11 @@ pub fn verify_quanity_is_greater_than_free(
 
     // Verify balance.free is ok
     if quantity > balance.free {
-        return Err(format!("quantity: {} is > balance.free: {}", quantity, balance.free).into());
+        return Err(format!(
+            "The free balance for {} is only {} and a quantity of {} is larger",
+            symbol.symbol, balance.free, quantity
+        )
+        .into());
     }
 
     Ok(())
