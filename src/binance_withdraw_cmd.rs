@@ -1,0 +1,270 @@
+use std::io::Write;
+
+use clap::SubCommand;
+use serde::{Deserialize, Serialize};
+
+use log::trace;
+#[allow(unused)]
+use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
+
+use crate::common::{post_req_get_response, ResponseErrorRec};
+#[allow(unused)]
+use crate::{
+    binance_account_info::get_account_info,
+    binance_avg_price::{get_avg_price, AvgPrice},
+    binance_exchange_info::{get_exchange_info, ExchangeInfo},
+    binance_order_response::TradeResponse,
+    binance_orders::get_open_orders,
+    binance_signature::{append_signature, binance_signature, query_vec_u8},
+    binance_trade::{
+        self, binance_new_order_or_test, order_log_file, MarketQuantityType, TradeOrderType,
+    },
+    binance_verify_order::{
+        adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
+        verify_quanity_is_less_than_or_eq_free,
+    },
+    common::utc_now_to_time_ms,
+    common::{InternalErrorRec, Side},
+    configuration::Configuration,
+    ier_new, Amount,
+};
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WithdrawResponse {
+    msg: String,
+    success: bool,
+    id: String,
+}
+
+/// TODO: Consider making generic or process macro as is
+/// copy/paste fo orders_get_req_response
+async fn withdraw_post_and_response(
+    config: &Configuration,
+    mut _log_writer: &mut dyn Write,
+    full_path: &str,
+    mut param_tuples: Vec<(&str, &str)>,
+) -> Result<WithdrawResponse, Box<dyn std::error::Error>> {
+    let secret_key = config.keys.secret_key.as_bytes();
+    let api_key = &config.keys.api_key;
+
+    param_tuples.push(("recvWindow", "5000"));
+
+    let ts_string: String = format!("{}", utc_now_to_time_ms());
+    param_tuples.push(("timestamp", ts_string.as_str()));
+
+    let mut query = query_vec_u8(&param_tuples);
+
+    // Calculate the signature using sig_key and the data is qs and query as body
+    let signature = binance_signature(&secret_key, &query, &[]);
+
+    // Append the signature to query
+    append_signature(&mut query, signature);
+
+    // Convert to a string
+    let query_string = String::from_utf8(query)?;
+    trace!("withdraw_post_and_repsonse: query_string={}", &query_string);
+
+    let url = config.make_url("api", &format!("{}?", full_path));
+    trace!("withdraw_post_and_repsonse: url={}", url);
+
+    if !config.test {
+        let response = post_req_get_response(api_key, &url, &query_string).await?;
+        trace!("withdraw_post_and_repsonse: response={:#?}", response);
+        let response_status = response.status();
+        let response_body = response.text().await?;
+
+        // Process the response
+        if response_status == 200 {
+            trace!(
+                "withdraw_post_and_repsonse: response_body={}",
+                response_body
+            );
+            let response: WithdrawResponse = serde_json::from_str(&response_body)?;
+
+            Ok(response)
+        } else {
+            let rer = ResponseErrorRec::new(
+                false,
+                response_status.as_u16(),
+                &query_string,
+                &response_body,
+            );
+            trace!(
+                "{}",
+                format!("withdraw_post_and_repsonse: ResponseErrRec={:#?}", &rer)
+            );
+
+            let ier: InternalErrorRec = ier_new!(8, &rer.to_string());
+            Err(ier.to_string().into())
+        }
+    } else {
+        Ok(WithdrawResponse {
+            msg: "successful test".into(),
+            success: true,
+            id: "testid".into(),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct WithdrawParams {
+    pub sym_name: String,
+    pub amount: Amount,
+    pub address: String,
+    pub secondary_address: Option<String>,
+    pub label: Option<String>,
+}
+
+impl WithdrawParams {
+    pub fn from_subcommand(
+        subcmd: &SubCommand,
+    ) -> Result<WithdrawParams, Box<dyn std::error::Error>> {
+        let sym_name = if let Some(s) = subcmd.matches.value_of("SYMBOL") {
+            s.to_string()
+        } else {
+            return Err("SYMBOL is missing".into());
+        };
+        let amt_val = if let Some(a) = subcmd.matches.value_of("AMOUNT") {
+            a
+        } else {
+            return Err("AMOUNT is missing".into());
+        };
+        let amount = if let Some(amt) = amt_val.strip_suffix("%") {
+            let percent = match Decimal::from_str(amt) {
+                Ok(qty) => qty,
+                Err(e) => {
+                    return Err(format!("converting {} to Decimal: e={}", amt, e).into());
+                }
+            };
+
+            Amount::Percent(percent)
+        } else {
+            let quantity = match Decimal::from_str(amt_val) {
+                Ok(qty) => qty,
+                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
+            };
+
+            Amount::Quantity(quantity)
+        };
+        let address = if let Some(a) = subcmd.matches.value_of("ADDRESS") {
+            a.to_string()
+        } else {
+            return Err("ADDRESS is missing".into());
+        };
+
+        let secondary_address = if let Some(a) = subcmd.matches.value_of("DEST_SEC_ADDRESS") {
+            Some(a.to_string())
+        } else {
+            None
+        };
+
+        let label = if let Some(l) = subcmd.matches.value_of("DEST_LABEL") {
+            Some(l.to_string())
+        } else {
+            None
+        };
+
+        Ok(WithdrawParams {
+            sym_name,
+            amount,
+            address,
+            secondary_address,
+            label,
+        })
+    }
+}
+
+pub async fn withdraw(
+    config: &Configuration,
+    ei: &ExchangeInfo,
+    params: &WithdrawParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let ai = get_account_info(config).await?;
+    trace!("withdraw: Got AccountInfo: {:#?}", ai);
+
+    let order_log_path = if let Some(olp) = &config.order_log_path {
+        olp
+    } else {
+        return Err("No order log path, set it in the config file or use --order_log_path".into());
+    };
+    let mut log_writer = order_log_file(order_log_path)?;
+
+    let full_name = params.sym_name.to_string() + "USD";
+    let symbol = match ei.get_symbol(&full_name) {
+        Some(s) => s,
+        None => {
+            let ier = ier_new!(2, &format!("No asset named {}", params.sym_name));
+            return Err(ier.to_string().into());
+        }
+    };
+    trace!("withdraw: Got symbol");
+
+    let balance = if let Some(b) = ai.balances_map.get(&params.sym_name) {
+        b
+    } else {
+        return Err(format!("Error, {} is not in your account", params.sym_name).into());
+    };
+    println!("balance: {}\n{:#?}", params.sym_name, balance);
+
+    let quantity = match params.amount {
+        Amount::Percent(p) => {
+            let q = (p / dec!(100)) * balance.free;
+            println!("Percent: {}", q);
+
+            q
+        }
+        Amount::Quantity(q) => q,
+    };
+
+    // This rounding may or may not be the "right" thing, but won't HFTM (Furt For The Moment).
+    let quantity = quantity.round_dp(symbol.base_asset_precision);
+    println!("withdraw: quantity={}", quantity);
+
+    verify_quanity_is_less_than_or_eq_free(&ai, symbol, quantity)?;
+    let quantity_string = quantity.to_string();
+
+    let mut param_tuples = vec![
+        ("asset", params.sym_name.as_str()),
+        ("address", params.address.as_str()),
+        ("amount", quantity_string.as_str()),
+    ];
+    let sa_string: String;
+    if let Some(sa) = params.secondary_address.clone() {
+        sa_string = sa;
+        param_tuples.push(("addressTag", sa_string.as_str()))
+    }
+    let label_string: String;
+    if let Some(l) = params.label.clone() {
+        label_string = l;
+        param_tuples.push(("addressTag", label_string.as_str()))
+    }
+
+    let _response = withdraw_post_and_response(
+        &config,
+        &mut log_writer,
+        "/wapi/v3/withdraw.html",
+        param_tuples,
+    )
+    .await?;
+    //log_writer.
+
+    Ok(())
+}
+
+pub async fn withdraw_cmd(
+    config: &Configuration,
+    params: &WithdrawParams,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!(
+        "withdraw_cmd:\nconfig:\n{:#?}\nparams:\n{:#?}",
+        config,
+        params,
+    );
+
+    let ei = &get_exchange_info(config).await?;
+    withdraw(config, ei, params).await?;
+
+    Ok(())
+}

@@ -168,6 +168,45 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 ),
         )
         .subcommand(
+            SubCommand::with_name("withdraw")
+                .display_order(5)
+                .about("Withdraw an asset, either quantity or precent. Examples: `withdraw ETH 1 1543abcd` or `withdraw ETH 1.5% 1543abcd`")
+                .arg(
+                    Arg::with_name("SYMBOL")
+                        .help("Name of aseet")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("AMOUNT")
+                        .help("The amournt of asset, example `5.2` ETH or `12.3%` of the free ETH owned")
+                        .required(true)
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("ADDRESS")
+                        .help("The destination address")
+                        .required(true)
+                        .index(3),
+                )
+                .arg(
+                    Arg::with_name("dest-sec-addr")
+                        .global(false)
+                        .long("dest-sec-addr")
+                        .value_name("DEST_SEC_ADDR")
+                        .help("A destination's secondary address")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("dest-label")
+                        .global(false)
+                        .long("dest-label")
+                        .value_name("DEST_LABEL")
+                        .help("A label identifying a destination address")
+                        .takes_value(true),
+                ),
+        )
+        .subcommand(
             SubCommand::with_name("ei")
                 .display_order(10)
                 .about("Display the exchange info"),
@@ -318,6 +357,11 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .display_order(9)
                 .about("Display order log"),
             )
+        .subcommand(
+            SubCommand::with_name("version")
+                .display_order(10)
+                .about("Display version"),
+        )
         .subcommand(
             SubCommand::with_name("do-nothing")
                 .display_order(99)
