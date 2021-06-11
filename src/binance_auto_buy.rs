@@ -167,6 +167,7 @@ pub async fn auto_buy(
                         TradeResponse::FailureInternal(ier) => {
                             println!("{:8}, {:10} {}", "SKIPPING", pr.symbol_name, ier.msg);
                         }
+                        _ => println!("Unexpected response: {}", tr),
                     },
                     Err(e) => println!("{:8} {:10}, {}", "SKIPPING", pr.symbol_name, e),
                 }

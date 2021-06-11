@@ -8,6 +8,7 @@ use rust_decimal_macros::dec;
 use semver::Version;
 
 use crate::{
+    binance_withdraw_cmd::WithdrawParams,
     common::{dec_to_money_string, time_ms_to_utc, InternalErrorRec, ResponseErrorRec, Side},
     de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
 };
@@ -236,6 +237,64 @@ impl Default for FullTradeResponseRec {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WithdrawResponseRec {
+    #[serde(default)]
+    pub test: bool,
+    #[serde(default)]
+    pub query: String,
+    #[serde(default)]
+    pub params: WithdrawParams,
+
+    pub msg: String,
+    pub success: bool,
+    pub id: String,
+}
+
+impl fmt::Display for WithdrawResponseRec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        trace!("Display::wrr: {:#?}", self);
+        write!(
+            f,
+            "{} of {} coins of {} to {}{}{} msg: {} id: {}",
+            if self.success {
+                "Successful withdrawl"
+            } else {
+                "Failure withdrawing"
+            },
+            self.params.amount,
+            self.params.sym_name,
+            if let Some(l) = &self.params.label {
+                format!("{}:", l)
+            } else {
+                "".to_string()
+            },
+            self.params.address,
+            if let Some(sa) = &self.params.secondary_address {
+                format!(":{}", sa)
+            } else {
+                "".to_string()
+            },
+            self.msg,
+            self.id,
+        )
+    }
+}
+
+impl Default for WithdrawResponseRec {
+    fn default() -> WithdrawResponseRec {
+        WithdrawResponseRec {
+            test: false,
+            query: "".to_string(),
+            params: WithdrawParams::default(),
+            msg: "".to_string(),
+            success: false,
+            id: "".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TestTradeResponseRec {
     pub test: bool,
     pub query: String,
@@ -296,6 +355,8 @@ pub enum TradeResponse {
     SuccessResult(ResultTradeResponseRec),
     SuccessFull(FullTradeResponseRec),
     SuccessTest(TestTradeResponseRec),
+    SuccessWithdraw(WithdrawResponseRec),
+    SuccessTestWithdraw(WithdrawResponseRec),
     SuccessUnknown(UnknownTradeResponseRec),
     FailureResponse(ResponseErrorRec),
     FailureInternal(InternalErrorRec),
@@ -310,6 +371,8 @@ impl fmt::Display for TradeResponse {
             TradeResponse::SuccessResult(tr) => write!(f, "{}", tr),
             TradeResponse::SuccessFull(tr) => write!(f, "{}", tr),
             TradeResponse::SuccessTest(tr) => write!(f, "{}", tr),
+            TradeResponse::SuccessWithdraw(tr) => write!(f, "{}", tr),
+            TradeResponse::SuccessTestWithdraw(tr) => write!(f, "{}", tr),
             TradeResponse::SuccessUnknown(tr) => write!(f, "{}", tr),
             TradeResponse::FailureResponse(ber) => write!(f, "{}", ber),
             TradeResponse::FailureInternal(ier) => write!(f, "{}", ier),

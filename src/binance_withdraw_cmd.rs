@@ -1,4 +1,7 @@
-use std::io::Write;
+use std::{
+    fmt::{self, Display},
+    io::Write,
+};
 
 use clap::SubCommand;
 use serde::{Deserialize, Serialize};
@@ -8,7 +11,6 @@ use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 
-use crate::common::{post_req_get_response, ResponseErrorRec};
 #[allow(unused)]
 use crate::{
     binance_account_info::get_account_info,
@@ -27,25 +29,23 @@ use crate::{
     common::utc_now_to_time_ms,
     common::{InternalErrorRec, Side},
     configuration::Configuration,
-    ier_new, Amount,
+    ier_new,
 };
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WithdrawResponse {
-    msg: String,
-    success: bool,
-    id: String,
-}
+use crate::{
+    binance_order_response::WithdrawResponseRec,
+    binance_trade::log_order_response,
+    common::{post_req_get_response, ResponseErrorRec},
+};
 
 /// TODO: Consider making generic or process macro as is
 /// copy/paste fo orders_get_req_response
 async fn withdraw_post_and_response(
     config: &Configuration,
-    mut _log_writer: &mut dyn Write,
+    mut log_writer: &mut dyn Write,
     full_path: &str,
+    params: &WithdrawParams,
     mut param_tuples: Vec<(&str, &str)>,
-) -> Result<WithdrawResponse, Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let secret_key = config.keys.secret_key.as_bytes();
     let api_key = &config.keys.api_key;
 
@@ -77,13 +77,16 @@ async fn withdraw_post_and_response(
 
         // Process the response
         if response_status == 200 {
-            trace!(
-                "withdraw_post_and_repsonse: response_body={}",
-                response_body
-            );
-            let response: WithdrawResponse = serde_json::from_str(&response_body)?;
+            let mut response: WithdrawResponseRec = serde_json::from_str(&response_body)?;
+            response.test = config.test;
+            response.query = query_string;
+            response.params = params.clone();
 
-            Ok(response)
+            trace!(
+                "withdraw_post_and_repsonse: WithdrawResponseRec={}",
+                response
+            );
+            log_order_response(&mut log_writer, &TradeResponse::SuccessWithdraw(response))?;
         } else {
             let rer = ResponseErrorRec::new(
                 false,
@@ -96,19 +99,54 @@ async fn withdraw_post_and_response(
                 format!("withdraw_post_and_repsonse: ResponseErrRec={:#?}", &rer)
             );
 
-            let ier: InternalErrorRec = ier_new!(8, &rer.to_string());
-            Err(ier.to_string().into())
+            log_order_response(&mut log_writer, &TradeResponse::FailureResponse(rer))?;
         }
     } else {
-        Ok(WithdrawResponse {
+        let wrr = WithdrawResponseRec {
             msg: "successful test".into(),
             success: true,
-            id: "testid".into(),
-        })
+            id: "a-test-id".into(),
+            test: config.test,
+            query: query_string,
+            params: params.clone(),
+        };
+        trace!(
+            "{}",
+            format!(
+                "withdraw_post_and_repsonse: test WithdrawResonseRec={:#?}",
+                &wrr
+            )
+        );
+        log_order_response(&mut log_writer, &TradeResponse::SuccessTestWithdraw(wrr))?;
+    }
+
+    Ok(())
+}
+
+// Define an Amount as Quantity or Percent
+// Possibly extend to Value in USD or EUR or ...
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum Amount {
+    Quantity(Decimal),
+    Percent(Decimal),
+}
+
+impl Default for Amount {
+    fn default() -> Amount {
+        Amount::Quantity(dec!(0))
     }
 }
 
-#[derive(Debug)]
+impl Display for Amount {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Amount::Percent(p) => write!(f, "{:.2}%", p / dec!(100)),
+            Amount::Quantity(q) => write!(f, "{:.2}", q / dec!(100)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WithdrawParams {
     pub sym_name: String,
     pub amount: Amount,
@@ -117,6 +155,17 @@ pub struct WithdrawParams {
     pub label: Option<String>,
 }
 
+impl Default for WithdrawParams {
+    fn default() -> WithdrawParams {
+        WithdrawParams {
+            sym_name: "".to_string(),
+            amount: Amount::default(),
+            address: "".to_string(),
+            secondary_address: None,
+            label: None,
+        }
+    }
+}
 impl WithdrawParams {
     pub fn from_subcommand(
         subcmd: &SubCommand,
@@ -241,16 +290,14 @@ pub async fn withdraw(
         param_tuples.push(("addressTag", label_string.as_str()))
     }
 
-    let _response = withdraw_post_and_response(
+    withdraw_post_and_response(
         &config,
         &mut log_writer,
         "/wapi/v3/withdraw.html",
+        params,
         param_tuples,
     )
-    .await?;
-    //log_writer.
-
-    Ok(())
+    .await
 }
 
 pub async fn withdraw_cmd(

@@ -22,7 +22,6 @@ mod de_string_or_number;
 use clap::SubCommand;
 use log::trace;
 use std::{
-    fmt::{self, Display},
     fs::File,
     io::{BufRead, BufReader},
 };
@@ -51,7 +50,7 @@ use crate::{
     binance_order_response::TradeResponse,
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
-    binance_withdraw_cmd::{WithdrawParams, withdraw_cmd},
+    binance_withdraw_cmd::{withdraw_cmd, WithdrawParams},
     common::{
         dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
         InternalErrorRec,
@@ -78,23 +77,6 @@ fn get_configuration_and_sub_command(
 }
 
 use common::APP_VERSION;
-
-// Define an Amount as Quantity or Percent
-// Possibly extend to Value in USD or EUR or ...
-#[derive(Debug)]
-pub enum Amount {
-    Quantity(Decimal),
-    Percent(Decimal),
-}
-
-impl Display for Amount {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Amount::Percent(p) => write!(f, "{:.2}%", p / dec!(100)),
-            Amount::Quantity(q) => write!(f, "{:.2}", q / dec!(100)),
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
