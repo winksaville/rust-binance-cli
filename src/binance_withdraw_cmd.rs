@@ -37,8 +37,109 @@ use crate::{
     common::{post_req_get_response, ResponseErrorRec},
 };
 
-/// TODO: Consider making generic or process macro as is
-/// copy/paste fo orders_get_req_response
+// Define an Amount as Quantity or Percent
+// Possibly extend to Value in USD or EUR or ...
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum Amount {
+    Quantity(Decimal),
+    Percent(Decimal),
+}
+
+impl Default for Amount {
+    fn default() -> Amount {
+        Amount::Quantity(dec!(0))
+    }
+}
+
+impl Display for Amount {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Amount::Percent(p) => write!(f, "{:.2}%", p / dec!(100)),
+            Amount::Quantity(q) => write!(f, "{:.2}", q / dec!(100)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WithdrawParams {
+    pub sym_name: String,
+    pub amount: Amount,
+    pub address: String,
+    pub secondary_address: Option<String>,
+    pub label: Option<String>,
+}
+
+impl Default for WithdrawParams {
+    fn default() -> WithdrawParams {
+        WithdrawParams {
+            sym_name: "".to_string(),
+            amount: Amount::default(),
+            address: "".to_string(),
+            secondary_address: None,
+            label: None,
+        }
+    }
+}
+
+impl WithdrawParams {
+    pub fn from_subcommand(
+        subcmd: &SubCommand,
+    ) -> Result<WithdrawParams, Box<dyn std::error::Error>> {
+        let sym_name = if let Some(s) = subcmd.matches.value_of("SYMBOL") {
+            s.to_string()
+        } else {
+            return Err("SYMBOL is missing".into());
+        };
+        let amt_val = if let Some(a) = subcmd.matches.value_of("AMOUNT") {
+            a
+        } else {
+            return Err("AMOUNT is missing".into());
+        };
+        let amount = if let Some(amt) = amt_val.strip_suffix("%") {
+            let percent = match Decimal::from_str(amt) {
+                Ok(qty) => qty,
+                Err(e) => {
+                    return Err(format!("converting {} to Decimal: e={}", amt, e).into());
+                }
+            };
+
+            Amount::Percent(percent)
+        } else {
+            let quantity = match Decimal::from_str(amt_val) {
+                Ok(qty) => qty,
+                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
+            };
+
+            Amount::Quantity(quantity)
+        };
+        let address = if let Some(a) = subcmd.matches.value_of("ADDRESS") {
+            a.to_string()
+        } else {
+            return Err("ADDRESS is missing".into());
+        };
+
+        let secondary_address = if let Some(a) = subcmd.matches.value_of("dest-sec-addr") {
+            Some(a.to_string())
+        } else {
+            None
+        };
+
+        let label = if let Some(l) = subcmd.matches.value_of("dest-label") {
+            Some(l.to_string())
+        } else {
+            None
+        };
+
+        Ok(WithdrawParams {
+            sym_name,
+            amount,
+            address,
+            secondary_address,
+            label,
+        })
+    }
+}
+
 async fn withdraw_post_and_response(
     config: &Configuration,
     mut log_writer: &mut dyn Write,
@@ -123,108 +224,6 @@ async fn withdraw_post_and_response(
     Ok(())
 }
 
-// Define an Amount as Quantity or Percent
-// Possibly extend to Value in USD or EUR or ...
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum Amount {
-    Quantity(Decimal),
-    Percent(Decimal),
-}
-
-impl Default for Amount {
-    fn default() -> Amount {
-        Amount::Quantity(dec!(0))
-    }
-}
-
-impl Display for Amount {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Amount::Percent(p) => write!(f, "{:.2}%", p / dec!(100)),
-            Amount::Quantity(q) => write!(f, "{:.2}", q / dec!(100)),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WithdrawParams {
-    pub sym_name: String,
-    pub amount: Amount,
-    pub address: String,
-    pub secondary_address: Option<String>,
-    pub label: Option<String>,
-}
-
-impl Default for WithdrawParams {
-    fn default() -> WithdrawParams {
-        WithdrawParams {
-            sym_name: "".to_string(),
-            amount: Amount::default(),
-            address: "".to_string(),
-            secondary_address: None,
-            label: None,
-        }
-    }
-}
-impl WithdrawParams {
-    pub fn from_subcommand(
-        subcmd: &SubCommand,
-    ) -> Result<WithdrawParams, Box<dyn std::error::Error>> {
-        let sym_name = if let Some(s) = subcmd.matches.value_of("SYMBOL") {
-            s.to_string()
-        } else {
-            return Err("SYMBOL is missing".into());
-        };
-        let amt_val = if let Some(a) = subcmd.matches.value_of("AMOUNT") {
-            a
-        } else {
-            return Err("AMOUNT is missing".into());
-        };
-        let amount = if let Some(amt) = amt_val.strip_suffix("%") {
-            let percent = match Decimal::from_str(amt) {
-                Ok(qty) => qty,
-                Err(e) => {
-                    return Err(format!("converting {} to Decimal: e={}", amt, e).into());
-                }
-            };
-
-            Amount::Percent(percent)
-        } else {
-            let quantity = match Decimal::from_str(amt_val) {
-                Ok(qty) => qty,
-                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
-            };
-
-            Amount::Quantity(quantity)
-        };
-        let address = if let Some(a) = subcmd.matches.value_of("ADDRESS") {
-            a.to_string()
-        } else {
-            return Err("ADDRESS is missing".into());
-        };
-
-        let secondary_address = if let Some(a) = subcmd.matches.value_of("DEST_SEC_ADDRESS") {
-            Some(a.to_string())
-        } else {
-            None
-        };
-
-        let label = if let Some(l) = subcmd.matches.value_of("DEST_LABEL") {
-            Some(l.to_string())
-        } else {
-            None
-        };
-
-        Ok(WithdrawParams {
-            sym_name,
-            amount,
-            address,
-            secondary_address,
-            label,
-        })
-    }
-}
-
 pub async fn withdraw(
     config: &Configuration,
     ei: &ExchangeInfo,
@@ -287,7 +286,7 @@ pub async fn withdraw(
     let label_string: String;
     if let Some(l) = params.label.clone() {
         label_string = l;
-        param_tuples.push(("addressTag", label_string.as_str()))
+        param_tuples.push(("name", label_string.as_str()))
     }
 
     withdraw_post_and_response(
