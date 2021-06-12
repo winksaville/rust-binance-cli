@@ -245,6 +245,8 @@ pub struct WithdrawResponseRec {
     #[serde(default)]
     pub params: WithdrawParams,
     #[serde(default)]
+    pub response_body: String,
+    #[serde(default)]
     pub msg: String,
     #[serde(default)]
     pub id: String,
@@ -296,6 +298,7 @@ impl Default for WithdrawResponseRec {
             test: false,
             query: "".to_string(),
             params: WithdrawParams::default(),
+            response_body: "".to_string(),
             msg: "".to_string(),
             success: false,
             id: "".to_string(),

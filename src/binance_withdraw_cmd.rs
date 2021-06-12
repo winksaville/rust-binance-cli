@@ -191,6 +191,7 @@ async fn withdraw_post_and_response(
             response.test = config.test;
             response.query = query_string;
             response.params = params.clone();
+            response.response_body = response_body;
 
             trace!(
                 "withdraw_post_and_repsonse: WithdrawResponseRec={}",
@@ -207,7 +208,7 @@ async fn withdraw_post_and_response(
                 false,
                 response_status.as_u16(),
                 &query_string,
-                &response_body,
+                &format!(r#"response_body: {}"#, response_body),
             );
             trace!(
                 "{}",
@@ -224,6 +225,7 @@ async fn withdraw_post_and_response(
             test: config.test,
             query: query_string,
             params: params.clone(),
+            response_body: "".to_string(),
         };
         trace!(
             "{}",
