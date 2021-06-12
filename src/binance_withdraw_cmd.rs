@@ -54,8 +54,8 @@ impl Default for Amount {
 impl Display for Amount {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Amount::Percent(p) => write!(f, "{:.2}%", p / dec!(100)),
-            Amount::Quantity(q) => write!(f, "{:.2}", q / dec!(100)),
+            Amount::Percent(p) => write!(f, "{:.4}%", p),
+            Amount::Quantity(q) => write!(f, "{:.4}", q),
         }
     }
 }
@@ -64,6 +64,7 @@ impl Display for Amount {
 pub struct WithdrawParams {
     pub sym_name: String,
     pub amount: Amount,
+    pub quantity: Decimal,
     pub address: String,
     pub secondary_address: Option<String>,
     pub label: Option<String>,
@@ -74,6 +75,7 @@ impl Default for WithdrawParams {
         WithdrawParams {
             sym_name: "".to_string(),
             amount: Amount::default(),
+            quantity: dec!(0),
             address: "".to_string(),
             secondary_address: None,
             label: None,
@@ -133,6 +135,7 @@ impl WithdrawParams {
         Ok(WithdrawParams {
             sym_name,
             amount,
+            quantity: dec!(0),
             address,
             secondary_address,
             label,
@@ -170,7 +173,7 @@ async fn withdraw_post_and_response(
     let url = config.make_url("api", &format!("{}?", full_path));
     trace!("withdraw_post_and_repsonse: url={}", url);
 
-    if !config.test {
+    let tr = if !config.test {
         let response = post_req_get_response(api_key, &url, &query_string).await?;
         trace!("withdraw_post_and_repsonse: response={:#?}", response);
         let response_status = response.status();
@@ -187,7 +190,8 @@ async fn withdraw_post_and_response(
                 "withdraw_post_and_repsonse: WithdrawResponseRec={}",
                 response
             );
-            log_order_response(&mut log_writer, &TradeResponse::SuccessWithdraw(response))?;
+
+            TradeResponse::SuccessWithdraw(response)
         } else {
             let rer = ResponseErrorRec::new(
                 false,
@@ -200,7 +204,7 @@ async fn withdraw_post_and_response(
                 format!("withdraw_post_and_repsonse: ResponseErrRec={:#?}", &rer)
             );
 
-            log_order_response(&mut log_writer, &TradeResponse::FailureResponse(rer))?;
+            TradeResponse::FailureResponse(rer)
         }
     } else {
         let wrr = WithdrawResponseRec {
@@ -218,10 +222,13 @@ async fn withdraw_post_and_response(
                 &wrr
             )
         );
-        log_order_response(&mut log_writer, &TradeResponse::SuccessTestWithdraw(wrr))?;
-    }
 
-    Ok(())
+        TradeResponse::SuccessTestWithdraw(wrr)
+    };
+    println!("{}", &tr);
+
+    // Log response and return Ok or Err
+    log_order_response(&mut log_writer, &tr)
 }
 
 pub async fn withdraw(
@@ -259,16 +266,24 @@ pub async fn withdraw(
     let quantity = match params.amount {
         Amount::Percent(p) => {
             let q = (p / dec!(100)) * balance.free;
-            println!("Percent: {}", q);
+            trace!("Percent: {}", q);
 
             q
         }
-        Amount::Quantity(q) => q,
+        Amount::Quantity(q) => {
+            trace!("Quantity: {}", q);
+
+            q
+        }
     };
 
     // This rounding may or may not be the "right" thing, but won't HFTM (Furt For The Moment).
     let quantity = quantity.round_dp(symbol.base_asset_precision);
-    println!("withdraw: quantity={}", quantity);
+    trace!("withdraw: quantity={}", quantity);
+
+    let mut params_x = params.clone();
+    params_x.quantity = quantity;
+    let params = params_x;
 
     verify_quanity_is_less_than_or_eq_free(&ai, symbol, quantity)?;
     let quantity_string = quantity.to_string();
@@ -293,7 +308,7 @@ pub async fn withdraw(
         &config,
         &mut log_writer,
         "/wapi/v3/withdraw.html",
-        params,
+        &params,
         param_tuples,
     )
     .await

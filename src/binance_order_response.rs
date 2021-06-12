@@ -255,13 +255,13 @@ impl fmt::Display for WithdrawResponseRec {
         trace!("Display::wrr: {:#?}", self);
         write!(
             f,
-            "{} of {} coins of {} to {}{}{} msg: {} id: {}",
+            "{} of {} {} to addr: {}{}{}{}{}",
             if self.success {
-                "Successful withdrawl"
+                "Successful withdraw"
             } else {
                 "Failure withdrawing"
             },
-            self.params.amount,
+            self.params.quantity,
             self.params.sym_name,
             if let Some(l) = &self.params.label {
                 format!("{}:", l)
@@ -274,8 +274,16 @@ impl fmt::Display for WithdrawResponseRec {
             } else {
                 "".to_string()
             },
-            self.msg,
-            self.id,
+            if self.msg.is_empty() {
+                "".to_string()
+            } else {
+                format!(" msg: {}", self.msg)
+            },
+            if self.id.is_empty() {
+                "".to_string()
+            } else {
+                format!(" id: {}", self.id)
+            },
         )
     }
 }
