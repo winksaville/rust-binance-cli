@@ -238,7 +238,10 @@ impl Configuration {
                     }
                 },
                 Err(e) => match e.kind() {
-                    std::io::ErrorKind::NotFound => Configuration::default(),
+                    std::io::ErrorKind::NotFound => {
+                        return Err(format!("file not found: {}", path_str)
+                            .into());
+                    }
                     _ => {
                         return Err(ier_new!(9, &format!("Error reading {}: {}", path_str, e))
                             .to_string()
