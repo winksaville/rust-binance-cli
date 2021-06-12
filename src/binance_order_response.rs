@@ -244,10 +244,12 @@ pub struct WithdrawResponseRec {
     pub query: String,
     #[serde(default)]
     pub params: WithdrawParams,
-
+    #[serde(default)]
     pub msg: String,
-    pub success: bool,
+    #[serde(default)]
     pub id: String,
+
+    pub success: bool,
 }
 
 impl fmt::Display for WithdrawResponseRec {
