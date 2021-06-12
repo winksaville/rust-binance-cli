@@ -260,8 +260,7 @@ pub async fn withdraw(
     let symbol = match ei.get_symbol(&full_name) {
         Some(s) => s,
         None => {
-            let ier = ier_new!(2, &format!("No asset named {}", params.sym_name));
-            return Err(ier.to_string().into());
+            return Err(ier_new!(2, &format!("No asset named {}", params.sym_name)).into());
         }
     };
     trace!("withdraw: Got symbol");

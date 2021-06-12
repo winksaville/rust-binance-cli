@@ -254,9 +254,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let symbol = if let Some(s) = ei.get_symbol(sym_name) {
                 s
             } else {
-                let ier_string =
-                    ier_new!(9, &format!("Symbol {} isn't valid: ", sym_name)).to_string();
-                return Err(ier_string.into());
+                return Err(ier_new!(9, &format!("Symbol {} isn't valid: ", sym_name)).into());
             };
             let asset = &symbol.base_asset;
 

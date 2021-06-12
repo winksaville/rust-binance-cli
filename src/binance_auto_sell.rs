@@ -63,7 +63,6 @@ pub async fn auto_sell(
                 krs
             } else {
                 return Err(ier_new!(8, "Missing `keep` field in configuration, make it empty if everything is to be sold: `keep = []`")
-                    .to_string()
                     .into());
             };
 

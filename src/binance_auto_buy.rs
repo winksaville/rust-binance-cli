@@ -51,9 +51,7 @@ pub async fn auto_buy(
     let buy_recs = if let Some(brs) = &config.buy {
         brs
     } else {
-        return Err(ier_new!(8, "Missing `buy` field in configuration")
-            .to_string()
-            .into());
+        return Err(ier_new!(8, "Missing `buy` field in configuration").into());
     };
 
     // Iterate over the BuyRec's and determine the buy_qty
