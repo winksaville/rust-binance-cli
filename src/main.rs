@@ -81,7 +81,7 @@ use common::APP_VERSION;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    trace!("main: +");
+    trace!("main:+ args().len()={}", std::env::args().len());
 
     // If no commands display a simple usage message to terminal
     if std::env::args().len() == 1 {

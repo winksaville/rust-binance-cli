@@ -174,8 +174,9 @@ pub async fn binance_new_order_or_test(
         }
     };
 
-    let secret_key = config.keys.secret_key.as_bytes();
-    let api_key = &config.keys.api_key;
+    let api_key = config.keys.get_ak_or_err()?;
+    let sk = config.keys.get_sk_or_err()?;
+    let secret_key = sk.as_bytes();
 
     let side_str: &str = side.into();
     let mut params = vec![
@@ -209,7 +210,7 @@ pub async fn binance_new_order_or_test(
     let mut query = query_vec_u8(&params);
 
     // Calculate the signature using sig_key and the data is qs and query as body
-    let signature = binance_signature(&secret_key, &[], &query);
+    let signature = binance_signature(secret_key, &[], &query);
 
     // Append the signature to query
     append_signature(&mut query, signature);
@@ -225,7 +226,7 @@ pub async fn binance_new_order_or_test(
     };
     let url = "https://api.binance.us".to_string() + path;
 
-    let response = post_req_get_response(api_key, &url, &query_string).await?;
+    let response = post_req_get_response(&api_key, &url, &query_string).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     trace!("response_status={:#?}", response_status);
@@ -378,7 +379,9 @@ mod test {
 
     #[test(tokio::test)]
     async fn test_convert() {
-        let config = Configuration::default();
+        let mut config = Configuration::default();
+        config.keys.api_key = Some("a_key".to_string());
+        config.keys.secret_key = Some("a_secret_key".to_string());
 
         // Expect to always return the value parameter
         let value_usd = convert(&config, utc_now_to_time_ms(), "USD", dec!(1234.5678), "USD")
@@ -396,7 +399,10 @@ mod test {
 
     #[tokio::test]
     async fn test_convertcommission() {
-        let config = Configuration::default();
+        let mut config = Configuration::default();
+        config.keys.api_key = Some("a_key".to_string());
+        config.keys.secret_key = Some("a_secret_key".to_string());
+
         let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
 
         // TODO: Need to "mock" get_kline so order_response.fills[0].commission_asset ("BNB") always returns a specific value.

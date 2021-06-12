@@ -59,8 +59,9 @@ async fn trades_get_req_and_response(
     cmd: &str,
     mut params: Vec<(&str, &str)>,
 ) -> Result<Trades, Box<dyn std::error::Error>> {
-    let secret_key = config.keys.secret_key.as_bytes();
-    let api_key = &config.keys.api_key;
+    let api_key = config.keys.get_ak_or_err()?;
+    let sk = config.keys.get_sk_or_err()?;
+    let secret_key = sk.as_bytes();
 
     params.push(("recvWindow", "5000"));
 
@@ -83,7 +84,7 @@ async fn trades_get_req_and_response(
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
-    let response = get_req_get_response(api_key, &url).await?;
+    let response = get_req_get_response(&api_key, &url).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;

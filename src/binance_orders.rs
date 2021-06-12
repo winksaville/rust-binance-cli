@@ -72,8 +72,9 @@ async fn orders_get_req_and_response(
     cmd: &str,
     mut params: Vec<(&str, &str)>,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
-    let secret_key = config.keys.secret_key.as_bytes();
-    let api_key = &config.keys.api_key;
+    let api_key = config.keys.get_ak_or_err()?;
+    let sk = config.keys.get_sk_or_err()?;
+    let secret_key = sk.as_bytes();
 
     params.push(("recvWindow", "5000"));
 
@@ -83,7 +84,7 @@ async fn orders_get_req_and_response(
     let mut query = query_vec_u8(&params);
 
     // Calculate the signature using sig_key and the data is qs and query as body
-    let signature = binance_signature(&secret_key, &query, &[]);
+    let signature = binance_signature(secret_key, &query, &[]);
 
     // Append the signature to query
     append_signature(&mut query, signature);
@@ -96,7 +97,7 @@ async fn orders_get_req_and_response(
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
-    let response = get_req_get_response(api_key, &url).await?;
+    let response = get_req_get_response(&api_key, &url).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;

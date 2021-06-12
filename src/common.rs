@@ -12,6 +12,7 @@ use reqwest::{
 };
 use std::fmt::{self, Debug, Display};
 use std::{
+    error::Error,
     io::stdout,
     io::{stdin, Write},
 };
@@ -84,6 +85,8 @@ impl Display for InternalErrorRec {
         }
     }
 }
+
+impl Error for InternalErrorRec {}
 
 #[macro_export]
 macro_rules! ier_new {

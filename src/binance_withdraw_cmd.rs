@@ -150,8 +150,9 @@ async fn withdraw_post_and_response(
     params: &WithdrawParams,
     mut param_tuples: Vec<(&str, &str)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let secret_key = config.keys.secret_key.as_bytes();
-    let api_key = &config.keys.api_key;
+    let api_key = config.keys.get_ak_or_err()?;
+    let sk = config.keys.get_sk_or_err()?;
+    let secret_key = sk.as_bytes();
 
     param_tuples.push(("recvWindow", "5000"));
 
@@ -161,7 +162,7 @@ async fn withdraw_post_and_response(
     let mut query = query_vec_u8(&param_tuples);
 
     // Calculate the signature using sig_key and the data is qs and query as body
-    let signature = binance_signature(&secret_key, &query, &[]);
+    let signature = binance_signature(secret_key, &query, &[]);
 
     // Append the signature to query
     append_signature(&mut query, signature);
@@ -174,11 +175,15 @@ async fn withdraw_post_and_response(
     trace!("withdraw_post_and_repsonse: url={}", url);
 
     let tr = if !config.test {
-        let response = post_req_get_response(api_key, &url, &query_string).await?;
+        let response = post_req_get_response(&api_key, &url, &query_string).await?;
         trace!("withdraw_post_and_repsonse: response={:#?}", response);
         let response_status = response.status();
         let response_body = response.text().await?;
-        trace!("withdraw_post_and_repsonse: response_status={} response_body={}", response_status, response_body);
+        trace!(
+            "withdraw_post_and_repsonse: response_status={} response_body={}",
+            response_status,
+            response_body
+        );
 
         // Process the response
         if response_status == 200 {
@@ -192,7 +197,11 @@ async fn withdraw_post_and_response(
                 response
             );
 
-            TradeResponse::SuccessWithdraw(response)
+            if response.success {
+                TradeResponse::SuccessWithdraw(response)
+            } else {
+                TradeResponse::FailureWithdraw(response)
+            }
         } else {
             let rer = ResponseErrorRec::new(
                 false,

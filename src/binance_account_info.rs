@@ -166,8 +166,9 @@ pub async fn get_account_info<'e>(
 ) -> Result<AccountInfo, Box<dyn std::error::Error>> {
     trace!("get_account_info: +");
 
-    let secret_key = config.keys.secret_key.as_bytes();
-    let api_key = &config.keys.api_key;
+    let api_key = config.keys.get_ak_or_err()?;
+    let sk = config.keys.get_sk_or_err()?;
+    let secret_key = sk.as_bytes();
 
     let mut params = vec![];
     let ts_string: String = format!("{}", utc_now_to_time_ms());
@@ -176,7 +177,7 @@ pub async fn get_account_info<'e>(
     let mut query = query_vec_u8(&params);
 
     // Calculate the signature using sig_key and the data in qs and query as body
-    let signature = binance_signature(&secret_key, &[], &query);
+    let signature = binance_signature(secret_key, &[], &query);
 
     // Append the signature to query
     append_signature(&mut query, signature);
@@ -188,7 +189,7 @@ pub async fn get_account_info<'e>(
     let url = config.make_url("api", &format!("/api/v3/account?{}", &query_string));
     trace!("get_account_info: url={}", url);
 
-    let response = get_req_get_response(api_key, &url).await?;
+    let response = get_req_get_response(&api_key, &url).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;

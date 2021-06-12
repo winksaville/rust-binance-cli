@@ -123,19 +123,47 @@ pub struct BuyRec {
 #[derive(Clone, Deserialize, PartialEq)]
 pub struct Keys {
     #[serde(rename = "SECRET_KEY")]
-    #[serde(default)]
-    pub secret_key: String,
+    pub secret_key: Option<String>,
 
     #[serde(rename = "API_KEY")]
-    #[serde(default)]
-    pub api_key: String,
+    pub api_key: Option<String>,
 }
 
 impl Default for Keys {
     fn default() -> Self {
         Keys {
-            api_key: "".to_string(),
-            secret_key: "".to_string(),
+            api_key: None,    //"".to_string(),
+            secret_key: None, //"".to_string(),
+        }
+    }
+}
+
+impl Keys {
+    //#[inline]
+    //pub fn get_ak_as_bytes_or_err(&self) -> Result<Box<&'a [u8]>, Box<dyn std::error::Error>> {
+    //    let x = Box::new(&'a self.get_ak_or_err()?);
+    //    //Ok(Box::new(self.get_ak_or_err()?.as_bytes()))
+    //    let b = Box::new((*x.as_bytes());
+    //    Ok(b)
+    //}
+
+    #[inline]
+    pub fn get_ak_or_err(&self) -> Result<String, Box<dyn std::error::Error>> {
+        match self.api_key.clone() {
+            Some(ak) => Ok(ak),
+            None => Err(ier_new!(1, "No api-key").into()),
+        }
+    }
+
+    //pub fn get_sk_as_bytes_or_err(&self) -> Result<Box<&[u8]>, Box<dyn std::error::Error>> {
+    //    Ok(Box::new(self.get_sk_or_err()?.as_bytes()))
+    //}
+
+    #[inline]
+    pub fn get_sk_or_err(&self) -> Result<String, Box<dyn std::error::Error>> {
+        match self.secret_key.clone() {
+            Some(sk) => Ok(sk),
+            None => Err(ier_new!(1, "No secret-key").into()),
         }
     }
 }
@@ -145,11 +173,16 @@ impl fmt::Debug for Keys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const BEG_LEN: usize = 6;
         let mut beg_api_key: String = String::with_capacity(size_of::<char>() * BEG_LEN);
-        for (i, ch) in self.api_key.chars().enumerate() {
-            if i >= BEG_LEN {
-                break;
+        // TODO: Why do I have to clone the api_key String?
+        if let Some(api_key) = self.api_key.clone() {
+            for (i, ch) in api_key.chars().enumerate() {
+                if i >= BEG_LEN {
+                    break;
+                }
+                beg_api_key.push(ch);
             }
-            beg_api_key.push(ch);
+        } else {
+            beg_api_key = "None".to_string();
         }
         f.debug_struct("Keys")
             .field("secret_key", &"******".to_string())
@@ -231,21 +264,16 @@ impl Configuration {
                     }
                     Err(e) => {
                         return Err(
-                            ier_new!(9, &format!("Error processing {}: {}", path_str, e))
-                                .to_string()
-                                .into(),
+                            ier_new!(9, &format!("Error processing {}: {}", path_str, e)).into(),
                         )
                     }
                 },
                 Err(e) => match e.kind() {
-                    std::io::ErrorKind::NotFound => {
-                        return Err(format!("file not found: {}", path_str)
-                            .into());
-                    }
+                    std::io::ErrorKind::NotFound => Configuration::default(),
                     _ => {
-                        return Err(ier_new!(9, &format!("Error reading {}: {}", path_str, e))
-                            .to_string()
-                            .into());
+                        return Err(
+                            ier_new!(9, &format!("Error reading {}: {}", path_str, e)).into()
+                        );
                     }
                 },
             };
@@ -276,11 +304,11 @@ impl Configuration {
     // and the configuration is not updated.
     fn update_config(&mut self, matches: &ArgMatches) {
         if let Some(value) = matches.value_of("api-key") {
-            self.keys.api_key = value.to_string();
+            self.keys.api_key = Some(value.to_string());
         }
 
         if let Some(value) = matches.value_of("secret-key") {
-            self.keys.secret_key = value.to_string();
+            self.keys.secret_key = Some(value.to_string());
         }
 
         if let Some(value) = matches.value_of("order-log-path") {
@@ -323,8 +351,8 @@ mod test {
     fn test_config_empty() {
         let config: Configuration = toml::from_str("").unwrap();
         // println!("{:#?}", config);
-        assert_eq!(config.keys.api_key, "");
-        assert_eq!(config.keys.secret_key, "");
+        assert_eq!(config.keys.api_key, None);
+        assert_eq!(config.keys.secret_key, None);
         assert!(config.order_log_path.is_none());
         assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(config.scheme, "https");
@@ -348,8 +376,8 @@ mod test {
     fn test_config_buy() {
         let config: Configuration = toml::from_str(TOML_DATA).unwrap();
         // println!("{:#?}", config);
-        assert_eq!(config.keys.api_key, "api key");
-        assert_eq!(config.keys.secret_key, "secret key");
+        assert_eq!(config.keys.api_key, Some("api key".to_string()));
+        assert_eq!(config.keys.secret_key, Some("secret key".to_string()));
         assert!(config.order_log_path.is_none()); // The default
         assert_eq!(config.default_quote_asset, "USD"); // The default
         assert_eq!(config.scheme, "https"); // The default
@@ -397,8 +425,8 @@ mod test {
     fn test_config_keep() {
         let config: Configuration = toml::from_str(TOML_DATA_KEEP).unwrap();
         // println!("{:#?}", config);
-        assert_eq!(config.keys.api_key, "api key");
-        assert_eq!(config.keys.secret_key, "secret key");
+        assert_eq!(config.keys.api_key, Some("api key".to_string()));
+        assert_eq!(config.keys.secret_key, Some("secret key".to_string()));
         assert_eq!(
             config.order_log_path,
             Some(PathBuf::from("data/xyz.txt".to_string()))
