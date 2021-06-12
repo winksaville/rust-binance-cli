@@ -161,7 +161,7 @@ impl ResponseErrorRec {
         test: bool,
         status: u16,
         query: &str,
-        body: &str, // Assumeed to be json object: "{ \"code\": -1121, \"msg\": \"string message\" }"
+        body: &str, // Assumed to be json object: "{ \"code\": -1121, \"msg\": \"string message\" }"
     ) -> Self {
         #[derive(Deserialize, Serialize)]
         struct CodeMsg {
