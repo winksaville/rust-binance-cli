@@ -178,6 +178,7 @@ async fn withdraw_post_and_response(
         trace!("withdraw_post_and_repsonse: response={:#?}", response);
         let response_status = response.status();
         let response_body = response.text().await?;
+        trace!("withdraw_post_and_repsonse: response_status={} response_body={}", response_status, response_body);
 
         // Process the response
         if response_status == 200 {
