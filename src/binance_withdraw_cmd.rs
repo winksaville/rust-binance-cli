@@ -120,17 +120,8 @@ impl WithdrawParams {
             return Err("ADDRESS is missing".into());
         };
 
-        let secondary_address = if let Some(a) = subcmd.matches.value_of("dest-sec-addr") {
-            Some(a.to_string())
-        } else {
-            None
-        };
-
-        let label = if let Some(l) = subcmd.matches.value_of("dest-label") {
-            Some(l.to_string())
-        } else {
-            None
-        };
+        let secondary_address = subcmd.matches.value_of("dest-sec-addr").map(|s| s.to_string());
+        let label = subcmd.matches.value_of("dest-label").map(|s| s.to_string());
 
         Ok(WithdrawParams {
             sym_name,
