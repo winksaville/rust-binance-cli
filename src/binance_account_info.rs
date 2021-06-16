@@ -167,8 +167,7 @@ pub async fn get_account_info<'e>(
     trace!("get_account_info: +");
 
     let api_key = config.keys.get_ak_or_err()?;
-    let sk = config.keys.get_sk_or_err()?;
-    let secret_key = sk.as_bytes();
+    let secret_key = &config.keys.get_sk_vec_u8_or_err()?;
 
     let mut params = vec![];
     let ts_string: String = format!("{}", utc_now_to_time_ms());

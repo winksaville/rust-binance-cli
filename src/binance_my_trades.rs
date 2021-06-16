@@ -60,8 +60,7 @@ async fn trades_get_req_and_response(
     mut params: Vec<(&str, &str)>,
 ) -> Result<Trades, Box<dyn std::error::Error>> {
     let api_key = config.keys.get_ak_or_err()?;
-    let sk = config.keys.get_sk_or_err()?;
-    let secret_key = sk.as_bytes();
+    let secret_key = &config.keys.get_sk_vec_u8_or_err()?;
 
     params.push(("recvWindow", "5000"));
 
@@ -71,7 +70,7 @@ async fn trades_get_req_and_response(
     let mut query = query_vec_u8(&params);
 
     // Calculate the signature using sig_key and the data is qs and query as body
-    let signature = binance_signature(&secret_key, &query, &[]);
+    let signature = binance_signature(secret_key, &query, &[]);
 
     // Append the signature to query
     append_signature(&mut query, signature);

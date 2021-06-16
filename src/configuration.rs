@@ -9,6 +9,7 @@ use serde::{
     de::{SeqAccess, Visitor},
     Deserialize, Deserializer,
 };
+use std::error::Error;
 use std::{collections::HashMap, fmt, fs::read_to_string, path::PathBuf};
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
@@ -139,32 +140,35 @@ impl Default for Keys {
 }
 
 impl Keys {
-    //#[inline]
-    //pub fn get_ak_as_bytes_or_err(&self) -> Result<Box<&'a [u8]>, Box<dyn std::error::Error>> {
-    //    let x = Box::new(&'a self.get_ak_or_err()?);
-    //    //Ok(Box::new(self.get_ak_or_err()?.as_bytes()))
-    //    let b = Box::new((*x.as_bytes());
-    //    Ok(b)
-    //}
-
-    #[inline]
-    pub fn get_ak_or_err(&self) -> Result<String, Box<dyn std::error::Error>> {
-        match self.api_key.clone() {
-            Some(ak) => Ok(ak),
-            None => Err(ier_new!(1, "No api-key").into()),
+    //#[inline(always)]
+    //#[inline(never)]
+    pub fn get_ak_or_err(&self) -> Result<&str, Box<dyn Error>> {
+        match &self.api_key {
+            Some(ak) => Ok(ak.as_str()),
+            None => Err("No api-key".into()),
         }
     }
 
-    //pub fn get_sk_as_bytes_or_err(&self) -> Result<Box<&[u8]>, Box<dyn std::error::Error>> {
-    //    Ok(Box::new(self.get_sk_or_err()?.as_bytes()))
-    //}
+    #[allow(unused)]
+    //#[inline(always)]
+    //#[inline(never)]
+    pub fn get_ak_vec_u8_or_err(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        Ok(self.get_ak_or_err()?.to_string().into_bytes())
+    }
 
-    #[inline]
-    pub fn get_sk_or_err(&self) -> Result<String, Box<dyn std::error::Error>> {
-        match self.secret_key.clone() {
-            Some(sk) => Ok(sk),
-            None => Err(ier_new!(1, "No secret-key").into()),
+    //#[inline(always)]
+    //#[inline(never)]
+    pub fn get_sk_or_err(&self) -> Result<&str, Box<dyn Error>> {
+        match &self.secret_key {
+            Some(sk) => Ok(sk.as_str()),
+            None => Err("No secret-key".into()),
         }
+    }
+
+    //#[inline(always)]
+    //#[inline(never)]
+    pub fn get_sk_vec_u8_or_err(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        Ok(self.get_sk_or_err()?.to_string().into_bytes())
     }
 }
 

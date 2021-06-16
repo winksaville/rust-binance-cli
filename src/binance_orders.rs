@@ -73,8 +73,7 @@ async fn orders_get_req_and_response(
     mut params: Vec<(&str, &str)>,
 ) -> Result<Orders, Box<dyn std::error::Error>> {
     let api_key = config.keys.get_ak_or_err()?;
-    let sk = config.keys.get_sk_or_err()?;
-    let secret_key = sk.as_bytes();
+    let secret_key = &config.keys.get_sk_vec_u8_or_err()?;
 
     params.push(("recvWindow", "5000"));
 

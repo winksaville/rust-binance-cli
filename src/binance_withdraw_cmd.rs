@@ -120,7 +120,10 @@ impl WithdrawParams {
             return Err("ADDRESS is missing".into());
         };
 
-        let secondary_address = subcmd.matches.value_of("dest-sec-addr").map(|s| s.to_string());
+        let secondary_address = subcmd
+            .matches
+            .value_of("dest-sec-addr")
+            .map(|s| s.to_string());
         let label = subcmd.matches.value_of("dest-label").map(|s| s.to_string());
 
         Ok(WithdrawParams {
@@ -142,8 +145,7 @@ async fn withdraw_post_and_response(
     mut param_tuples: Vec<(&str, &str)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let api_key = config.keys.get_ak_or_err()?;
-    let sk = config.keys.get_sk_or_err()?;
-    let secret_key = sk.as_bytes();
+    let secret_key = &config.keys.get_sk_vec_u8_or_err()?;
 
     param_tuples.push(("recvWindow", "5000"));
 
