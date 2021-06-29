@@ -90,7 +90,6 @@ pub async fn auto_sell(
                 symbol_name = asset.clone() + quote_asset;
                 if let Some(symbol) = ei.get_symbol(&symbol_name) {
                     let precision = symbol.quote_precision as usize;
-                    let sell_qty = sell_qty.round_dp(symbol.quote_precision);
 
                     vec_process_rec.push(ProcessRec {
                         asset,

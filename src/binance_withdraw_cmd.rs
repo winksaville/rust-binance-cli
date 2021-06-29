@@ -281,8 +281,6 @@ pub async fn withdraw(
         }
     };
 
-    // This rounding may or may not be the "right" thing, but won't HFTM (Furt For The Moment).
-    let quantity = quantity.round_dp(symbol.base_asset_precision);
     trace!("withdraw: quantity={}", quantity);
 
     let mut params_x = params.clone();
