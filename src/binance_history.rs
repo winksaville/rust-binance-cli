@@ -259,11 +259,11 @@ pub async fn get_deposit_history(
     if let Some(deposit_list) = histories.deposit_list {
         Ok(deposit_list)
     } else {
-        return Err(ier_new!(
+        Err(ier_new!(
             7,
             "Should not happen; expected depositList, but there was None"
         )
-        .into());
+        .into())
     }
 }
 
@@ -287,11 +287,11 @@ pub async fn get_withdraw_history(
     if let Some(withdraw_list) = histories.withdraw_list {
         Ok(withdraw_list)
     } else {
-        return Err(ier_new!(
+        Err(ier_new!(
             7,
             "Should not happen; expected withdrawList, but there was None"
         )
-        .into());
+        .into())
     }
 }
 
@@ -348,11 +348,11 @@ pub async fn get_fiat_currency_history(
     if let Some(alrs) = histories.asset_log_record_list {
         Ok(alrs)
     } else {
-        return Err(ier_new!(
+        Err(ier_new!(
             7,
             "Should not happen; expected assetLogRecordList, but there was None"
         )
-        .into());
+        .into())
     }
 }
 

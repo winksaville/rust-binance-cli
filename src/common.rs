@@ -318,8 +318,7 @@ pub fn time_ms_to_utc(timestamp_ms: i64) -> DateTime<Utc> {
 // Untested and not used atm.
 pub fn time_ms_utc_to_naive_local(timestamp_ms: i64) -> NaiveDateTime {
     let (secs, nsecs) = timestamp_ms_to_secs_nsecs(timestamp_ms);
-    let naive_datetime = NaiveDateTime::from_timestamp(secs, nsecs);
-    naive_datetime
+    NaiveDateTime::from_timestamp(secs, nsecs)
 }
 
 pub fn utc_now_to_time_ms() -> i64 {
