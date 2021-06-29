@@ -52,7 +52,10 @@ pub async fn market_order(
         None => {
             let tr = TradeResponse::FailureInternal(ier_new!(
                 2,
-                &format!("No asset named {}", symbol_name)
+                &format!(
+                    "No asset named: {} order_type: {} side: {} test: {}",
+                    symbol_name, order_type, side, test
+                )
             ));
             log_order_response(&mut log_writer, &tr)?;
             return Ok(tr);
@@ -72,7 +75,10 @@ pub async fn market_order(
             if qty <= dec!(0) {
                 let tr = TradeResponse::FailureInternal(ier_new!(
                     3,
-                    &format!("adjusted quantity: {} <= 0", qty)
+                    &format!(
+                        "adjusted quantity: {} <= 0 for symbol_name {} order_type: {} side: {} test: {}",
+                        qty, symbol_name, order_type, side, test
+                    )
                 ));
                 log_order_response(&mut log_writer, &tr)?;
                 return Ok(tr);

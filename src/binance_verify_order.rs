@@ -19,13 +19,14 @@ pub fn verify_open_orders(
     if let Some(max_num_orders) = symbol.get_max_num_orders() {
         if current_orders > max_num_orders {
             return Err(format!(
-                "The number of current orders is {} and thats > the maximum {}",
-                current_orders, max_num_orders,
+                "The number of current orders for {} is {} and thats > the maximum {}",
+                symbol.symbol, current_orders, max_num_orders,
             )
             .into());
         } else {
             trace!(
-                "current_orders: {} <= max_num_orders: {}",
+                "For {} current_orders: {} <= max_num_orders: {}",
+                symbol.symbol,
                 current_orders,
                 max_num_orders
             );
@@ -49,7 +50,8 @@ pub fn verify_min_notional(
             let min_notional_quantity = mnr.min_notional / avg_price.price;
             if quantity < min_notional_quantity {
                 return Err(format!(
-                    "quantity: {} must be >= {:.6} so value is >= {}",
+                    "For {} quantity: {} must be >= {:.6} so value is >= {}",
+                    symbol.symbol,
                     quantity,
                     min_notional_quantity,
                     dec_to_money_string((min_notional_quantity * avg_price.price).round_dp(2)),
@@ -57,7 +59,8 @@ pub fn verify_min_notional(
                 .into());
             }
             trace!(
-                "quantity: {} >= min_notional_quantity: {}",
+                "For {} quantity: {} >= min_notional_quantity: {}",
+                symbol.symbol,
                 quantity,
                 min_notional_quantity
             );
@@ -93,7 +96,8 @@ pub fn verify_max_position(
 
         let new_position = quantity + current_holdings + sum_buy_orders;
         trace!(
-            "new_position: {} = quantity: {} current_holdings: {} sum_buy_orders: {}",
+            "For {} new_position: {} = quantity: {} current_holdings: {} sum_buy_orders: {}",
+            symbol.symbol,
             new_position,
             quantity,
             current_holdings,
@@ -101,13 +105,14 @@ pub fn verify_max_position(
         );
         if new_position > max_position {
             return Err(format!(
-                "The quantity: {} + current_holdings {} + sum_by_order: {} > max_position: {}",
-                quantity, current_holdings, sum_buy_orders, max_position
+                "For {} quantity: {} + current_holdings {} + sum_by_order: {} > max_position: {}",
+                symbol.symbol, quantity, current_holdings, sum_buy_orders, max_position
             )
             .into());
         }
         trace!(
-            "new_position: {} <= max_position: {}",
+            "For {} new_position: {} <= max_position: {}",
+            symbol.symbol,
             new_position,
             max_position
         );
