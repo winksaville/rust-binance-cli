@@ -429,7 +429,7 @@ where
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, IntoStaticStr)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RateLimitType {
-    RawRequest,
+    RawRequests,
     RequestWeight,
     Orders,
 }
@@ -490,7 +490,7 @@ where
 impl RateLimit {
     pub fn get_raw_request(&self) -> Option<&RateLimit> {
         match self.rate_limit_type {
-            RateLimitType::RawRequest => Some(self),
+            RateLimitType::RawRequests => Some(self),
             _ => None,
         }
     }
@@ -539,7 +539,7 @@ impl ExchangeInfo {
     }
 
     pub fn get_raw_request_rate_limit(&self) -> Option<&RateLimit> {
-        self.rate_limits.get("RawRequest")?.get_raw_request()
+        self.rate_limits.get("RawRequests")?.get_raw_request()
     }
 
     pub fn get_request_weight_rate_limit(&self) -> Option<&RateLimit> {
@@ -654,7 +654,7 @@ mod test {
         let ei_rr_rl = ei_rr_rl.unwrap();
         assert!(matches!(
             ei_rr_rl.rate_limit_type,
-            RateLimitType::RawRequest
+            RateLimitType::RawRequests
         ));
         assert!(matches!(ei_rr_rl.interval, IntervalType::Minute));
         assert_eq!(ei_rr_rl.interval_num, 1);
@@ -756,7 +756,7 @@ mod test {
                  "interval": "MINUTE",
                  "intervalNum": 1,
                  "limit": 1200,
-                 "rateLimitType": "RAW_REQUEST"
+                 "rateLimitType": "RAW_REQUESTS"
              },
              {
                  "interval": "SECOND",
