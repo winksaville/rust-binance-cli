@@ -223,7 +223,7 @@ pub async fn binance_new_order_or_test(
     };
     let url = "https://api.binance.us".to_string() + path;
 
-    let response = post_req_get_response(&api_key, &url, &query_string).await?;
+    let response = post_req_get_response(api_key, &url, &query_string).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     trace!("response_status={:#?}", response_status);
@@ -251,7 +251,7 @@ pub async fn binance_new_order_or_test(
                 };
                 full.commission_usd = if !full.fills.is_empty() {
                     // TODO: Erroring is wrong, maybe dec!(0) and an error alert sent to the programmer!
-                    convert_commission(&config, &full, "USD").await?
+                    convert_commission(config, &full, "USD").await?
                 } else {
                     dec!(0)
                 };

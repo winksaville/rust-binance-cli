@@ -169,7 +169,7 @@ async fn history_get_req_and_response(
     url.push_str(&query_string);
     trace!("history_get_req_and_response: url={}", url);
 
-    let response = get_req_get_response(&api_key, &url).await?;
+    let response = get_req_get_response(api_key, &url).await?;
     trace!("history_get_req_and_response: response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;

@@ -96,7 +96,7 @@ async fn orders_get_req_and_response(
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
-    let response = get_req_get_response(&api_key, &url).await?;
+    let response = get_req_get_response(api_key, &url).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;

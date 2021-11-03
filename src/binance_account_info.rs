@@ -188,7 +188,7 @@ pub async fn get_account_info<'e>(
     let url = config.make_url("api", &format!("/api/v3/account?{}", &query_string));
     trace!("get_account_info: url={}", url);
 
-    let response = get_req_get_response(&api_key, &url).await?;
+    let response = get_req_get_response(api_key, &url).await?;
     trace!("response={:#?}", response);
     let response_status = response.status();
     let response_body = response.text().await?;

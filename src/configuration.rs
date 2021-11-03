@@ -286,7 +286,7 @@ impl Configuration {
             Configuration::default()
         };
 
-        config.update_config(&matches);
+        config.update_config(matches);
         trace!("config after update_config:\n{:#?}", config);
 
         Ok(config)

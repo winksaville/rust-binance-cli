@@ -47,7 +47,7 @@ pub async fn market_order(
 
     let mut log_writer = order_log_file(order_log_path)?;
 
-    let symbol = match ei.get_symbol(&symbol_name) {
+    let symbol = match ei.get_symbol(symbol_name) {
         Some(s) => s,
         None => {
             let tr = TradeResponse::FailureInternal(ier_new!(
@@ -127,7 +127,7 @@ pub async fn market_order(
         config,
         &mut log_writer,
         ei,
-        &symbol_name,
+        symbol_name,
         side,
         adj_order_type,
         test,

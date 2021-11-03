@@ -92,7 +92,7 @@ impl Error for InternalErrorRec {}
 macro_rules! ier_new {
     ( $c:expr, $m:expr ) => {
         //InternalErrorRec::new($c, std::file!(), function_name!(), std::line!(), $m);
-        InternalErrorRec::new($c, std::file!(), "", std::line!(), $m);
+        InternalErrorRec::new($c, std::file!(), "", std::line!(), $m)
     };
 }
 
@@ -342,7 +342,7 @@ pub fn naive_to_utc_time_ms(date_time: &NaiveDateTime) -> i64 {
 
 pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
     //println!("dt_str_to_utc_time_ms: {}", naive_dt_str);
-    let ndt = match NaiveDateTime::parse_from_str(&naive_dt_str, "%Y-%m-%dT%H:%M:%S") {
+    let ndt = match NaiveDateTime::parse_from_str(naive_dt_str, "%Y-%m-%dT%H:%M:%S") {
         Ok(dt) => dt,
         Err(e) => {
             return Err(format!(

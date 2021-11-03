@@ -97,7 +97,7 @@ impl WithdrawParams {
         } else {
             return Err("AMOUNT is missing".into());
         };
-        let amount = if let Some(amt) = amt_val.strip_suffix("%") {
+        let amount = if let Some(amt) = amt_val.strip_suffix('%') {
             let percent = match Decimal::from_str(amt) {
                 Ok(qty) => qty,
                 Err(e) => {
@@ -168,7 +168,7 @@ async fn withdraw_post_and_response(
     trace!("withdraw_post_and_repsonse: url={}", url);
 
     let tr = if !config.test {
-        let response = post_req_get_response(&api_key, &url, &query_string).await?;
+        let response = post_req_get_response(api_key, &url, &query_string).await?;
         trace!("withdraw_post_and_repsonse: response={:#?}", response);
         let response_status = response.status();
         let response_body = response.text().await?;
@@ -307,7 +307,7 @@ pub async fn withdraw(
     }
 
     withdraw_post_and_response(
-        &config,
+        config,
         &mut log_writer,
         "/wapi/v3/withdraw.html",
         &params,

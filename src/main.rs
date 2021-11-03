@@ -230,7 +230,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .matches
                 .value_of("SYMBOL")
                 .expect("SYMBOL is missing");
-            let oo: Orders = get_open_orders(&config, &sym_name).await?;
+            let oo: Orders = get_open_orders(&config, sym_name).await?;
             println!("oo: {:#?}\nsum_buy_orders: {}", oo, oo.sum_buy_orders());
         }
         "ao" => {
