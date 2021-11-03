@@ -254,55 +254,115 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let symbol = if let Some(s) = ei.get_symbol(sym_name) {
                 s
             } else {
-                return Err(ier_new!(9, &format!("Symbol {} isn't valid: ", sym_name)).into());
+                return Err(
+                    crate::ier_new!(9, &format!("Symbol {} isn't valid: ", sym_name)).into(),
+                );
             };
             let asset = &symbol.base_asset;
-
-            let mt: Trades = get_my_trades(&config, sym_name, None, None, None, None).await?;
-            let mut total_qty: Decimal = dec!(0);
-            for tr in &mt.trades {
-                println!("Date: {}", time_ms_to_utc(tr.time));
-                println!("{:#?}", tr);
-
-                // Use is_buyer_factor, which is -1 or 1, to add
-                // if Buy and subtract if Sell.
-                total_qty += tr.is_buyer_factor() * tr.qty;
-                trace!("total_qty: {}", total_qty,);
-            }
-            println!(
-                "total traded qty: {}",
-                dec_to_separated_string(total_qty, symbol.base_asset_precision)
-            );
 
             // Add in deposit History for the sym
             let drs: Vec<DepositRec> =
                 get_deposit_history(&config, Some(asset), None, None, None).await?;
-            for dh in &drs {
-                total_qty += dh.amount;
+            let mut dep_qty = dec!(0);
+            for dr in &drs {
+                println!(
+                    "Deposit: amount: {} Date: {}",
+                    dr.amount,
+                    time_ms_to_utc(dr.insert_time)
+                );
+                trace!("{:#?}", dr);
+                dep_qty += dr.amount;
             }
-            trace!(
-                "add {} deposits total_qty: {}",
+            println!(
+                "deposits: {} qty: {}",
                 drs.len(),
-                dec_to_separated_string(total_qty, 4),
+                dec_to_separated_string(dep_qty, 4),
             );
 
             let wrs: Vec<WithdrawRec> =
                 get_withdraw_history(&config, Some(asset), None, None, None).await?;
-            for wh in &wrs {
-                total_qty -= wh.amount + wh.transaction_fee;
+            let mut wd_qty = dec!(0);
+            for wd in &wrs {
+                println!(
+                    "Withdrawl: amount: {} txs fee: {} Date: {}",
+                    wd.amount,
+                    wd.transaction_fee,
+                    time_ms_to_utc(wd.apply_time)
+                );
+                trace!("{:#?}", wd);
+                wd_qty += wd.amount; // - wd.transaction_fee;
             }
-            trace!(
-                "sub {} withdraws total_qty: {}",
+            println!(
+                "withdrawals: {} qty: {}",
                 wrs.len(),
-                dec_to_separated_string(total_qty, symbol.base_asset_precision),
+                dec_to_separated_string(wd_qty, symbol.base_asset_precision),
             );
 
-            let ap = get_avg_price(&config, sym_name).await?;
-            let total_value = total_qty * ap.price;
+            let mt: Trades = get_my_trades(&config, sym_name, None, None, None, None).await?;
+            let mut buy_txs: usize = 0;
+            let mut buy_qty = dec!(0);
+            let mut buy_quote_qty = dec!(0);
+            let mut sell_txs: usize = 0;
+            let mut sell_qty = dec!(0);
+            let mut sell_quote_qty = dec!(0);
+            let mut commission_total_usd = dec!(0); // TODO: Should allow different conversions?
+            for tr in &mt.trades {
+                print!("Trade: orderId: {}", tr.order_id);
+                if tr.is_buyer {
+                    buy_txs += 1;
+                    buy_qty += tr.qty;
+                    buy_quote_qty += tr.quote_qty;
+                    print!(" buy ");
+                } else {
+                    sell_txs += 1;
+                    sell_qty += tr.qty;
+                    sell_quote_qty += tr.quote_qty;
+                    print!(" sell");
+                }
+                print!(
+                    " {} {} value {}",
+                    symbol.base_asset,
+                    dec_to_separated_string(tr.qty, symbol.base_asset_precision),
+                    dec_to_money_string(tr.quote_qty),
+                );
+
+                let commission_usd = binance_trade::convert(
+                    &config,
+                    tr.time,
+                    &tr.commission_asset,
+                    tr.commission,
+                    "USD",
+                )
+                .await?;
+                commission_total_usd += commission_usd;
+
+                // Delay so as not to be a bad binance citizen
+                std::thread::sleep(std::time::Duration::from_millis(500));
+
+                print!(
+                    " commission: {} commision usd: {} commission_asset: {}",
+                    tr.commission, commission_usd, tr.commission_asset
+                );
+                println!(" Date: {}", time_ms_to_utc(tr.time));
+                trace!("{:#?}", tr);
+            }
+
             println!(
-                "total_qty: {}, total_value: {}",
-                dec_to_separated_string(total_qty, symbol.base_asset_precision),
-                dec_to_money_string(total_value),
+                "total buy transactions: {} buy qty: {} buy quote_qty: {}",
+                buy_txs,
+                dec_to_separated_string(buy_qty, symbol.base_asset_precision),
+                dec_to_money_string(buy_quote_qty),
+            );
+            println!(
+                "total sell transactions: {} sell qty: {} sell quote_qty: {}",
+                sell_txs,
+                dec_to_separated_string(sell_qty, symbol.base_asset_precision),
+                dec_to_money_string(sell_quote_qty),
+            );
+            println!(
+                "commission for {} trades, value USD: {} ",
+                mt.trades.len(),
+                dec_to_money_string(commission_total_usd),
             );
         }
         "dh" => {

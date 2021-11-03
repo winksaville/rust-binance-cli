@@ -36,6 +36,7 @@ pub struct TradeRec {
     pub is_best_match: bool,
 }
 
+#[allow(unused)]
 impl TradeRec {
     pub fn is_buyer_factor(&self) -> Decimal {
         if self.is_buyer {

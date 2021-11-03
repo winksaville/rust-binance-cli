@@ -85,8 +85,7 @@ pub fn log_order_response(
     Ok(())
 }
 
-#[allow(unused)]
-async fn convert(
+pub async fn convert(
     config: &Configuration,
     time_ms: i64,
     asset: &str,
@@ -94,8 +93,7 @@ async fn convert(
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
     trace!(
-        "convert: {:#?}, asset: {} value: {} other_asset: {}",
-        config,
+        "convert: asset: {} value: {} other_asset: {}",
         asset,
         value,
         other_asset
