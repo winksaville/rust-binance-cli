@@ -121,22 +121,13 @@ pub struct BuyRec {
     pub quote_asset: String,
 }
 
-#[derive(Clone, Deserialize, PartialEq)]
+#[derive(Clone, Default, Deserialize, PartialEq)]
 pub struct Keys {
     #[serde(rename = "SECRET_KEY")]
     pub secret_key: Option<String>,
 
     #[serde(rename = "API_KEY")]
     pub api_key: Option<String>,
-}
-
-impl Default for Keys {
-    fn default() -> Self {
-        Keys {
-            api_key: None,    //"".to_string(),
-            secret_key: None, //"".to_string(),
-        }
-    }
 }
 
 impl Keys {
