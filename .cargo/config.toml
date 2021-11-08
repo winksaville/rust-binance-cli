@@ -1,0 +1,8 @@
+# Static build from:
+#   https://github.com/rust-lang/rust/pull/77386
+#   https://msfjarvis.dev/posts/building-static-rust-binaries-for-linux/
+#   https://stackoverflow.com/a/67616507/4812090
+[build]
+rustflags = ["-C", "target-feature=+crt-static"]
+target = "x86_64-unknown-linux-gnu"
+
