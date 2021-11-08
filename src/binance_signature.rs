@@ -29,7 +29,7 @@ pub fn binance_signature(sig_key: &[u8], qs: &[u8], body: &[u8]) -> [u8; 32] {
     // println!("binance_signature: qs=\"{}\"", String::from_utf8(qs.clone()).unwrap());
     // println!("binance_signature: body=\"{}\"", String::from_utf8(body.clone()).unwrap());
 
-    let mut mac = HmacSha256::new_varkey(sig_key).unwrap();
+    let mut mac = HmacSha256::new_from_slice(sig_key).unwrap();
     mac.update(qs);
     mac.update(body);
     let signature = mac.finalize().into_bytes();
@@ -105,7 +105,7 @@ mod test {
         let expected = hex!("c8db56825ae71d6d79447849e617115f4a920fa2acdcab2b053c4b2838bd6b71");
 
         // Calculate the signature from the data and sig_key
-        let mut mac = HmacSha256::new_varkey(sig_key).unwrap();
+        let mut mac = HmacSha256::new_from_slice(sig_key).unwrap();
         mac.update(data);
         let signature: [u8; 32] = mac.finalize().into_bytes().into();
         // println!("signature ={:02x?}", signature);

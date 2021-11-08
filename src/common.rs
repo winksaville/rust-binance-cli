@@ -377,7 +377,7 @@ pub fn dec_to_money_string(v: Decimal) -> String {
     let v_string = v.round_dp(2).to_string();
     let money_string: String = match Money::from_str(&v_string, iso::USD) {
         Ok(v) => format!("{}", v),
-        Err(e) => format!("({} {})", v_string, e.to_string()),
+        Err(e) => format!("({} {})", v_string, e),
     };
 
     money_string

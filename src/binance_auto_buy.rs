@@ -147,7 +147,7 @@ pub async fn auto_buy(
                                     atrr.order_id,
                                     atrr.order_list_id,
                                     atrr.client_order_id,
-                                    time_ms_to_utc(atrr.transact_time).to_string()
+                                    time_ms_to_utc(atrr.transact_time)
                                 );
                         }
                         TradeResponse::SuccessResult(rtrr) => {
