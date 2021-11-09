@@ -92,13 +92,16 @@ pub async fn convert(
     value: Decimal,
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
+    println!("convert:+");
     trace!(
         "convert: asset: {} value: {} other_asset: {}",
         asset,
         value,
         other_asset
     );
+    println!("convert:1");
     let other_value: Decimal = if asset == other_asset {
+        println!("convert:1.1");
         let new_value = value;
         trace!(
             "convert: asset: {} value: {} to {}: {}",
@@ -107,12 +110,16 @@ pub async fn convert(
             other_asset,
             new_value
         );
+        println!("convert:1.2");
         new_value
     } else {
+        println!("convert:1.3");
         // Try to directly convert it
         let cvrt_asset_name = asset.to_string() + other_asset;
+        println!("convert:1.3.1");
         match get_kline(config, &cvrt_asset_name, time_ms).await {
             Ok(kr) => {
+                println!("convert:1.3.1 OK");
                 // TODO: Consider using an average or median instead of close?
                 let new_value = kr.close * value;
                 trace!(
@@ -125,6 +132,7 @@ pub async fn convert(
                 new_value
             }
             Err(_) => {
+                println!("convert:1.3.1 Err");
                 return Err(format!(
                     "convert error, asset: {} not convertable to {}",
                     asset, other_asset
@@ -134,6 +142,7 @@ pub async fn convert(
         }
     };
 
+    println!("convert:- other_value: {}", other_value);
     Ok(other_value)
 }
 
@@ -142,6 +151,7 @@ async fn convert_commission(
     order_response: &FullTradeResponseRec,
     fee_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
+    println!("convert_commission");
     let mut commission_value = dec!(0);
     for f in &order_response.fills {
         commission_value += convert(
@@ -153,6 +163,7 @@ async fn convert_commission(
         )
         .await?;
     }
+    println!("convert_commission: commission_value: {}", commission_value);
     Ok(commission_value)
 }
 
@@ -344,7 +355,7 @@ pub async fn binance_new_order_or_test(
 
 #[cfg(test)]
 mod test {
-    use std::io::{Read, Seek, SeekFrom};
+    use std::{io::{Read, Seek, SeekFrom}};
     use test_env_log::test;
 
     use super::*;
@@ -394,26 +405,31 @@ mod test {
         assert!(value_usd > dec!(0));
     }
 
-    //#[tokio::test]
-    //async fn test_convertcommission() {
-    //    let mut config = Configuration::default();
-    //    config.keys.api_key = Some("a_key".to_string());
-    //    config.keys.secret_key = Some("a_secret_key".to_string());
+    #[tokio::test]
+    async fn test_convertcommission() {
+        let mut config = Configuration::default();
+        config.keys.api_key = Some("a_key".to_string());
+        config.keys.secret_key = Some("a_secret_key".to_string());
 
-    //    let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
+        let order_response: FullTradeResponseRec = serde_json::from_str(SUCCESS_FULL).unwrap();
 
-    //    // TODO: Need to "mock" get_kline so order_response.fills[0].commission_asset ("BNB") always returns a specific value.
-    //    let commission_usd = convert_commission(&config, &order_response, "USD")
-    //        .await
-    //        .unwrap();
-    //    // assert_eq!(commission_usd, dec!(xxx))
-    //    println!(
-    //        "convert {} BNBUSB: {}",
-    //        order_response.fills[0].commission, commission_usd
-    //    );
+        println!("get result of convert_commission");
+        let result_commission_usd = convert_commission(&config, &order_response, "USD")
+            .await;
+        println!("result_commission_usd: {:#?}", result_commission_usd);
 
-    //    assert!(commission_usd > dec!(0));
-    //}
+        // TODO: Need to "mock" get_kline so order_response.fills[0].commission_asset ("BNB") always returns a specific value.
+        //let commission_usd = convert_commission(&config, &order_response, "USD")
+        //    .await
+        //    .unwrap();
+        //// assert_eq!(commission_usd, dec!(xxx))
+        //println!(
+        //    "convert {} BNBUSB: {}",
+        //    order_response.fills[0].commission, commission_usd
+        //);
+
+        //assert!(commission_usd > dec!(0));
+    }
 
     #[tokio::test]
     async fn test_log_order_response() {

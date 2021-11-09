@@ -163,12 +163,15 @@ pub async fn get_klines(
     end_time_ms: Option<i64>,
     limit: Option<u16>,
 ) -> Result<Vec<KlineRec>, Box<dyn std::error::Error>> {
+    println!("get_klines:+");
     trace!("get_klines:");
 
     let mut params = vec![("symbol", symbol), ("interval", interval.to_string())];
 
     let st_ms_string: String;
+    println!("get_klines:1");
     if let Some(st_ms) = start_time_ms {
+        println!("get_klines:1.1");
         // If st_ms is within the first minute of "now" or it is
         // in the future do not send the startTime.
         // Alhough my simple emperical testing indicated the window
@@ -178,40 +181,54 @@ pub async fn get_klines(
         // N records to allways be returned.
         let now = utc_now_to_time_ms();
         if now - st_ms > MIN {
+            println!("get_klines:1.1.1");
             st_ms_string = st_ms.to_string();
             params.push(("startTime", &st_ms_string));
         }
+        println!("get_klines:1.2");
     }
 
     let et_ms_string: String;
+    println!("get_klines:2");
     if let Some(et_ms) = end_time_ms {
+        println!("get_klines:2.1");
         et_ms_string = et_ms.to_string();
         params.push(("endTime", &et_ms_string));
     }
 
     let limit_string: String;
+    println!("get_klines:3");
     if let Some(l) = limit {
+        println!("get_klines:3.1");
         limit_string = l.to_string();
         params.push(("limit", &limit_string));
     }
 
     trace!("get_klines: params={:#?}", params);
 
+    println!("get_klines:4");
     let query = query_vec_u8(&params);
 
     // Convert to a string
+    println!("get_klines:5");
     let query_string = String::from_utf8(query)?;
     trace!("get_klines: query_string: {}", &query_string);
 
+    println!("get_klines:6");
     let url = config.make_url("api", &format!("/api/v3/klines?{}", query_string));
     trace!("get_klines: url={}", url);
 
+    println!("get_klines:7");
     let response = get_req_get_response(config.keys.get_ak_or_err()?, &url).await?;
+    println!("get_klines:8");
     let response_status = response.status();
+    println!("get_klines:9");
     let response_body = response.text().await?;
 
     // Log the response
+    println!("get_klines:10");
     let result = if response_status == 200 {
+        println!("get_klines:10.1");
         // Convert the array of array of klinerec to serde_json::Value
         let values: Value = serde_json::from_str(&response_body)?;
         let klines: Vec<KlineRec> = serde_json::from_value(values)?;
@@ -219,6 +236,7 @@ pub async fn get_klines(
         trace!("get_klines: klines={:?}", klines);
         Ok(klines)
     } else {
+        println!("get_klines:10.2");
         let rer = ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
         let binance_error_response = TradeResponse::FailureResponse(rer);
 
@@ -231,6 +249,7 @@ pub async fn get_klines(
         Err(binance_error_response.into())
     };
 
+    println!("get_klines:11");
     result
 }
 
@@ -242,8 +261,10 @@ pub async fn get_kline(
     sym_name: &str,
     start_time_ms: i64,
 ) -> Result<KlineRec, Box<dyn std::error::Error>> {
+    println!("get_kline:+");
     trace!("get_kline:");
 
+    println!("get_kline:1");
     let krs: Vec<KlineRec> = get_klines(
         config,
         sym_name,
@@ -254,10 +275,14 @@ pub async fn get_kline(
     )
     .await?;
 
+    println!("get_kline:2");
     if krs.is_empty() {
+        println!("get_kline:2.1");
         Err(format!("No KlineRec available for {}", sym_name).into())
     } else {
+        println!("get_kline:2.2");
         let kr = krs[0];
+        println!("get_kline:2.2.1");
         trace!(
             "Open time: {} Close time: {} diff: {}",
             time_ms_to_utc(kr.open_time),
@@ -265,6 +290,7 @@ pub async fn get_kline(
             (kr.close_time - kr.open_time) as f64 / MIN as f64
         );
         trace!("{:#?}", kr);
+        println!("get_kline:2.2.2");
         Ok(kr)
     }
 }

@@ -224,18 +224,23 @@ pub async fn get_req_get_response_ll(
     url: &str,
     headers_map: HeaderMap,
 ) -> Result<Response, Box<dyn std::error::Error>> {
+    println!("get_req_get_response_ll:+");
     let mut req_builder = reqwest::Client::builder()
         //.proxy(reqwest::Proxy::https("http://localhost:8080")?)
         .build()?
         .get(url);
+    println!("get_req_get_response_ll:1");
     if !headers_map.is_empty() {
+        println!("get_req_get_response_ll:1.1");
         req_builder = req_builder.headers(headers_map);
     }
     trace!("req_builder={:#?}", &req_builder);
 
+    println!("get_req_get_response_ll:2");
     let response = req_builder.send().await?;
     trace!("response={:#?}", response);
 
+    println!("get_req_get_response_ll:-");
     Ok(response)
 }
 
@@ -257,10 +262,12 @@ pub async fn get_req_get_response(
     api_key: &str,
     url: &str,
 ) -> Result<Response, Box<dyn std::error::Error>> {
+    println!("get_req_get_response:+");
     let mut headers = HeaderMap::new();
     headers.insert("X-MBX-APIKEY", HeaderValue::from_str(api_key)?);
 
     let response = get_req_get_response_ll(url, headers).await?;
+    println!("get_req_get_response:-");
     Ok(response)
 }
 
