@@ -163,7 +163,7 @@ pub async fn auto_sell(
             total_assets_selling_some_or_all,
             dec_to_money_string(total_sell_in_usd.round_dp(2)),
         );
-        if test || are_you_sure_stdout_stdin() {
+        if test || !config.confirmation_required || are_you_sure_stdout_stdin() {
             if test {
                 println!();
             }

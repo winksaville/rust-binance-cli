@@ -38,12 +38,21 @@ order_log_path = "data/an_order_log.txt"
 default_quote_asset = "USD"
 
 # Test mode "true" | "false". The default is currently true so
-# trade commands such as auto-buy, auto-sell, buy-market, buy-market-value
-# , sell-market and sell-market-value do nothing. My suggestion is
+# trade commands such as auto-buy, auto-sell, buy-market, buy-market-value,
+# sell-market and sell-market-value do nothing. My suggestion is
 # to leave this `test = true` and when you're ready to do a trade
 # pass the `--no-test` flag on the command line. In anycase I cannot
 # stress enough this program is DANGEROUS.
 test = true
+
+# confirmation_required "true" | "false"
+# Default is true so auto-buy and auto-sell require confirmation and
+# the program will prompt the user. The program will only continue if
+# "Yes" is typed without the quotes. My suggestion is to leave this
+# `confirmation_required = true` and when in a daemon mode or run via
+# a script then pass the --no-confirmation_required on the command line.
+# AGAIN BE VERY CAREFUL!
+confirmation_required = true
 
 # Default scheme for make_url
 scheme = "https"

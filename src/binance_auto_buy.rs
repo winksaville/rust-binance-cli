@@ -117,7 +117,7 @@ pub async fn auto_buy(
     }
 
     if !process_recs.is_empty() {
-        if test || are_you_sure_stdout_stdin() {
+        if test || !config.confirmation_required || are_you_sure_stdout_stdin() {
             // Do the auto-buy
             for pr in process_recs {
                 match market_order(

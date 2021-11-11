@@ -59,6 +59,14 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .global(true)
         .long("no-test")
         .help("Disable test mode");
+    let confirmation_required_arg = Arg::with_name("confirmation-required")
+        .global(true)
+        .long("confirmation-required")
+        .help("Enable comfirmation being required");
+    let no_confirmation_required_arg = Arg::with_name("no-confirmation-required")
+        .global(true)
+        .long("no-confirmation-required")
+        .help("Disable comfirmation being required");
     let scheme_arg = Arg::with_name("scheme")
         .global(true)
         .long("scheme")
@@ -82,6 +90,8 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .arg(default_quote_asset_arg.clone())
         .arg(test_arg.clone())
         .arg(no_test_arg.clone())
+        .arg(confirmation_required_arg.clone())
+        .arg(no_confirmation_required_arg.clone())
         .arg(scheme_arg.clone())
         .arg(domain_arg.clone())
         .subcommand(

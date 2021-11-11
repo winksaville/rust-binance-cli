@@ -197,8 +197,11 @@ pub struct Configuration {
     #[serde(default = "default_quote_asset")]
     pub default_quote_asset: String,
 
-    #[serde(default)]
+    #[serde(default = "default_test")]
     pub test: bool,
+
+    #[serde(default = "default_confirmation_required")]
+    pub confirmation_required: bool,
 
     #[serde(default)]
     #[serde(deserialize_with = "de_vec_keep_rec_to_hashmap")]
@@ -229,13 +232,22 @@ fn default_domain() -> String {
     "binance.us".to_string()
 }
 
+fn default_test() -> bool {
+    true
+}
+
+fn default_confirmation_required() -> bool {
+    true
+}
+
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             keys: Keys::default(),
             order_log_path: None,
             default_quote_asset: default_quote_asset(),
-            test: false,
+            test: default_test(),
+            confirmation_required: default_confirmation_required(),
             scheme: default_scheme(),
             domain: default_domain(),
             keep: None,
@@ -323,6 +335,14 @@ impl Configuration {
             self.test = false;
         }
 
+        if matches.is_present("confirmation-required") {
+            self.confirmation_required = true;
+        }
+
+        if matches.is_present("no-confirmation-required") {
+            self.confirmation_required = false;
+        }
+
         if let Some(value) = matches.value_of("scheme") {
             self.scheme = value.to_string();
         }
@@ -352,7 +372,24 @@ mod test {
         assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(config.scheme, "https");
         assert_eq!(config.domain, "binance.us");
-        assert_eq!(config.test, false);
+        assert_eq!(config.test, true);
+        assert_eq!(config.confirmation_required, true);
+        assert!(config.keep.is_none());
+        assert!(config.buy.is_none());
+    }
+
+    #[test]
+    fn test_config_default() {
+        let config = Configuration::default();
+        // println!("{:#?}", config);
+        assert_eq!(config.keys.api_key, None);
+        assert_eq!(config.keys.secret_key, None);
+        assert!(config.order_log_path.is_none());
+        assert_eq!(config.default_quote_asset, "USD");
+        assert_eq!(config.scheme, "https");
+        assert_eq!(config.domain, "binance.us");
+        assert_eq!(config.test, true);
+        assert_eq!(config.confirmation_required, true);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
     }
@@ -377,7 +414,8 @@ mod test {
         assert_eq!(config.default_quote_asset, "USD"); // The default
         assert_eq!(config.scheme, "https"); // The default
         assert_eq!(config.domain, "binance.us"); // The default
-        assert_eq!(config.test, false); // The default
+        assert_eq!(config.test, true); // The default
+        assert_eq!(config.confirmation_required, true); // The default
         let brs = &config.buy.unwrap();
         assert_eq!(
             brs.get("ABC").unwrap(),
@@ -403,6 +441,7 @@ mod test {
         order_log_path = "data/xyz.txt"
         default_quote_asset="BTC"
         test = true
+        confirmation_required = false
         scheme = "http"
         domain = "binance.com"
 
@@ -430,6 +469,7 @@ mod test {
         assert_eq!(config.scheme, "http");
         assert_eq!(config.domain, "binance.com");
         assert_eq!(config.test, true);
+        assert_eq!(config.confirmation_required, false);
         let krs = &config.keep.unwrap();
         assert_eq!(
             krs.get("USD").unwrap(),
