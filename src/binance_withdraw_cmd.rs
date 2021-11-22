@@ -11,7 +11,8 @@ use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 
 use crate::{
-    binance_account_info::get_account_info,
+    binance_account_info::{get_account_info, AccountInfo},
+    binance_avg_price::get_avg_price,
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_order_response::TradeResponse,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
@@ -28,12 +29,13 @@ use crate::{
     common::{post_req_get_response, ResponseErrorRec},
 };
 
-// Define an Amount as Quantity or Percent
-// Possibly extend to Value in USD or EUR or ...
+// Define an Amount as Percent, Quantity or Dollars
+// Possibly extend to other fiat currencies in the future
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Amount {
-    Quantity(Decimal),
     Percent(Decimal),
+    Quantity(Decimal),
+    Dollars(Decimal),
 }
 
 impl Default for Amount {
@@ -47,6 +49,96 @@ impl Display for Amount {
         match *self {
             Amount::Percent(p) => write!(f, "{:.4}%", p),
             Amount::Quantity(q) => write!(f, "{:.4}", q),
+            Amount::Dollars(d) => write!(f, "${:.2}", d),
+        }
+    }
+}
+
+impl Amount {
+    pub fn new(amt_val: &str) -> Result<Amount, Box<dyn std::error::Error>> {
+        //println!("amt_val={}", amt_val);
+        let amount = if let Some(amt) = amt_val.strip_suffix('%') {
+            //println!("Percent amt={}", amt);
+            let percent = match Decimal::from_str(amt) {
+                Ok(qty) => qty,
+                Err(e) => {
+                    return Err(format!("converting {} to Decimal: e={}", amt, e).into());
+                }
+            };
+
+            //println!("Percent percent={}", percent);
+            Amount::Percent(percent)
+        } else if let Some(amt) = amt_val.strip_prefix('$') {
+            //println!("Dollars amt={}", amt);
+            let quantity = match Decimal::from_str(amt) {
+                Ok(qty) => qty,
+                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
+            };
+            //println!("Dollars quantity={}", amt);
+
+            Amount::Dollars(quantity)
+        } else {
+            //println!("Quantity amt_val={}", amt_val);
+            let quantity = match Decimal::from_str(amt_val) {
+                Ok(qty) => qty,
+                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
+            };
+
+            //println!("Quantity quantity={}", quantity);
+            Amount::Quantity(quantity)
+        };
+
+        Ok(amount)
+    }
+
+    pub async fn to_quantity(
+        &self,
+        config: &Configuration,
+        ai: &AccountInfo,
+        sym_name: &str,
+    ) -> Result<Decimal, Box<dyn std::error::Error>> {
+        match self {
+            Amount::Percent(p) => {
+                let balance = if let Some(b) = ai.balances_map.get(sym_name) {
+                    b
+                } else {
+                    return Err(format!("Error, {} is not in your account", sym_name).into());
+                };
+
+                let q = (p / dec!(100)) * balance.free;
+                trace!(
+                    "to_quantity Amount::Percent: {}% {} {} balance={:?}",
+                    p,
+                    q,
+                    sym_name,
+                    balance
+                );
+
+                Ok(q)
+            }
+            Amount::Quantity(q) => {
+                trace!("to_quantity Amount::Quantity: {} {}", q, sym_name);
+
+                Ok(*q)
+            }
+            Amount::Dollars(d) => {
+                let full_symbol = sym_name.to_string() + "USD";
+                let avp = match get_avg_price(config, &full_symbol).await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Err(format!(
+                            "Unable to determin avg price of {}, {}",
+                            full_symbol, e
+                        )
+                        .into())
+                    }
+                };
+
+                let q = d / avp.price;
+                trace!("to_quantity Amount::Dollars: ${} {} {}", d, q, sym_name);
+
+                Ok(q)
+            }
         }
     }
 }
@@ -57,9 +149,11 @@ pub struct WithdrawParams {
     pub amount: Amount,
     pub org_quantity: Decimal,
     pub quantity: Decimal,
+    pub quantity_usd: Decimal,
     pub address: String,
     pub secondary_address: Option<String>,
     pub label: Option<String>,
+    pub keep_min_amount: Option<Amount>,
 }
 
 impl Default for WithdrawParams {
@@ -69,9 +163,11 @@ impl Default for WithdrawParams {
             amount: Amount::default(),
             org_quantity: dec!(0),
             quantity: dec!(0),
+            quantity_usd: dec!(0),
             address: "".to_string(),
             secondary_address: None,
             label: None,
+            keep_min_amount: None,
         }
     }
 }
@@ -90,27 +186,18 @@ impl WithdrawParams {
         } else {
             return Err("AMOUNT is missing".into());
         };
-        let amount = if let Some(amt) = amt_val.strip_suffix('%') {
-            let percent = match Decimal::from_str(amt) {
-                Ok(qty) => qty,
-                Err(e) => {
-                    return Err(format!("converting {} to Decimal: e={}", amt, e).into());
-                }
-            };
+        let amount = Amount::new(amt_val)?;
 
-            Amount::Percent(percent)
-        } else {
-            let quantity = match Decimal::from_str(amt_val) {
-                Ok(qty) => qty,
-                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
-            };
-
-            Amount::Quantity(quantity)
-        };
         let address = if let Some(a) = subcmd.matches.value_of("ADDRESS") {
             a.to_string()
         } else {
             return Err("ADDRESS is missing".into());
+        };
+
+        let keep_min = subcmd.matches.value_of("keep-min").map(|s| s.to_string());
+        let keep_min_amount = match keep_min {
+            Some(v) => Some(Amount::new(&v)?),
+            None => None,
         };
 
         let secondary_address = subcmd
@@ -124,9 +211,11 @@ impl WithdrawParams {
             amount,
             org_quantity: dec!(0),
             quantity: dec!(0),
+            quantity_usd: dec!(0),
             address,
             secondary_address,
             label,
+            keep_min_amount,
         })
     }
 }
@@ -252,34 +341,53 @@ pub async fn withdraw(
             return Err(ier_new!(2, &format!("No asset named {}", params.sym_name)).into());
         }
     };
-    trace!("withdraw: Got symbol");
+    trace!("withdraw: Got symbol: {:?}", symbol);
+
+    let org_quantity = params
+        .amount
+        .to_quantity(config, &ai, &params.sym_name)
+        .await?;
+    trace!("org_quantity: {}", org_quantity);
+
+    let keep_quantity = match &params.keep_min_amount {
+        Some(amount) => Some(amount.to_quantity(config, &ai, &params.sym_name).await?),
+        None => None,
+    };
+    trace!("keep_quantity: {:?}", keep_quantity);
 
     let balance = if let Some(b) = ai.balances_map.get(&params.sym_name) {
         b
     } else {
         return Err(format!("Error, {} is not in your account", params.sym_name).into());
     };
-    println!("balance: {}\n{:#?}", params.sym_name, balance);
 
-    let org_quantity = match params.amount {
-        Amount::Percent(p) => {
-            let q = (p / dec!(100)) * balance.free;
-            trace!("Percent: {}", q);
-
-            q
-        }
-        Amount::Quantity(q) => {
-            trace!("Quantity: {}", q);
+    // Do not withdraw below the quantity we need to keep for transaction fees and such
+    let org_quantity = if let Some(kq) = keep_quantity {
+        if org_quantity > balance.free - kq {
+            // Whoops org_quantity is too large
+            let q = balance.free - kq;
+            trace!("adj for keep quantity, new org_quantity:{} as org_quantity:{} > balance.free:{} - kq:{}", q, org_quantity, balance.free, kq);
 
             q
+        } else {
+            // org_quantity is fine
+            org_quantity
         }
+    } else {
+        // No keep_quantity
+        org_quantity
     };
+
     let quantity = adj_quantity_verify_lot_size(symbol, org_quantity);
-    trace!("withdraw: quantity={}", quantity);
+    trace!(
+        "withdraw: quantity={} after adjusting for lot_size",
+        quantity
+    );
 
     let mut params_x = params.clone();
     params_x.org_quantity = org_quantity;
     params_x.quantity = quantity;
+    params_x.quantity_usd = quantity * get_avg_price(config, &full_name).await?.price;
     let params = params_x;
 
     verify_quanity_is_less_than_or_eq_free(&ai, symbol, quantity)?;

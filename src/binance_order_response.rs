@@ -259,7 +259,7 @@ impl fmt::Display for WithdrawResponseRec {
         trace!("Display::wrr: {:#?}", self);
         write!(
             f,
-            "{} of {} {} to addr: {}{}{}{}{}",
+            "{} of {:.6} {} valued at ${:.2} to addr: {}{}{}{}{}",
             if self.success {
                 "Successful withdraw"
             } else {
@@ -267,6 +267,7 @@ impl fmt::Display for WithdrawResponseRec {
             },
             self.params.quantity,
             self.params.sym_name,
+            self.params.quantity_usd,
             if let Some(l) = &self.params.label {
                 format!("{}:", l)
             } else {

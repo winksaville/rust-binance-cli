@@ -180,7 +180,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .subcommand(
             SubCommand::with_name("withdraw")
                 .display_order(5)
-                .about("Withdraw an asset, either quantity or precent. Examples: `withdraw ETH 1 1543abcd` or `withdraw ETH 1.5% 1543abcd`")
+                .about("Withdraw an asset, either quantity, dollars or precent.\nExamples:\n  withdraw ETH '$1000' 1543abcd --keep-min \\$200\n  withdraw ETH 100% 1543abcd --keep-min '$200'\n  withdraw ETH 100 1543abcd\n NOTE: Dollar values must be written\n in single quotes '$123' or with a backslash \\$1234")
                 .arg(
                     Arg::with_name("SYMBOL")
                         .help("Name of aseet")
@@ -189,7 +189,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 )
                 .arg(
                     Arg::with_name("AMOUNT")
-                        .help("The amournt of asset, example `5.2` ETH or `12.3%` of the free ETH owned")
+                        .help("The amournt of asset, examples 5.2 ETH or \\$100 or '$100' or 12.3% of the free ETH owned")
                         .required(true)
                         .index(2),
                 )
@@ -198,6 +198,14 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                         .help("The destination address")
                         .required(true)
                         .index(3),
+                )
+                .arg(
+                    Arg::with_name("keep-min")
+                        .global(false)
+                        .long("keep-min")
+                        .value_name("KEEP_MIN")
+                        .help("Minimum amount to keep in USD, percent asset or asset quantity.\nExamples:\n  --keep-min '$200'\n  --keep-min 10%\n  --keep-min 0.1")
+                        .takes_value(true),
                 )
                 .arg(
                     Arg::with_name("dest-sec-addr")
