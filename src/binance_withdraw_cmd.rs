@@ -7,27 +7,18 @@ use clap::SubCommand;
 use serde::{Deserialize, Serialize};
 
 use log::trace;
-#[allow(unused)]
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 
-#[allow(unused)]
 use crate::{
     binance_account_info::get_account_info,
-    binance_avg_price::{get_avg_price, AvgPrice},
     binance_exchange_info::{get_exchange_info, ExchangeInfo},
     binance_order_response::TradeResponse,
-    binance_orders::get_open_orders,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    binance_trade::{
-        self, binance_new_order_or_test, order_log_file, MarketQuantityType, TradeOrderType,
-    },
-    binance_verify_order::{
-        adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
-        verify_quanity_is_less_than_or_eq_free,
-    },
+    binance_trade::order_log_file,
+    binance_verify_order::verify_quanity_is_less_than_or_eq_free,
     common::utc_now_to_time_ms,
-    common::{InternalErrorRec, Side},
+    common::InternalErrorRec,
     configuration::Configuration,
     ier_new,
 };
