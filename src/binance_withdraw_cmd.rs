@@ -16,7 +16,7 @@ use crate::{
     binance_order_response::TradeResponse,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     binance_trade::order_log_file,
-    binance_verify_order::verify_quanity_is_less_than_or_eq_free,
+    binance_verify_order::{adj_quantity_verify_lot_size, verify_quanity_is_less_than_or_eq_free},
     common::utc_now_to_time_ms,
     common::InternalErrorRec,
     configuration::Configuration,
@@ -55,6 +55,7 @@ impl Display for Amount {
 pub struct WithdrawParams {
     pub sym_name: String,
     pub amount: Amount,
+    pub org_quantity: Decimal,
     pub quantity: Decimal,
     pub address: String,
     pub secondary_address: Option<String>,
@@ -66,6 +67,7 @@ impl Default for WithdrawParams {
         WithdrawParams {
             sym_name: "".to_string(),
             amount: Amount::default(),
+            org_quantity: dec!(0),
             quantity: dec!(0),
             address: "".to_string(),
             secondary_address: None,
@@ -120,6 +122,7 @@ impl WithdrawParams {
         Ok(WithdrawParams {
             sym_name,
             amount,
+            org_quantity: dec!(0),
             quantity: dec!(0),
             address,
             secondary_address,
@@ -258,7 +261,7 @@ pub async fn withdraw(
     };
     println!("balance: {}\n{:#?}", params.sym_name, balance);
 
-    let quantity = match params.amount {
+    let org_quantity = match params.amount {
         Amount::Percent(p) => {
             let q = (p / dec!(100)) * balance.free;
             trace!("Percent: {}", q);
@@ -271,10 +274,11 @@ pub async fn withdraw(
             q
         }
     };
-
+    let quantity = adj_quantity_verify_lot_size(symbol, org_quantity);
     trace!("withdraw: quantity={}", quantity);
 
     let mut params_x = params.clone();
+    params_x.org_quantity = org_quantity;
     params_x.quantity = quantity;
     let params = params_x;
 
