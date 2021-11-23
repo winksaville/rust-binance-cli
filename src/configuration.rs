@@ -200,6 +200,11 @@ pub struct Configuration {
     #[serde(default = "default_test")]
     pub test: bool,
 
+    // Used to enable/disable verbose output, currently
+    // it's used when calling AccountInfo::update_values_in_usd
+    #[serde(default = "default_verbose")]
+    pub verbose: bool,
+
     #[serde(default = "default_confirmation_required")]
     pub confirmation_required: bool,
 
@@ -236,6 +241,10 @@ fn default_test() -> bool {
     true
 }
 
+fn default_verbose() -> bool {
+    true
+}
+
 fn default_confirmation_required() -> bool {
     true
 }
@@ -247,6 +256,7 @@ impl Default for Configuration {
             order_log_path: None,
             default_quote_asset: default_quote_asset(),
             test: default_test(),
+            verbose: default_verbose(),
             confirmation_required: default_confirmation_required(),
             scheme: default_scheme(),
             domain: default_domain(),
@@ -335,6 +345,14 @@ impl Configuration {
             self.test = false;
         }
 
+        if matches.is_present("verbose") {
+            self.verbose = true;
+        }
+
+        if matches.is_present("no-verbose") {
+            self.verbose = false;
+        }
+
         if matches.is_present("confirmation-required") {
             self.confirmation_required = true;
         }
@@ -373,6 +391,7 @@ mod test {
         assert_eq!(config.scheme, "https");
         assert_eq!(config.domain, "binance.us");
         assert_eq!(config.test, true);
+        assert_eq!(config.verbose, true);
         assert_eq!(config.confirmation_required, true);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
@@ -389,6 +408,7 @@ mod test {
         assert_eq!(config.scheme, "https");
         assert_eq!(config.domain, "binance.us");
         assert_eq!(config.test, true);
+        assert_eq!(config.verbose, true);
         assert_eq!(config.confirmation_required, true);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
@@ -415,6 +435,7 @@ mod test {
         assert_eq!(config.scheme, "https"); // The default
         assert_eq!(config.domain, "binance.us"); // The default
         assert_eq!(config.test, true); // The default
+        assert_eq!(config.verbose, true); // The default
         assert_eq!(config.confirmation_required, true); // The default
         let brs = &config.buy.unwrap();
         assert_eq!(
@@ -469,6 +490,7 @@ mod test {
         assert_eq!(config.scheme, "http");
         assert_eq!(config.domain, "binance.com");
         assert_eq!(config.test, true);
+        assert_eq!(config.verbose, true);
         assert_eq!(config.confirmation_required, false);
         let krs = &config.keep.unwrap();
         assert_eq!(

@@ -156,7 +156,7 @@ impl AccountInfo {
     }
 
     pub async fn update_and_print(&mut self, config: &Configuration) {
-        self.update_values_in_usd(config, true).await;
+        self.update_values_in_usd(config, config.verbose).await;
         self.print().await;
     }
 }

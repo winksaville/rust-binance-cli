@@ -32,19 +32,25 @@ Finally, use the `help` subcommand or `--help` or `-h` flags as a
 source of information while using the program.
 
 ```
-wink@3900x:~/prgs/rust/projects/binance-cli (main)
+wink@3900x:~/prgs/rust/myrepos/binance-cli (main)
 $ cargo run help
-binance-cli 0.2.0-a6cd35a
+    Finished dev [unoptimized + debuginfo] target(s) in 0.05s
+     Running `target/debug/binance-cli help`
+binance-cli 0.3.0-ca767f1
 Binance cli app
 
 USAGE:
     binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
-    -h, --help       Prints help information
-        --no-test    Disable test mode
-    -t, --test       Enable test mode
-    -V, --version    Prints version information
+        --confirmation-required       Enable comfirmation being required
+    -h, --help                        Prints help information
+        --no-confirmation-required    Disable comfirmation being required
+        --no-test                     Disable test mode
+        --no-verbose                  Disable verbose mode
+    -t, --test                        Enable test mode
+    -V, --version                     Prints version information
+        --verbose                     Enable verbose mode
 
 OPTIONS:
         --api-key <API-KEY>              Define the api key [env: BINANCE_API_KEY=]
@@ -64,7 +70,16 @@ SUBCOMMANDS:
     buy-market-value     Buy asset using quote asset value
     sell-market          Sell a number of assets
     sell-market-value    Sell asset using quote asset value
+    withdraw             Withdraw an asset, either quantity, dollars or precent.
+                         Examples:
+                           withdraw ETH '$1000' 1543abcd --keep-min \$200
+                           withdraw ETH 100% 1543abcd --keep-min '$200'
+                           withdraw ETH 100 1543abcd
+                          NOTE: Dollar values must be written
+                          in single quotes '$123' or with a backslash \$1234
     dh                   Display deposit history
+    fcdh                 Display fiat currency deposit history
+    fcwh                 Display fiat currency withdraw history
     wh                   Display withdrawal history
     mt                   Display my trades for a symbol
     ao                   Dispaly all orders
@@ -75,10 +90,10 @@ SUBCOMMANDS:
     sei                  Display a symbols exchange information
     skr                  Display a symbols current kline record
     skrs                 Display a symbols kline records
+    version              Display version
     do-nothing           Do nothing used for testing
-    help                 Prints this message or the help of the given subcommand(s))
+    help                 Prints this message or the help of the given subcommand(s)
 ```
-
 
 ## Prerequisites
 
@@ -146,12 +161,12 @@ $ cargo clean ; cargo build
 
 Run with no parameters
 ```
-wink@3900x:~/prgs/rust/projects/binance-cli (main)
+wink@3900x:~/prgs/rust/myrepos/binance-cli (main)
 $ cargo run
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
      Running `target/debug/binance-cli`
 Usage:   binance-cli help, --help or -h
-app-ver: 0.2.0-a6cd35a
+app-ver: 0.3.0-ca767f1
 ```
 
 > Note: you'll need
@@ -367,7 +382,7 @@ app-ver: 0.2.0-a6cd35a
 ```
 
 And, of course, subquent runs don't need the `cargo clean`:
-``
+```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo build
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
@@ -376,7 +391,10 @@ $ cargo build
 ## Before committing
 
 If you like to submit a PR please Run `cargo pre-commit` before uploading.
-It runs cargo check, fmt, test, tarpaulin and clippy
+It runs cargo check, fmt, test, tarpaulin and clippy.
+
+> Note: to run `cargo pre-commit` you must have previously
+> copied the `./cargo-pre-commit` to `~/.cargo/bin`.
 
 ```
 $ cargo pre-commit

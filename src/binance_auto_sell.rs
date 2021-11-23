@@ -29,7 +29,7 @@ pub async fn auto_sell(
     trace!("auto_sell: call get_account_info");
     let mut ai = get_account_info(config).await?;
     trace!("auto_sell: call ai.update_values_in_usd");
-    ai.update_values_in_usd(config, true).await;
+    ai.update_values_in_usd(config, config.verbose).await;
     trace!("auto_sell: retf ai.update_values_in_usd");
     //ai.print().await;
 

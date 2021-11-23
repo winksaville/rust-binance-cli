@@ -21,7 +21,7 @@ pub async fn auto_buy(
     trace!("auto_buy:+ test: {} config: {:#?}", test, config);
 
     let mut ai = get_account_info(config).await?;
-    ai.update_values_in_usd(config, true).await;
+    ai.update_values_in_usd(config, config.verbose).await;
     //ai.print().await;
 
     // Verify the default_quote_asset is NOT empty

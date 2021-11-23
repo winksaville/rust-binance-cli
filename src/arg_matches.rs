@@ -59,6 +59,14 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .global(true)
         .long("no-test")
         .help("Disable test mode");
+    let verbose_arg = Arg::with_name("verbose")
+        .global(true)
+        .long("verbose")
+        .help("Enable verbose mode");
+    let no_verbose_arg = Arg::with_name("no-verbose")
+        .global(true)
+        .long("no-verbose")
+        .help("Disable verbose mode");
     let confirmation_required_arg = Arg::with_name("confirmation-required")
         .global(true)
         .long("confirmation-required")
@@ -90,6 +98,8 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .arg(default_quote_asset_arg.clone())
         .arg(test_arg.clone())
         .arg(no_test_arg.clone())
+        .arg(verbose_arg.clone())
+        .arg(no_verbose_arg.clone())
         .arg(confirmation_required_arg.clone())
         .arg(no_confirmation_required_arg.clone())
         .arg(scheme_arg.clone())
