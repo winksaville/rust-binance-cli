@@ -147,12 +147,15 @@ impl Amount {
 pub struct WithdrawParams {
     pub sym_name: String,
     pub amount: Amount,
+    #[serde(default)]
     pub org_quantity: Decimal,
     pub quantity: Decimal,
+    #[serde(default)]
     pub quantity_usd: Decimal,
     pub address: String,
     pub secondary_address: Option<String>,
     pub label: Option<String>,
+    #[serde(default)]
     pub keep_min_amount: Option<Amount>,
 }
 

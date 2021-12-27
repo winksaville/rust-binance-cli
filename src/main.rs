@@ -400,9 +400,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(path) => {
                 let file = File::open(path)?;
                 let reader = BufReader::new(file);
-                for result in reader.lines() {
-                    let line = result?;
-                    let tr: TradeResponse = serde_json::from_str(&line)?;
+                for (i, result) in reader.lines().enumerate() {
+                    let line = match result {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return Err(format!("line: {} Err: {}", i + 1, e).into());
+                        }
+                    };
+                    let tr: TradeResponse = match serde_json::from_str(&line) {
+                        Ok(tr) => tr,
+                        Err(e) => {
+                            return Err(format!("line: {} Err: {}", i + 1, e).into());
+                        }
+                    };
                     println!("{:#?}", tr);
                 }
             }
