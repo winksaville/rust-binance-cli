@@ -21,10 +21,10 @@ mod de_string_or_number;
 
 use clap::SubCommand;
 use log::trace;
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-};
+//use std::{
+//    fs::File,
+//    io::{BufRead, BufReader},
+//};
 use std::{path::Path, str::FromStr};
 
 use arg_matches::arg_matches;
@@ -47,7 +47,7 @@ use crate::{
     binance_klines::{get_kline, KlineRec},
     binance_market_order_cmd::{buy_market_order_cmd, sell_market_order_cmd},
     binance_my_trades::{get_my_trades, Trades},
-    binance_order_response::TradeResponse,
+    binance_order_response::{display_order_log, process_order_log},
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
     binance_withdraw_cmd::{withdraw_cmd, WithdrawParams},
@@ -396,30 +396,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await?;
             println!("{:#?}", whfc);
         }
-        "ol" => match config.order_log_path {
-            Some(path) => {
-                let file = File::open(path)?;
-                let reader = BufReader::new(file);
-                for (i, result) in reader.lines().enumerate() {
-                    let line = match result {
-                        Ok(r) => r,
-                        Err(e) => {
-                            return Err(format!("line: {} Err: {}", i + 1, e).into());
-                        }
-                    };
-                    let tr: TradeResponse = match serde_json::from_str(&line) {
-                        Ok(tr) => tr,
-                        Err(e) => {
-                            return Err(format!("line: {} Err: {}", i + 1, e).into());
-                        }
-                    };
-                    println!("{:#?}", tr);
-                }
-            }
-            None => {
-                println!("No order log path, set it in the config file or use --order_log_path");
-            }
-        },
+        "ol" => display_order_log(&config).await?,
+        "pol" => process_order_log(&config, &subcmd).await?,
         _ => println!("Unknown subcommand: {}", subcmd.name),
     }
 

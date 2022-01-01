@@ -386,8 +386,13 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display order log"),
             )
         .subcommand(
-            SubCommand::with_name("version")
+            SubCommand::with_name("pol")
                 .display_order(10)
+                .about("process order log"),
+        )
+        .subcommand(
+            SubCommand::with_name("version")
+                .display_order(11)
                 .about("Display version"),
         )
         .subcommand(

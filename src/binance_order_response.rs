@@ -1,5 +1,6 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, fs::File, io::BufRead, io::BufReader, path::PathBuf};
 
+use clap::SubCommand;
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +11,7 @@ use semver::Version;
 use crate::{
     binance_withdraw_cmd::WithdrawParams,
     common::{dec_to_money_string, time_ms_to_utc, InternalErrorRec, ResponseErrorRec, Side},
+    configuration::Configuration,
     de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
 };
 
@@ -394,6 +396,93 @@ impl fmt::Display for TradeResponse {
             TradeResponse::FailureInternal(ier) => write!(f, "{}", ier),
         }
     }
+}
+
+pub async fn iterate_order_log(
+    order_log_path: Option<PathBuf>,
+    process_line: impl Fn(&str, usize) -> Result<(), Box<dyn std::error::Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("terate_order_log: order_log_path={:?}", order_log_path);
+
+    match order_log_path {
+        Some(path) => {
+            let file = File::open(path)?;
+            let reader = BufReader::new(file);
+            for (i, result) in reader.lines().enumerate() {
+                let line = match result {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return Err(format!("line: {} Err: {}", i + 1, e).into());
+                    }
+                };
+                process_line(&line, i)?;
+            }
+        }
+        None => {
+            println!("No order log path, set it in the config file or use --order_log_path");
+        }
+    };
+
+    Ok(())
+}
+
+pub fn display_order_log_line(
+    line: &str,
+    line_number: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tr: TradeResponse = match serde_json::from_str(line) {
+        Ok(tr) => tr,
+        Err(e) => {
+            return Err(format!("line: {} Err: {}", line_number + 1, e).into());
+        }
+    };
+    println!("{:#?}", tr);
+
+    Ok(())
+}
+
+pub async fn display_order_log(config: &Configuration) -> Result<(), Box<dyn std::error::Error>> {
+    println!("display_order_log: config={:?}", config);
+
+    iterate_order_log(config.order_log_path.clone(), display_order_log_line).await?;
+
+    Ok(())
+}
+
+pub async fn process_order_log(
+    config: &Configuration,
+    _subcmd: &SubCommand<'static>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //println!("process_order_log: config={:?} subcmd={:?}", config, _subcmd);
+
+    pub fn process_order_log_line(
+        line: &str,
+        line_number: usize,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let tr: TradeResponse = match serde_json::from_str(line) {
+            Ok(tr) => tr,
+            Err(e) => {
+                return Err(format!("line: {} Err: {}", line_number + 1, e).into());
+            }
+        };
+
+        match tr {
+            TradeResponse::SuccessFull(tr) => {
+                println!("{} SuccessFull: {:#?}", line_number, tr);
+            }
+            TradeResponse::SuccessWithdraw(tr) => {
+                println!("{} SuccessWithdraw: {:#?}", line_number, tr);
+            }
+            _ => (),
+        }
+
+        Ok(())
+    }
+
+    // For the moment just display
+    iterate_order_log(config.order_log_path.clone(), process_order_log_line).await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
