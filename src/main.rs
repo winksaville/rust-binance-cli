@@ -3,6 +3,7 @@ mod binance_account_info;
 mod binance_auto_buy;
 mod binance_auto_sell;
 mod binance_avg_price;
+mod binance_distribution_processing;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
 mod binance_history;
@@ -38,6 +39,7 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
+    binance_distribution_processing::process_dist_files,
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
     binance_history::{
@@ -398,6 +400,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         "ol" => display_order_log(&config).await?,
         "pol" => process_order_log(&config, &subcmd).await?,
+        "pdf" => process_dist_files(&config, &subcmd).await?,
         _ => println!("Unknown subcommand: {}", subcmd.name),
     }
 
