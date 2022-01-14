@@ -1,22 +1,21 @@
-//use std::{error::Error, fmt, fs::File, io::BufRead, io::BufReader, path::PathBuf};
-use std::{fs::File, io::BufReader}; //, Read}, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::BufReader};
 
 use clap::SubCommand;
-//use log::trace;
-//use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
-//use rust_decimal_macros::dec;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-//use semver::Version;
 
-use crate::{common::dec_to_money_string, configuration::Configuration};
+use crate::{
+    common::{dec_to_money_string, dec_to_separated_string},
+    configuration::Configuration,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DistRec {
     #[serde(rename = "User_Id")]
-    pub user_id: u64,
+    pub user_id: String,
     #[serde(rename = "Time")]
     pub time: String, // TODO: Convert to an i64 assume UTC
     #[serde(rename = "Category")]
@@ -24,15 +23,15 @@ pub struct DistRec {
     #[serde(rename = "Operation")]
     pub operation: String,
     #[serde(rename = "Order_Id")]
-    pub order_id: u64,
+    pub order_id: String,
     #[serde(rename = "Transaction_Id")]
     pub transaction_id: u64,
     #[serde(rename = "Primary_Asset")]
     pub primary_asset: String,
     #[serde(rename = "Realized_Amount_For_Primary_Asset")]
-    pub realized_amount_for_primary_asset: Decimal,
+    pub realized_amount_for_primary_asset: Option<Decimal>,
     #[serde(rename = "Realized_Amount_For_Primary_Asset_In_USD_Value")]
-    pub realized_amount_for_primary_asset_in_usd_value: Decimal,
+    pub realized_amount_for_primary_asset_in_usd_value: Option<Decimal>,
     #[serde(rename = "Base_Asset")]
     pub base_asset: String,
     #[serde(rename = "Realized_Amount_For_Base_Asset")]
@@ -66,15 +65,15 @@ pub struct DistRec {
 /// ./test_data/ like I am now!
 pub async fn iterate_dist_reader(
     reader: BufReader<File>,
-    process_line: impl Fn(&DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
+    mut process_line: impl FnMut(&mut DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_dist_reader:+");
 
     //let mut rdr = csv::Reader::from_reader(line.as_bytes());
     let mut rdr = csv::Reader::from_reader(reader);
     for (line_index, result) in rdr.deserialize().enumerate() {
-        let dr = result?;
-        process_line(&dr, line_index)?;
+        let mut dr = result?;
+        process_line(&mut dr, line_index)?;
     }
 
     //println!("iterate_dist_reader:-");
@@ -83,7 +82,7 @@ pub async fn iterate_dist_reader(
 
 pub async fn iterate_dist_file(
     dist_file_str: &str,
-    process_line: impl Fn(&DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
+    process_line: impl FnMut(&mut DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_distribution_file:+ dist_file_path={}", dist_file_str);
 
@@ -95,25 +94,35 @@ pub async fn iterate_dist_file(
     Ok(())
 }
 
-pub fn display_rec(dr: &DistRec, line_index: usize) -> Result<(), Box<dyn std::error::Error>> {
+#[allow(unused)]
+pub fn display_rec(dr: &mut DistRec, line_index: usize) -> Result<(), Box<dyn std::error::Error>> {
+    let rpa = match dr.realized_amount_for_primary_asset {
+        Some(v) => v,
+        None => dec!(0),
+    };
+    let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
+        Some(v) => v,
+        None => dec!(0),
+    };
+
     println!(
         "{:9}: {:>10}     {:25} {:5} {:16.8}  {:>12}  {:>12}",
         line_index + 1,
         dr.user_id,
         dr.time,
         dr.primary_asset,
-        dr.realized_amount_for_primary_asset,
-        dec_to_money_string(dr.realized_amount_for_primary_asset_in_usd_value),
-        dec_to_money_string(
-            dr.realized_amount_for_primary_asset_in_usd_value
-                / dr.realized_amount_for_primary_asset
-        )
+        rpa,
+        dec_to_money_string(rpa_usd),
+        dec_to_money_string(rpa_usd / rpa),
     );
     Ok(())
 }
 
 #[allow(unused)]
-pub fn display_full_rec(dr: &DistRec, line_index: usize) -> Result<(), Box<dyn std::error::Error>> {
+pub fn display_full_rec(
+    dr: &mut DistRec,
+    line_index: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}: {:?}", line_index + 1, dr);
     Ok(())
 }
@@ -125,7 +134,99 @@ pub async fn process_dist_files(
     //println!("process_dist_files:+\n config={:?} \nsubcmd={:?}", config, _subcmd);
 
     //iterate_dist_file("./test_data/dist_file_one_rec.csv", display_rec).await?;
-    iterate_dist_file("./test_data/dist_file_several_recs.csv", display_rec).await?;
+    //iterate_dist_file("./test_data/dist_file_several_recs.csv", display_rec).await?;
+
+    #[derive(Debug)]
+    #[allow(unused)]
+    struct AssetRec {
+        pub asset: String,
+        pub quantity: Decimal,
+        pub value_usd: Decimal,
+        pub transaction_count: u64,
+    }
+
+    impl AssetRec {
+        fn new(
+            asset: &str,
+            quantity: Decimal,
+            value_usd: Decimal,
+            transaction_count: u64,
+        ) -> AssetRec {
+            AssetRec {
+                asset: asset.to_string(),
+                quantity,
+                value_usd,
+                transaction_count,
+            }
+        }
+    }
+
+    type AssetRecHashMap = HashMap<String, AssetRec>;
+    let mut hm = AssetRecHashMap::new();
+
+    let mut total = dec!(0);
+
+    let mut last_line_index = 0usize;
+
+    let init_hm_entry =
+        |dr: &mut DistRec, line_index: usize| -> Result<(), Box<dyn std::error::Error>> {
+            let rpa = match dr.realized_amount_for_primary_asset {
+                Some(v) => v,
+                None => dec!(0),
+            };
+            let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
+                Some(v) => v,
+                None => dec!(0),
+            };
+
+            let entry = hm.entry(dr.primary_asset.clone()).or_insert(AssetRec::new(
+                &dr.primary_asset,
+                rpa,
+                rpa_usd,
+                0,
+            ));
+            entry.transaction_count += 1;
+            if entry.transaction_count > 1 {
+                // Sum realized amounts
+                entry.quantity += rpa;
+                entry.value_usd += rpa_usd;
+            }
+            total += rpa_usd;
+            //println!("{}: {:?}", line_index, entry);
+            print!(
+                "{} {} {} {} {}                                               \r",
+                line_index, entry.asset, rpa_usd, entry.value_usd, total
+            );
+
+            last_line_index = line_index;
+            Ok(())
+        };
+    //iterate_dist_file("./test_data/dist_file_several_recs.csv", init_hm_entry).await?;
+    iterate_dist_file("./data/binance.us-distribution-2021.csv", init_hm_entry).await?;
+    //println!("\nhm: {:#?}", hm);
+
+    let mut total_hm_value_usd = dec!(0);
+    let mut total_hm_transaction_count = 0u64;
+    for (_, ar) in hm {
+        total_hm_value_usd += ar.value_usd;
+        total_hm_transaction_count += ar.transaction_count; // as usize;
+        println!(
+            "{:10} {:20.6} {:>10} {:>14}",
+            ar.asset,
+            ar.quantity,
+            dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
+            dec_to_money_string(ar.value_usd)
+        );
+    }
+    println!("\n");
+    assert!(std::mem::size_of::<usize>() >= std::mem::size_of::<u64>());
+    assert_eq!(last_line_index as u64 + 1, total_hm_transaction_count);
+    assert_eq!(total, total_hm_value_usd);
+    println!(
+        "Transactions: {}",
+        dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0)
+    );
+    println!("   Total USD: {} ", dec_to_money_string(total_hm_value_usd));
 
     //println!("process_dist_files:-");
     Ok(())

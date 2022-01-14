@@ -1,5 +1,6 @@
 ﻿User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
 12345,2021-01-01 00:01:10,Distribution,Referral Commission,183755446,72569785,BNB,0.00180269,0.068331,"","","","","","","","","",Wallet,"",""
+12345,2021-03-09 05:03:29,Quick Sell,Sell,f94794f814e24a70a3caec5be5dd2eb7,157517097,"","","",ADA,1141.50000000,1364.27635000,USD,1289.50620000,1289.50620000,USD,6.48000000,6.48000000,Wallet,"",""
 12345,2021-01-01 00:09:05,Distribution,Referral Commission,25533217,72572821,BNB,0.00102749,0.038947,"","","","","","","","","",Wallet,"",""
 12345,2021-01-01 01:46:25,Distribution,Referral Commission,29481708,72617790,BNB,0.00039724,0.015057,"","","","","","","","","",Wallet,"",""
 12345,2021-01-01 01:50:16,Distribution,Referral Commission,29482143,72619471,BNB,0.00191247,0.072492,"","","","","","","","","",Wallet,"",""
