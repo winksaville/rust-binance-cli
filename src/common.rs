@@ -340,20 +340,51 @@ pub fn naive_to_utc_time_ms(date_time: &NaiveDateTime) -> i64 {
     udt
 }
 
-pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
-    //println!("dt_str_to_utc_time_ms: {}", naive_dt_str);
-    let ndt = match NaiveDateTime::parse_from_str(naive_dt_str, "%Y-%m-%dT%H:%M:%S") {
+#[allow(unused)]
+///! DateTime string with space seperator
+pub fn dt_str_space_sep_to_utc_time_ms(
+    naive_dt_str: &str,
+) -> Result<i64, Box<dyn std::error::Error>> {
+    //println!("dt_str_space_sep_to_utc_time_ms: {}", naive_dt_str);
+    let ndt = match NaiveDateTime::parse_from_str(naive_dt_str, "%Y-%m-%d %H:%M:%S%.f") {
         Ok(dt) => dt,
         Err(e) => {
             return Err(format!(
-                "Error converting local time to utc: Expecting \"YYYY-MM-DDTHH:MM:SS\" {}",
+                "Error converting naive time to utc: Expecting \"YYYY-MM-DDTHH:MM:SS\" {}",
                 e
             )
             .into())
         }
     };
-    //println!("dt_str_to_utc_time_ms: {}", ndt);
     Ok(naive_to_utc_time_ms(&ndt))
+}
+
+#[allow(unused)]
+///! DateTime string with space seperator
+pub fn dt_str_tee_sep_to_utc_time_ms(
+    naive_dt_str: &str,
+) -> Result<i64, Box<dyn std::error::Error>> {
+    //println!("dt_str_tee_sep_to_utc_time_ms: {}", naive_dt_str);
+    let ndt = match NaiveDateTime::parse_from_str(naive_dt_str, "%Y-%m-%dT%H:%M:%S%.f") {
+        Ok(dt) => dt,
+        Err(e) => {
+            return Err(format!(
+                "Error converting naive time to utc: Expecting \"YYYY-MM-DDTHH:MM:SS\" {}",
+                e
+            )
+            .into())
+        }
+    };
+    Ok(naive_to_utc_time_ms(&ndt))
+}
+
+pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
+    //println!("dt_str_to_utc_time_ms: {}", naive_dt_str);
+    Ok(if naive_dt_str.matches('T').count() == 0 {
+        dt_str_space_sep_to_utc_time_ms(&naive_dt_str)?
+    } else {
+        dt_str_tee_sep_to_utc_time_ms(&naive_dt_str)?
+    })
 }
 
 pub fn are_you_sure_stdout_stdin() -> bool {
@@ -497,5 +528,57 @@ mod test {
         assert_eq!(dec_to_separated_string(dec!(1.024), 2), "1.02");
         assert_eq!(dec_to_separated_string(dec!(1.026), 2), "1.03");
         assert_eq!(dec_to_separated_string(dec!(1000.026), 2), "1,000.03");
+    }
+
+    #[test]
+    fn test_dt_tee_sep_str_to_utc_time_ms() {
+        let str_time_no_ms = "2021-01-01T00:01:10";
+        let str_time_with_ms = "2021-01-01T00:01:10.123";
+
+        let dt = dt_str_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
+        //println!("str_time_no_ms: {dt}");
+        assert_eq!(dt, 1609488070000);
+        let dt =
+            dt_str_to_utc_time_ms(str_time_with_ms).expect("Bad time format with milliseconds");
+        //println!("str_time_with_ms: {dt}");
+        assert_eq!(dt, 1609488070123);
+    }
+
+    #[test]
+    fn test_dt_str_space_sep_to_utc_time_ms() {
+        let str_time_no_ms = "2021-01-01 00:01:10";
+        let str_time_with_ms = "2021-01-01 00:01:10.123";
+
+        let dt = dt_str_space_sep_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
+        //println!("str_time_no_ms: {dt}");
+        assert_eq!(dt, 1609488070000);
+        let dt = dt_str_space_sep_to_utc_time_ms(str_time_with_ms)
+            .expect("Bad time format with milliseconds");
+        //println!("str_time_with_ms: {dt}");
+        assert_eq!(dt, 1609488070123);
+    }
+
+    #[test]
+    fn test_dt_str_to_utc_time_ms() {
+        let str_tee_time_no_ms = "2021-01-01T00:01:10";
+        let str_tee_time_with_ms = "2021-01-01T00:01:10.123";
+        let str_space_time_no_ms = "2021-01-01 00:01:10";
+        let str_space_time_with_ms = "2021-01-01 00:01:10.123";
+
+        let dt = dt_str_to_utc_time_ms(str_tee_time_no_ms).expect("Bad time format");
+        //println!("str_time_no_ms: {dt}");
+        assert_eq!(dt, 1609488070000);
+        let dt =
+            dt_str_to_utc_time_ms(str_tee_time_with_ms).expect("Bad time format with milliseconds");
+        //println!("str_time_with_ms: {dt}");
+        assert_eq!(dt, 1609488070123);
+
+        let dt = dt_str_to_utc_time_ms(str_space_time_no_ms).expect("Bad time format");
+        //println!("str_time_no_ms: {dt}");
+        assert_eq!(dt, 1609488070000);
+        let dt = dt_str_to_utc_time_ms(str_space_time_with_ms)
+            .expect("Bad time format with milliseconds");
+        //println!("str_time_with_ms: {dt}");
+        assert_eq!(dt, 1609488070123);
     }
 }

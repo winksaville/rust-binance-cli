@@ -277,6 +277,7 @@ pub async fn process_dist_files(
 mod test {
 
     use super::*;
+    use crate::common::dt_str_space_sep_to_utc_time_ms;
 
     #[test]
     fn test_1() {
@@ -315,6 +316,29 @@ year,make,model,description
             println!("result: {:?}", result);
             let dr: CarInfo = result.expect("eror converting to DistRec");
             println!("dr: {:?}", dr);
+        }
+    }
+
+    #[test]
+    fn test_3() {
+        let csv = "
+Time
+2021-01-01 00:01:10
+2021-01-01 00:01:10.123";
+
+        #[derive(Debug, Deserialize, Serialize)]
+        struct TimeRec {
+            #[serde(rename = "Time")]
+            time: String,
+        }
+
+        let mut reader = csv::Reader::from_reader(csv.as_bytes());
+        for result in reader.deserialize() {
+            println!("result: {:?}", result);
+            let tr: TimeRec = result.expect("eror converting to TimeRec");
+            println!("tr: {:?}", tr);
+            let dt = dt_str_space_sep_to_utc_time_ms(&tr.time).expect("Bad time format");
+            println!("{dt}");
         }
     }
 }
