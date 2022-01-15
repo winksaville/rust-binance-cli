@@ -1,3 +1,33 @@
+//! This file processes binance.us distributation files.
+//!
+//! Information I've learned
+//!  * Contents adhere to the CSV format
+//!  * First line is contains headers
+//!  * Subsequent lines contine the comma seperated fields
+//!  * Empty line contain an empty string; "" other wise no quotes are used.
+//!    This means empty numeric fields must be defined as using Option<T>.
+//!    If they had be "blank" i.e. just adjacent commas, serde would have defaulted to 0, I believe.
+//!  * Using the following `awk` and `sort` yields there are 4 catagories:
+//!    Distributation, Quick Buy, Quick Sell, Spot Trading and Withdrawal
+//!    ```
+//!    wink@3900x:~/prgs/rust/myrepos/binance-cli/data
+//!    $ awk -F, '{ print $3 }' binance.us-distribution-2021.csv | sort -u
+//!    Category
+//!    Distribution
+//!    Quick Buy
+//!    Quick Sell
+//!    Spot Trading
+//!    Withdrawal
+//!    ```
+//!  * I think I need to process only records with Category == Distribution.
+//!  * Some Category == Distribution records have an empty
+//!    Realized_Amount_For_Primary_Asset_In_USD_Value field that is empty.
+//!    Such as:
+//!      35002704,2021-12-31 00:07:03.819,Distribution,Referral Commission,88367941,880499527,SUSHI,0.00224,"","","","","","","","","","",Wallet,"",""
+//!    So for these I need to "lookup and calcuate" the Realized_Amount_For_Primary_Asset_In_USD_Value.
+//!
+
+//!
 use std::{collections::HashMap, fs::File, io::BufReader};
 
 use clap::SubCommand;
@@ -165,44 +195,49 @@ pub async fn process_dist_files(
     let mut hm = AssetRecHashMap::new();
 
     let mut total = dec!(0);
-
-    let mut last_line_index = 0usize;
-
-    let init_hm_entry =
+    let mut empty_rpa = 0u64;
+    let mut empty_rpa_usd = 0u64;
+    let process_hm_entry =
         |dr: &mut DistRec, line_index: usize| -> Result<(), Box<dyn std::error::Error>> {
-            let rpa = match dr.realized_amount_for_primary_asset {
-                Some(v) => v,
-                None => dec!(0),
-            };
-            let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
-                Some(v) => v,
-                None => dec!(0),
-            };
+            if dr.category == "Distribution" {
+                let rpa = match dr.realized_amount_for_primary_asset {
+                    Some(v) => v,
+                    None => {
+                        empty_rpa += 1;
+                        dec!(0)
+                    }
+                };
+                let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
+                    Some(v) => v,
+                    None => {
+                        empty_rpa_usd += 1;
+                        dec!(0)
+                    }
+                };
 
-            let entry = hm.entry(dr.primary_asset.clone()).or_insert(AssetRec::new(
-                &dr.primary_asset,
-                rpa,
-                rpa_usd,
-                0,
-            ));
-            entry.transaction_count += 1;
-            if entry.transaction_count > 1 {
-                // Sum realized amounts
-                entry.quantity += rpa;
-                entry.value_usd += rpa_usd;
+                let entry = hm.entry(dr.primary_asset.clone()).or_insert(AssetRec::new(
+                    &dr.primary_asset,
+                    rpa,
+                    rpa_usd,
+                    0,
+                ));
+                entry.transaction_count += 1;
+                if entry.transaction_count > 1 {
+                    // Sum realized amounts
+                    entry.quantity += rpa;
+                    entry.value_usd += rpa_usd;
+                }
+                total += rpa_usd;
+                //println!("{}: {:?}", line_index, entry);
+                print!(
+                    "{} {} {} {} {}                                               \r",
+                    line_index, entry.asset, rpa_usd, entry.value_usd, total
+                );
             }
-            total += rpa_usd;
-            //println!("{}: {:?}", line_index, entry);
-            print!(
-                "{} {} {} {} {}                                               \r",
-                line_index, entry.asset, rpa_usd, entry.value_usd, total
-            );
-
-            last_line_index = line_index;
             Ok(())
         };
-    //iterate_dist_file("./test_data/dist_file_several_recs.csv", init_hm_entry).await?;
-    iterate_dist_file("./data/binance.us-distribution-2021.csv", init_hm_entry).await?;
+    //iterate_dist_file("./test_data/dist_file_several_recs.csv", process_hm_entry).await?;
+    iterate_dist_file("./data/binance.us-distribution-2021.csv", process_hm_entry).await?;
     //println!("\nhm: {:#?}", hm);
 
     let mut total_hm_value_usd = dec!(0);
@@ -220,13 +255,19 @@ pub async fn process_dist_files(
     }
     println!("\n");
     assert!(std::mem::size_of::<usize>() >= std::mem::size_of::<u64>());
-    assert_eq!(last_line_index as u64 + 1, total_hm_transaction_count);
     assert_eq!(total, total_hm_value_usd);
+    assert!(empty_rpa == 0);
     println!(
-        "Transactions: {}",
-        dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0)
+        "{:>27}: {} no USD amount: {}",
+        "Distribution Transactions",
+        dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0),
+        dec_to_separated_string(Decimal::from(empty_rpa_usd), 0),
     );
-    println!("   Total USD: {} ", dec_to_money_string(total_hm_value_usd));
+    println!(
+        "{:>27}: {} ",
+        "Total USD",
+        dec_to_money_string(total_hm_value_usd)
+    );
 
     //println!("process_dist_files:-");
     Ok(())
