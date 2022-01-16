@@ -19,7 +19,7 @@ mod binance_withdraw_cmd;
 mod common;
 mod configuration;
 mod de_string_or_number;
-mod de_string_to_time_ms;
+mod de_string_to_utc_time_ms;
 
 use clap::SubCommand;
 use log::trace;

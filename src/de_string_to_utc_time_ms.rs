@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::common::dt_str_to_utc_time_ms;
 
-// Convert a string or number to i64
+// Convert a string to UTC time in ms as i64
 #[allow(unused)]
 pub fn de_string_to_utc_time_ms<'de, D: Deserializer<'de>>(
     deserializer: D,
