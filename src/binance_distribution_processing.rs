@@ -215,12 +215,9 @@ pub async fn process_dist_files(
                     }
                 };
 
-                let entry = hm.entry(dr.primary_asset.clone()).or_insert(AssetRec::new(
-                    &dr.primary_asset,
-                    rpa,
-                    rpa_usd,
-                    0,
-                ));
+                let entry = hm
+                    .entry(dr.primary_asset.clone())
+                    .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
                 entry.transaction_count += 1;
                 if entry.transaction_count > 1 {
                     // Sum realized amounts

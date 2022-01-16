@@ -381,9 +381,9 @@ pub fn dt_str_tee_sep_to_utc_time_ms(
 pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
     //println!("dt_str_to_utc_time_ms: {}", naive_dt_str);
     Ok(if naive_dt_str.matches('T').count() == 0 {
-        dt_str_space_sep_to_utc_time_ms(&naive_dt_str)?
+        dt_str_space_sep_to_utc_time_ms(naive_dt_str)?
     } else {
-        dt_str_tee_sep_to_utc_time_ms(&naive_dt_str)?
+        dt_str_tee_sep_to_utc_time_ms(naive_dt_str)?
     })
 }
 
