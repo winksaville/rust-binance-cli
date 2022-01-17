@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
@@ -265,7 +265,7 @@ pub async fn get_req_get_response(
 }
 
 fn timestamp_ms_to_secs_nsecs(timestamp_ms: i64) -> (i64, u32) {
-    // println!("time_ms_to_utc: + timestamp_ms={}", timestamp_ms);
+    // println!("timestamp_ms_to_secs_nsecs: + timestamp_ms={}", timestamp_ms);
     let mut secs = timestamp_ms / 1000;
     let ms: u32 = if timestamp_ms < 0 {
         // When time is less than zero the it's only negative
@@ -284,10 +284,10 @@ fn timestamp_ms_to_secs_nsecs(timestamp_ms: i64) -> (i64, u32) {
 
             // And map ms 1..999 to 999..1
             millis = 1_000 - millis;
-            // println!("time_ms_to_utc: adjusted   timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
+            // println!("timestamp_ms_to_secs_nsecs: adjusted   timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
         } else {
             // millis is 0 and secs is correct as is.
-            // println!("time_ms_to_utc: unadjusted timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
+            // println!("timestamp_ms_to_secs_nsecs: unadjusted timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
         }
 
         millis
@@ -297,14 +297,14 @@ fn timestamp_ms_to_secs_nsecs(timestamp_ms: i64) -> (i64, u32) {
         // allowing unnecessary_cast suppresses the warning.
         #[allow(clippy::unnecessary_cast)]
         let millis = (timestamp_ms % 1000) as u32;
-        //println!("time_ms_to_utc: unadjusted timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
+        //println!("timestamp_ms_to_secs_nsecs: unadjusted timestamp_ms={} secs={} millis={}", timestamp_ms, secs, millis);
 
         millis
     };
 
     let nsecs = ms * 1_000_000u32;
 
-    // println!("time_ms_to_utc: - timestamp_ms={} secs={} nsecs={}", timestamp_ms, secs, nsecs);
+    // println!("timestamp_ms_to_secs_nsecs: - timestamp_ms={} secs={} nsecs={}", timestamp_ms, secs, nsecs);
     (secs, nsecs)
 }
 
@@ -329,62 +329,24 @@ pub fn utc_to_time_ms(date_time: &DateTime<Utc>) -> i64 {
     (date_time.timestamp_nanos() + 500_000) / 1_000_000
 }
 
-pub fn naive_to_utc_time_ms(date_time: &NaiveDateTime) -> i64 {
-    //println!("navie_to_utc_time_ms:+");
-    let ldt = Local.from_local_datetime(date_time).unwrap();
-    //println!("ldt: {:?}", ldt);
-    #[allow(clippy::unnecessary_cast)]
-    let udt = utc_to_time_ms(&DateTime::from(ldt));
-    //println!("udt: {:?}", udt);
+///! DateTime string converted to utc time_ms with either T or Space seperator
+pub fn dt_str_to_utc_time_ms(dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
+    pub fn dt_str_with_fmt_str_to_utc_time_ms(
+        dt_str: &str,
+        fmt_str: &str,
+    ) -> Result<i64, Box<dyn std::error::Error>> {
+        let ndt = NaiveDateTime::parse_from_str(dt_str, fmt_str)?;
+        let dt = DateTime::<Utc>::from_utc(ndt, Utc);
+        Ok(utc_to_time_ms(&dt))
+    }
 
-    udt
-}
-
-#[allow(unused)]
-///! DateTime string with space seperator
-pub fn dt_str_space_sep_to_utc_time_ms(
-    naive_dt_str: &str,
-) -> Result<i64, Box<dyn std::error::Error>> {
-    //println!("dt_str_space_sep_to_utc_time_ms: {}", naive_dt_str);
-    let ndt = match NaiveDateTime::parse_from_str(naive_dt_str, "%Y-%m-%d %H:%M:%S%.f") {
-        Ok(dt) => dt,
-        Err(e) => {
-            return Err(format!(
-                "Error converting naive time to utc: Expecting \"YYYY-MM-DDTHH:MM:SS\" {}",
-                e
-            )
-            .into())
-        }
-    };
-    Ok(naive_to_utc_time_ms(&ndt))
-}
-
-#[allow(unused)]
-///! DateTime string with space seperator
-pub fn dt_str_tee_sep_to_utc_time_ms(
-    naive_dt_str: &str,
-) -> Result<i64, Box<dyn std::error::Error>> {
-    //println!("dt_str_tee_sep_to_utc_time_ms: {}", naive_dt_str);
-    let ndt = match NaiveDateTime::parse_from_str(naive_dt_str, "%Y-%m-%dT%H:%M:%S%.f") {
-        Ok(dt) => dt,
-        Err(e) => {
-            return Err(format!(
-                "Error converting naive time to utc: Expecting \"YYYY-MM-DDTHH:MM:SS\" {}",
-                e
-            )
-            .into())
-        }
-    };
-    Ok(naive_to_utc_time_ms(&ndt))
-}
-
-pub fn dt_str_to_utc_time_ms(naive_dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
-    //println!("dt_str_to_utc_time_ms: {}", naive_dt_str);
-    Ok(if naive_dt_str.matches('T').count() == 0 {
-        dt_str_space_sep_to_utc_time_ms(naive_dt_str)?
+    let tms = if dt_str.matches('T').count() == 1 {
+        dt_str_with_fmt_str_to_utc_time_ms(dt_str, "%Y-%m-%dT%H:%M:%S%.f")?
     } else {
-        dt_str_tee_sep_to_utc_time_ms(naive_dt_str)?
-    })
+        dt_str_with_fmt_str_to_utc_time_ms(dt_str, "%Y-%m-%d %H:%M:%S%.f")?
+    };
+
+    Ok(tms)
 }
 
 pub fn are_you_sure_stdout_stdin() -> bool {
@@ -422,6 +384,7 @@ pub fn dec_to_separated_string(v: Decimal, dp: u32) -> String {
 
 #[cfg(test)]
 mod test {
+    use chrono::SecondsFormat;
     use rust_decimal_macros::dec;
 
     use super::*;
@@ -531,54 +494,41 @@ mod test {
     }
 
     #[test]
-    fn test_dt_tee_sep_str_to_utc_time_ms() {
-        let str_time_no_ms = "2021-01-01T00:01:10";
-        let str_time_with_ms = "2021-01-01T00:01:10.123";
-
-        let dt = dt_str_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
-        //println!("str_time_no_ms: {dt}");
-        assert_eq!(dt, 1609488070000);
-        let dt =
+    fn test_dt_str_with_tee_to_utc_time_ms() {
+        let str_time_no_ms = "1970-01-01T00:00:00";
+        let str_time_with_ms = "1970-01-01T00:00:00.123";
+        let tms = dt_str_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
+        println!("str_time_no_ms: tms: {tms}");
+        assert_eq!(tms, 0);
+        let tms =
             dt_str_to_utc_time_ms(str_time_with_ms).expect("Bad time format with milliseconds");
-        //println!("str_time_with_ms: {dt}");
-        assert_eq!(dt, 1609488070123);
+        println!("str_time_with_ms: tms: {tms}");
+        assert_eq!(tms, 123);
     }
 
     #[test]
-    fn test_dt_str_space_sep_to_utc_time_ms() {
-        let str_time_no_ms = "2021-01-01 00:01:10";
-        let str_time_with_ms = "2021-01-01 00:01:10.123";
-
-        let dt = dt_str_space_sep_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
-        //println!("str_time_no_ms: {dt}");
-        assert_eq!(dt, 1609488070000);
-        let dt = dt_str_space_sep_to_utc_time_ms(str_time_with_ms)
-            .expect("Bad time format with milliseconds");
-        //println!("str_time_with_ms: {dt}");
-        assert_eq!(dt, 1609488070123);
+    fn test_dt_str_with_space_to_utc_time_ms() {
+        let str_time_no_ms = "1970-01-01 00:00:00";
+        let str_time_with_ms = "1970-01-01 00:00:00.123";
+        let tms = dt_str_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
+        println!("str_time_no_ms: tms: {tms}");
+        assert_eq!(tms, 0);
+        let tms =
+            dt_str_to_utc_time_ms(str_time_with_ms).expect("Bad time format with milliseconds");
+        println!("str_time_with_ms: tms: {tms}");
+        assert_eq!(tms, 123);
     }
 
     #[test]
-    fn test_dt_str_to_utc_time_ms() {
-        let str_tee_time_no_ms = "2021-01-01T00:01:10";
-        let str_tee_time_with_ms = "2021-01-01T00:01:10.123";
-        let str_space_time_no_ms = "2021-01-01 00:01:10";
-        let str_space_time_with_ms = "2021-01-01 00:01:10.123";
-
-        let dt = dt_str_to_utc_time_ms(str_tee_time_no_ms).expect("Bad time format");
-        //println!("str_time_no_ms: {dt}");
-        assert_eq!(dt, 1609488070000);
-        let dt =
-            dt_str_to_utc_time_ms(str_tee_time_with_ms).expect("Bad time format with milliseconds");
-        //println!("str_time_with_ms: {dt}");
-        assert_eq!(dt, 1609488070123);
-
-        let dt = dt_str_to_utc_time_ms(str_space_time_no_ms).expect("Bad time format");
-        //println!("str_time_no_ms: {dt}");
-        assert_eq!(dt, 1609488070000);
-        let dt = dt_str_to_utc_time_ms(str_space_time_with_ms)
-            .expect("Bad time format with milliseconds");
-        //println!("str_time_with_ms: {dt}");
-        assert_eq!(dt, 1609488070123);
+    fn test_time_ms_to_utc() {
+        let dt = time_ms_to_utc(0i64);
+        assert_eq!(
+            dt.to_rfc3339_opts(SecondsFormat::Millis, true),
+            "1970-01-01T00:00:00.000Z"
+        );
+        assert_eq!(
+            dt.to_rfc3339_opts(SecondsFormat::Millis, false),
+            "1970-01-01T00:00:00.000+00:00"
+        );
     }
 }

@@ -28,35 +28,34 @@ mod tests {
 
     #[test]
     fn test_de_string_to_utc_time_ms_json() {
-        let js = r#"{ "Time": "2021-01-01 00:01:10" }"#;
+        let js = r#"{ "Time": "1970-01-01 00:00:00" }"#;
         println!("{js}");
         let ap: TimeRec = serde_json::from_str(js).expect("Error de from str");
         println!("{:#?}", ap);
 
-        assert_eq!(ap.time, 1609488070000);
+        assert_eq!(ap.time, 0);
     }
 
     #[test]
     fn test_de_string_to_utc_time_ms_csv() {
         let csv = "
 Time
-2021-01-01 00:01:10
-2021-01-01 00:01:10.123";
+1970-01-01 00:00:00
+1970-01-01 00:00:00.123";
 
         let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        let csv_result1: Option<Result<TimeRec, csv::Error>> = reader.deserialize().next();
-        if let Some(result1) = csv_result1 {
-            if let Ok(result1) = result1 {
-                println!("{result1:?}");
-                assert_eq!(result1.time, 1609488070000);
-            }
-        }
-
-        let csv_result2: Option<Result<TimeRec, csv::Error>> = reader.deserialize().next();
-        if let Some(result2) = csv_result2 {
-            if let Ok(result2) = result2 {
-                println!("{result2:?}");
-                assert_eq!(result2.time, 1609488070123);
+        for (idx, entry) in reader.deserialize().enumerate() {
+            match entry {
+                Ok(tr) => {
+                    let tr: TimeRec = tr;
+                    println!("tr: {:?}", tr);
+                    match idx {
+                        0 => assert_eq!(tr.time, 0),
+                        1 => assert_eq!(tr.time, 123),
+                        _ => panic!("Unexpected idx"),
+                    }
+                }
+                Err(e) => panic!("Error: {e}"),
             }
         }
     }

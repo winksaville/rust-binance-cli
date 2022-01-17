@@ -274,68 +274,37 @@ pub async fn process_dist_files(
 mod test {
 
     use super::*;
-    use crate::common::dt_str_space_sep_to_utc_time_ms;
+    use crate::de_string_to_utc_time_ms::de_string_to_utc_time_ms;
 
-    #[test]
-    fn test_1() {
-        let csv = "year,make,model,description
-        1948,Porsche,356,Luxury sports car
-        1967,Ford,Mustang fastback 1967,American car";
-
-        let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for record in reader.records() {
-            let record = record.expect("error converting record");
-            println!(
-                "In {}, {} built the {} model. It is a {}.",
-                &record[0], &record[1], &record[2], &record[3]
-            );
-        }
+    #[derive(Debug, Serialize, Deserialize)]
+    struct TimeRec {
+        #[serde(rename = "Time")]
+        #[serde(deserialize_with = "de_string_to_utc_time_ms")]
+        time: i64,
     }
 
     #[test]
-    fn test_2() {
-        let csv = "
-year,make,model,description
-1948,Porsche,356,Luxury sport cars
-1967,Ford,Mustang fastback 1967,American car";
-
-        #[derive(Debug, Deserialize, Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct CarInfo {
-            year: u64,
-            make: String,
-            model: String,
-            description: String,
-        }
-
-        let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for result in reader.deserialize() {
-            println!("result: {:?}", result);
-            let dr: CarInfo = result.expect("eror converting to DistRec");
-            println!("dr: {:?}", dr);
-        }
-    }
-
-    #[test]
-    fn test_3() {
+    fn test_serde_from_csv() {
         let csv = "
 Time
-2021-01-01 00:01:10
-2021-01-01 00:01:10.123";
-
-        #[derive(Debug, Deserialize, Serialize)]
-        struct TimeRec {
-            #[serde(rename = "Time")]
-            time: String,
-        }
+1970-01-01 00:00:00
+1970-01-01 00:00:00.123";
 
         let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for result in reader.deserialize() {
-            println!("result: {:?}", result);
-            let tr: TimeRec = result.expect("eror converting to TimeRec");
-            println!("tr: {:?}", tr);
-            let dt = dt_str_space_sep_to_utc_time_ms(&tr.time).expect("Bad time format");
-            println!("{dt}");
+        for (idx, entry) in reader.deserialize().enumerate() {
+            println!("{idx}: entry: {:?}", entry);
+            match entry {
+                Ok(tr) => {
+                    let tr: TimeRec = tr;
+                    println!("tr: {:?}", tr);
+                    match idx {
+                        0 => assert_eq!(tr.time, 0),
+                        1 => assert_eq!(tr.time, 123),
+                        _ => panic!("Unexpected idx"),
+                    }
+                }
+                Err(e) => panic!("Error: {e}"),
+            }
         }
     }
 }
