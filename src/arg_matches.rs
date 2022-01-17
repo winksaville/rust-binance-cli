@@ -287,8 +287,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                         .short("s")
                         .long("start_time")
                         .value_name("START-TIME")
-                        .help("Define the starting time format: YYYY-MM-DDTHR:MIN example: 2021-05-24T16:31")
-                        //.default_value("now")
+                        .help("Define the starting time format: YYYY-MM-DDTHR:MIN:SEC{TZ} where TZ is offset from UTC and if absent then the users TZ offset is used. Or TZ maybe z or Z for UTC or +/- then 2 hr digits and optionally 2 min digits.\nexamples:\n  2021-05-24T16:31:12       => Local TZ\n  2022-01-17T00:00:00z      => UTC\n  2022-01-17T00:00:00-08    => PST 2 digit hourly\n  2022-01-17T00:09:00+0530  => IST 4 digit with minutes")
                         .takes_value(true),
                 )
                 .arg(

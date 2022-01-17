@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, TimeZone, Utc};
 use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
@@ -329,21 +329,65 @@ pub fn utc_to_time_ms(date_time: &DateTime<Utc>) -> i64 {
     (date_time.timestamp_nanos() + 500_000) / 1_000_000
 }
 
+pub fn fo_to_time_ms(date_time: &DateTime<FixedOffset>) -> i64 {
+    (date_time.timestamp_nanos() + 500_000) / 1_000_000
+}
+
+pub enum TzMassaging {
+    AddTzUtc,
+    HasTz,
+    LocalTz,
+}
+
 ///! DateTime string converted to utc time_ms with either T or Space seperator
-pub fn dt_str_to_utc_time_ms(dt_str: &str) -> Result<i64, Box<dyn std::error::Error>> {
+pub fn dt_str_to_utc_time_ms(
+    dt_str: &str,
+    tz_massaging: TzMassaging,
+) -> Result<i64, Box<dyn std::error::Error>> {
     pub fn dt_str_with_fmt_str_to_utc_time_ms(
         dt_str: &str,
         fmt_str: &str,
+        tz_massaging: TzMassaging,
     ) -> Result<i64, Box<dyn std::error::Error>> {
-        let ndt = NaiveDateTime::parse_from_str(dt_str, fmt_str)?;
-        let dt = DateTime::<Utc>::from_utc(ndt, Utc);
-        Ok(utc_to_time_ms(&dt))
+        match tz_massaging {
+            TzMassaging::HasTz => {
+                let fs = format!("{fmt_str}%#z");
+                let dtfo = DateTime::parse_from_str(dt_str, &fs)?;
+                Ok(fo_to_time_ms(&dtfo))
+            }
+            TzMassaging::AddTzUtc => {
+                let fs = format!("{fmt_str}%z");
+                let s = format!("{dt_str}+0000");
+                let dtfo = DateTime::parse_from_str(&s, &fs)?;
+                Ok(fo_to_time_ms(&dtfo))
+            }
+            TzMassaging::LocalTz => {
+                // Convert datetime string to DateTime<Local>
+                // from: https://stackoverflow.com/questions/65820170/parsing-a-datetime-string-to-local-time-in-rust-chrono?rq=1
+                let ndt = NaiveDateTime::parse_from_str(dt_str, fmt_str)?;
+                let ldt = match Local.from_local_datetime(&ndt) {
+                    chrono::LocalResult::None => {
+                        return Err("No result".into());
+                    }
+                    chrono::LocalResult::Single(dt) => dt,
+                    chrono::LocalResult::Ambiguous(_, _) => {
+                        return Err("Ambigious result".into());
+                    }
+                };
+
+                // Convert from DateTime<Local> to DateTime<Utc> with timezone information
+                // from: https://stackoverflow.com/questions/56887881/how-do-i-convert-a-chrono-datetimelocal-instance-to-datetimeutc
+                let dt_utc = ldt.with_timezone(&Utc);
+
+                Ok(utc_to_time_ms(&dt_utc))
+            }
+        }
     }
 
     let tms = if dt_str.matches('T').count() == 1 {
-        dt_str_with_fmt_str_to_utc_time_ms(dt_str, "%Y-%m-%dT%H:%M:%S%.f")?
+        dt_str_with_fmt_str_to_utc_time_ms(dt_str, "%Y-%m-%dT%H:%M:%S%.f", tz_massaging)?
     } else {
-        dt_str_with_fmt_str_to_utc_time_ms(dt_str, "%Y-%m-%d %H:%M:%S%.f")?
+        dt_str_with_fmt_str_to_utc_time_ms(dt_str, "%Y-%m-%d %H:%M:%S%.f", tz_massaging)?
     };
 
     Ok(tms)
@@ -496,27 +540,93 @@ mod test {
     #[test]
     fn test_dt_str_with_tee_to_utc_time_ms() {
         let str_time_no_ms = "1970-01-01T00:00:00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::AddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
         let str_time_with_ms = "1970-01-01T00:00:00.123";
-        let tms = dt_str_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
-        println!("str_time_no_ms: tms: {tms}");
-        assert_eq!(tms, 0);
-        let tms =
-            dt_str_to_utc_time_ms(str_time_with_ms).expect("Bad time format with milliseconds");
-        println!("str_time_with_ms: tms: {tms}");
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::AddTzUtc)
+            .expect("Bad time format with milliseconds");
+        dbg!(tms);
         assert_eq!(tms, 123);
     }
 
     #[test]
     fn test_dt_str_with_space_to_utc_time_ms() {
         let str_time_no_ms = "1970-01-01 00:00:00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::AddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
         let str_time_with_ms = "1970-01-01 00:00:00.123";
-        let tms = dt_str_to_utc_time_ms(str_time_no_ms).expect("Bad time format");
-        println!("str_time_no_ms: tms: {tms}");
-        assert_eq!(tms, 0);
-        let tms =
-            dt_str_to_utc_time_ms(str_time_with_ms).expect("Bad time format with milliseconds");
-        println!("str_time_with_ms: tms: {tms}");
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::AddTzUtc)
+            .expect("Bad time format with milliseconds");
+        dbg!(tms);
         assert_eq!(tms, 123);
+    }
+
+    #[test]
+    fn test_dt_str_with_tz_to_utc_time_ms() {
+        let str_time_no_ms = "1970-01-01T00:00:00+0000";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::HasTz).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
+        let str_time_with_ms = "1970-01-01T00:00:00.123+00:00";
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::HasTz)
+            .expect("Bad time format with milliseconds");
+        dbg!(tms);
+        assert_eq!(tms, 123);
+    }
+
+    #[test]
+    fn test_dt_str_both_hastz() {
+        let str_time_tz = "1970-01-01T00:00:00+0000";
+        let ts = dt_str_to_utc_time_ms(str_time_tz, TzMassaging::HasTz).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
+        let str_time_pst = "1969-12-31T16:00:00-0800";
+        let ts_pst = dt_str_to_utc_time_ms(str_time_pst, TzMassaging::HasTz)
+            .expect("Bad time format with milliseconds");
+        dbg!(ts_pst);
+        assert_eq!(ts, ts_pst);
+    }
+
+    #[test]
+    fn test_dt_str_addtzutc_hastz() {
+        let str_time_tz = "1970-01-01T00:00:00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::AddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
+        let str_time_pst = "1969-12-31T16:00:00-0800";
+        let ts_pst = dt_str_to_utc_time_ms(str_time_pst, TzMassaging::HasTz)
+            .expect("Bad time format with milliseconds");
+        dbg!(ts_pst);
+        assert_eq!(ts, ts_pst);
+    }
+
+    #[test]
+    fn test_dt_str_to_utc_time_ms_using_localtz() {
+        let lt_str = "1970-01-01T00:00:00";
+        let ndt: NaiveDateTime = lt_str.parse().unwrap();
+        dbg!(ndt);
+        let ldt = Local.from_local_datetime(&ndt).unwrap();
+        dbg!(ldt);
+        let ldt_offset = ldt.offset();
+        dbg!(ldt_offset);
+        let ldt_offset_secs = ldt_offset.local_minus_utc();
+        dbg!(ldt_offset_secs);
+
+        let tms = dt_str_to_utc_time_ms(lt_str, TzMassaging::LocalTz).expect("Bad time format");
+        dbg!(tms);
+
+        assert_eq!(tms, ldt_offset_secs as i64 * -1000);
     }
 
     #[test]
@@ -530,5 +640,15 @@ mod test {
             dt.to_rfc3339_opts(SecondsFormat::Millis, false),
             "1970-01-01T00:00:00.000+00:00"
         );
+    }
+
+    #[test]
+    fn test_parse_from_str() {
+        let s = format!("1970-01-01T00:00:00.000{}", "Z");
+        let dt = match DateTime::parse_from_rfc3339(&s) {
+            Ok(v) => v,
+            Err(e) => panic!("shit {e}"),
+        };
+        println!("test_parse_from_str: {dt}");
     }
 }

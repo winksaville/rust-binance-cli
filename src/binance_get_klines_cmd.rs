@@ -2,7 +2,10 @@ use log::trace;
 
 use crate::{
     binance_klines::{get_klines, KlineInterval, KlineRec},
-    common::{dt_str_to_utc_time_ms, time_ms_to_utc},
+    common::{
+        dt_str_to_utc_time_ms, time_ms_to_utc,
+        TzMassaging::{HasTz, LocalTz},
+    },
     configuration::Configuration,
 };
 
@@ -31,8 +34,20 @@ pub async fn get_klines_cmd(
 
     trace!("get_klines_cmd: rec: {:#?}", rec);
 
-    let start_time_ms = if let Some(naive_dt_str) = &rec.start_date_time {
-        Some(dt_str_to_utc_time_ms(naive_dt_str)?)
+    let start_time_ms = if let Some(dt_str) = &rec.start_date_time {
+        match dt_str_to_utc_time_ms(dt_str, LocalTz) {
+            Ok(ndt) => {
+                println!("get_klines_cmd: ndt={ndt}");
+                Some(ndt)
+            }
+            Err(_) => match dt_str_to_utc_time_ms(dt_str, HasTz) {
+                Ok(dt) => {
+                    println!("get_klines_cmd: dt={dt}");
+                    Some(dt)
+                }
+                Err(_) => None,
+            },
+        }
     } else {
         None
     };
