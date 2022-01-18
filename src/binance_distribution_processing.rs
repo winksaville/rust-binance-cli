@@ -158,12 +158,12 @@ pub fn display_full_rec(
 
 pub async fn process_dist_files(
     config: &Configuration,
-    _subcmd: &SubCommand<'static>,
+    subcmd: &SubCommand<'static>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if config.verbose {
         println!(
             "process_dist_files:+\n config={:?} \nsubcmd={:?}",
-            config, _subcmd
+            config, subcmd
         );
     }
 
@@ -269,9 +269,10 @@ pub async fn process_dist_files(
 
             Ok(())
         };
-    //iterate_dist_file("./test_data/dist_file_several_recs.csv", process_hm_entry).await?;
-    iterate_dist_file("./data/binance.us-distribution-2021.csv", process_hm_entry).await?;
-    //println!("\nhm: {:#?}", hm);
+
+    let file_path = subcmd.matches.value_of("FILE").expect("FILE is missing");
+    iterate_dist_file(file_path, process_hm_entry).await?;
+    //dbg!("\nhm: {:#?}", hm);
 
     if config.verbose {
         println!("\n");

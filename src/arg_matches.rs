@@ -392,7 +392,13 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
         .subcommand(
             SubCommand::with_name("pdf")
                 .display_order(9)
-                .about("process distribution files"),
+                .about("process distribution files")
+                .arg(
+                    Arg::with_name("FILE")
+                    .help("File to process")
+                    .required(true)
+                    .index(1),
+                ),
         )
         .subcommand(
             SubCommand::with_name("version")
