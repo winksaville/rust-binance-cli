@@ -334,7 +334,7 @@ pub fn fo_to_time_ms(date_time: &DateTime<FixedOffset>) -> i64 {
 }
 
 pub enum TzMassaging {
-    AddTzUtc,
+    CondAddTzUtc,
     HasTz,
     LocalTz,
 }
@@ -355,9 +355,13 @@ pub fn dt_str_to_utc_time_ms(
                 let dtfo = DateTime::parse_from_str(dt_str, &fs)?;
                 Ok(fo_to_time_ms(&dtfo))
             }
-            TzMassaging::AddTzUtc => {
-                let fs = format!("{fmt_str}%z");
-                let s = format!("{dt_str}+0000");
+            TzMassaging::CondAddTzUtc => {
+                let fs = format!("{fmt_str}%#z");
+                let s = if dt_str.matches('+').count() == 0 {
+                    format!("{dt_str}+0000")
+                } else {
+                    dt_str.to_string()
+                };
                 let dtfo = DateTime::parse_from_str(&s, &fs)?;
                 Ok(fo_to_time_ms(&dtfo))
             }
@@ -540,13 +544,13 @@ mod test {
     #[test]
     fn test_dt_str_with_tee_to_utc_time_ms() {
         let str_time_no_ms = "1970-01-01T00:00:00";
-        let ts =
-            dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::AddTzUtc).expect("Bad time format");
+        let ts = dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::CondAddTzUtc)
+            .expect("Bad time format");
         dbg!(ts);
         assert_eq!(ts, 0);
 
         let str_time_with_ms = "1970-01-01T00:00:00.123";
-        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::AddTzUtc)
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::CondAddTzUtc)
             .expect("Bad time format with milliseconds");
         dbg!(tms);
         assert_eq!(tms, 123);
@@ -555,16 +559,48 @@ mod test {
     #[test]
     fn test_dt_str_with_space_to_utc_time_ms() {
         let str_time_no_ms = "1970-01-01 00:00:00";
-        let ts =
-            dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::AddTzUtc).expect("Bad time format");
+        let ts = dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::CondAddTzUtc)
+            .expect("Bad time format");
         dbg!(ts);
         assert_eq!(ts, 0);
 
         let str_time_with_ms = "1970-01-01 00:00:00.123";
-        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::AddTzUtc)
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::CondAddTzUtc)
             .expect("Bad time format with milliseconds");
         dbg!(tms);
         assert_eq!(tms, 123);
+    }
+
+    #[test]
+    fn test_dt_str_addtzutc_with_utc() {
+        let str_time_tz = "1970-01-01 00:00:00+00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::CondAddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+        let str_time_tz = "1970-01-01T00:00:00.1+00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::CondAddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 100);
+
+        let str_time_tz = "1970-01-01T00:00:00.123+0000";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::CondAddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 123);
+
+        let str_time_tz = "1970-01-01 00:00:00+00:00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::CondAddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
+        let str_time_tz = "1970-01-01 00:00:00.456+00:00";
+        let ts =
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::CondAddTzUtc).expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 456);
     }
 
     #[test]
@@ -600,7 +636,7 @@ mod test {
     fn test_dt_str_addtzutc_hastz() {
         let str_time_tz = "1970-01-01T00:00:00";
         let ts =
-            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::AddTzUtc).expect("Bad time format");
+            dt_str_to_utc_time_ms(str_time_tz, TzMassaging::CondAddTzUtc).expect("Bad time format");
         dbg!(ts);
         assert_eq!(ts, 0);
 

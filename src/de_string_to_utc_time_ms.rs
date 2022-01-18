@@ -1,15 +1,15 @@
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
-use crate::common::{dt_str_to_utc_time_ms, TzMassaging::AddTzUtc};
+use crate::common::{dt_str_to_utc_time_ms, TzMassaging::CondAddTzUtc};
 
 // Convert a string to UTC time in ms as i64
 #[allow(unused)]
-pub fn de_string_to_utc_time_ms<'de, D: Deserializer<'de>>(
+pub fn de_string_to_utc_time_ms_condaddtzutc<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<i64, D::Error> {
     Ok(match Value::deserialize(deserializer)? {
-        Value::String(s) => dt_str_to_utc_time_ms(&s, AddTzUtc).map_err(de::Error::custom)?,
+        Value::String(s) => dt_str_to_utc_time_ms(&s, CondAddTzUtc).map_err(de::Error::custom)?,
         _ => return Err(de::Error::custom("Expecting String or Number")),
     })
 }
@@ -22,7 +22,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     struct TimeRec {
         #[serde(rename = "Time")]
-        #[serde(deserialize_with = "de_string_to_utc_time_ms")]
+        #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
         time: i64,
     }
 

@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{dec_to_money_string, dec_to_separated_string},
     configuration::Configuration,
+    de_string_to_utc_time_ms::de_string_to_utc_time_ms_condaddtzutc,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -47,7 +48,8 @@ pub struct DistRec {
     #[serde(rename = "User_Id")]
     pub user_id: String,
     #[serde(rename = "Time")]
-    pub time: String, // TODO: Convert to an i64 assume UTC
+    #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    pub time: i64,
     #[serde(rename = "Category")]
     pub category: String,
     #[serde(rename = "Operation")]
@@ -362,12 +364,12 @@ pub async fn process_dist_files(
 mod test {
 
     use super::*;
-    use crate::de_string_to_utc_time_ms::de_string_to_utc_time_ms;
+    use crate::de_string_to_utc_time_ms::de_string_to_utc_time_ms_condaddtzutc;
 
     #[derive(Debug, Serialize, Deserialize)]
     struct TimeRec {
         #[serde(rename = "Time")]
-        #[serde(deserialize_with = "de_string_to_utc_time_ms")]
+        #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
         time: i64,
     }
 
