@@ -198,7 +198,7 @@ pub async fn process_dist_files(
     type AssetRecHashMap = HashMap<String, AssetRec>;
     let mut hm = AssetRecHashMap::new();
 
-    let mut total = dec!(0);
+    let mut total_rpa_usd = dec!(0);
     let mut empty_rpa = 0u64;
     let mut empty_rpa_usd = 0u64;
     let mut total_count = 0u64;
@@ -238,7 +238,7 @@ pub async fn process_dist_files(
                         entry.quantity += rpa;
                         entry.value_usd += rpa_usd;
                     }
-                    total += rpa_usd;
+                    total_rpa_usd += rpa_usd;
                     if config.verbose {
                         print!(
                             "{} {} {} {} {}                                               \r",
@@ -246,7 +246,7 @@ pub async fn process_dist_files(
                             entry.asset,
                             rpa_usd,
                             entry.value_usd,
-                            total
+                            total_rpa_usd
                         );
                     }
                 }
@@ -341,7 +341,7 @@ pub async fn process_dist_files(
 
     // Assertions!
     assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
-    assert_eq!(total, total_hm_value_usd);
+    assert_eq!(total_rpa_usd, total_hm_value_usd);
     assert_eq!(empty_rpa, 0);
     assert_eq!(total_hm_transaction_count, distribution_category_count);
     assert_eq!(
