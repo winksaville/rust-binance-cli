@@ -365,14 +365,14 @@ mod test {
 
     use super::*;
     use crate::de_string_to_utc_time_ms::{
-        de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_rfc3339,
+        de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
     struct TimeRec {
         #[serde(rename = "Time")]
         #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
-        #[serde(serialize_with = "se_time_ms_to_rfc3339")]
+        #[serde(serialize_with = "se_time_ms_to_utc_string")]
         time: i64,
     }
 
@@ -416,7 +416,7 @@ Time
 
         assert_eq!(
             data,
-            "1970-01-01T00:00:00+00:00\n1970-01-01T00:00:00.123+00:00\n"
+            "1970-01-01T00:00:00.000+00:00\n1970-01-01T00:00:00.123+00:00\n"
         );
     }
 }

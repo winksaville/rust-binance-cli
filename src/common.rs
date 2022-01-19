@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, SecondsFormat, TimeZone, Utc};
 use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
@@ -319,6 +319,10 @@ pub fn time_ms_to_utc(timestamp_ms: i64) -> DateTime<Utc> {
 pub fn time_ms_utc_to_naive_local(timestamp_ms: i64) -> NaiveDateTime {
     let (secs, nsecs) = timestamp_ms_to_secs_nsecs(timestamp_ms);
     NaiveDateTime::from_timestamp(secs, nsecs)
+}
+
+pub fn time_ms_to_utc_string(time_ms: i64) -> String {
+    time_ms_to_utc(time_ms).to_rfc3339_opts(SecondsFormat::Millis, false)
 }
 
 pub fn utc_now_to_time_ms() -> i64 {
@@ -676,6 +680,12 @@ mod test {
             dt.to_rfc3339_opts(SecondsFormat::Millis, false),
             "1970-01-01T00:00:00.000+00:00"
         );
+    }
+
+    #[test]
+    fn test_time_ms_to_utc_string() {
+        let dt = time_ms_to_utc_string(0i64);
+        assert_eq!(dt, "1970-01-01T00:00:00.000+00:00");
     }
 
     #[test]

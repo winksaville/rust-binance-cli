@@ -1,7 +1,7 @@
 use serde::{de, Deserialize, Deserializer, /*Serialize,*/ Serializer};
 use serde_json::Value;
 
-use crate::common::{dt_str_to_utc_time_ms, time_ms_to_utc, TzMassaging::CondAddTzUtc};
+use crate::common::{dt_str_to_utc_time_ms, time_ms_to_utc_string, TzMassaging::CondAddTzUtc};
 
 // Convert a string to UTC time in ms as i64
 #[allow(unused)]
@@ -16,17 +16,11 @@ pub fn de_string_to_utc_time_ms_condaddtzutc<'de, D: Deserializer<'de>>(
 
 // Convert a string to UTC time in ms as i64
 #[allow(unused)]
-pub fn se_time_ms_to_rfc3339<S>(time_ms: &i64, s: S) -> Result<S::Ok, S::Error>
+pub fn se_time_ms_to_utc_string<S>(time_ms: &i64, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    dbg!(time_ms);
-    let dt = time_ms_to_utc(*time_ms);
-    dbg!(&dt);
-    let dt_string = dt.to_rfc3339();
-    dbg!(&dt_string);
-
-    s.serialize_str(&dt_string)
+    s.serialize_str(&time_ms_to_utc_string(*time_ms))
 }
 
 #[cfg(test)]
@@ -38,7 +32,7 @@ mod test {
     struct TimeRec {
         #[serde(rename = "Time")]
         #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
-        #[serde(serialize_with = "se_time_ms_to_rfc3339")]
+        #[serde(serialize_with = "se_time_ms_to_utc_string")]
         time: i64,
     }
 
@@ -77,7 +71,7 @@ Time
     }
 
     #[test]
-    fn test_se_time_ms_to_rfc3339() {
+    fn test_se_time_ms_to_utc_string() {
         let trs = vec![TimeRec { time: 0 }, TimeRec { time: 123 }];
 
         let mut wtr = csv::Writer::from_writer(vec![]);
@@ -91,7 +85,7 @@ Time
 
         assert_eq!(
             data,
-            "Time\n1970-01-01T00:00:00+00:00\n1970-01-01T00:00:00.123+00:00\n"
+            "Time\n1970-01-01T00:00:00.000+00:00\n1970-01-01T00:00:00.123+00:00\n"
         );
     }
 }
