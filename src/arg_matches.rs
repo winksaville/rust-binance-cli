@@ -125,7 +125,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Buy asset using quote asset value")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 )
@@ -142,7 +142,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Buy a number of assets")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 )
@@ -159,7 +159,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Sell a number of assets")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 )
@@ -176,7 +176,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Sell asset using quote asset value")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 )
@@ -193,7 +193,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Withdraw an asset, either quantity, dollars or precent.\nExamples:\n  withdraw ETH '$1000' 1543abcd --keep-min \\$200\n  withdraw ETH 100% 1543abcd --keep-min '$200'\n  withdraw ETH 100 1543abcd\n NOTE: Dollar values must be written\n in single quotes '$123' or with a backslash \\$1234")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 )
@@ -245,7 +245,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display a symbols exchange information")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(10),
                 ),
@@ -256,7 +256,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display a symbols 5 minute average price")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(10),
                 ),
@@ -267,7 +267,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display a symbols current kline record")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(10),
                 ),
@@ -278,7 +278,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display a symbols kline records")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 )
@@ -314,7 +314,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display a symbols open orders")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 ),
@@ -325,7 +325,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display deposit history")
                 .arg(
                     Arg::with_name("ASSET")
-                        .help("Name of aseet or all assets if absent")
+                        .help("Name of asset or all assets if absent")
                         .required(false)
                         .index(1),
                 ),
@@ -336,7 +336,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display withdrawal history")
                 .arg(
                     Arg::with_name("ASSET")
-                        .help("Name of aseet or all assets if absent")
+                        .help("Name of asset or all assets if absent")
                         .required(false)
                         .index(1),
                 ),
@@ -369,7 +369,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .about("Display my trades for a symbol")
                 .arg(
                     Arg::with_name("SYMBOL")
-                        .help("Name of aseet")
+                        .help("Name of asset")
                         .required(true)
                         .index(1),
                 ),
