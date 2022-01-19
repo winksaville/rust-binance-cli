@@ -364,23 +364,28 @@ pub async fn process_dist_files(
 mod test {
 
     use super::*;
-    use crate::de_string_to_utc_time_ms::de_string_to_utc_time_ms_condaddtzutc;
+    use crate::de_string_to_utc_time_ms::{
+        de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_rfc3339,
+    };
 
     #[derive(Debug, Serialize, Deserialize)]
     struct TimeRec {
         #[serde(rename = "Time")]
         #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+        #[serde(serialize_with = "se_time_ms_to_rfc3339")]
         time: i64,
     }
 
     #[test]
-    fn test_serde_from_csv() {
+    fn test_deserialize_from_csv() {
         let csv = "
 Time
 1970-01-01 00:00:00
 1970-01-01 00:00:00.123";
 
-        let mut reader = csv::Reader::from_reader(csv.as_bytes());
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+        //let mut reader = csv::Reader::from_reader(csv.as_bytes());
         for (idx, entry) in reader.deserialize().enumerate() {
             println!("{idx}: entry: {:?}", entry);
             match entry {
@@ -396,5 +401,22 @@ Time
                 Err(e) => panic!("Error: {e}"),
             }
         }
+    }
+
+    #[test]
+    fn test_serialize_to_csv() {
+        let trs = vec![TimeRec { time: 0 }, TimeRec { time: 123 }];
+
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        wtr.serialize(trs.get(0)).expect("Error serializing");
+        wtr.serialize(trs.get(1)).expect("Error serializing");
+
+        let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
+        dbg!(&data);
+
+        assert_eq!(
+            data,
+            "1970-01-01T00:00:00+00:00\n1970-01-01T00:00:00.123+00:00\n"
+        );
     }
 }

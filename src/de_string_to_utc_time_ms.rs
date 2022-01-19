@@ -1,7 +1,7 @@
-use serde::{de, Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer, /*Serialize,*/ Serializer};
 use serde_json::Value;
 
-use crate::common::{dt_str_to_utc_time_ms, TzMassaging::CondAddTzUtc};
+use crate::common::{dt_str_to_utc_time_ms, time_ms_to_utc, TzMassaging::CondAddTzUtc};
 
 // Convert a string to UTC time in ms as i64
 #[allow(unused)]
@@ -14,8 +14,23 @@ pub fn de_string_to_utc_time_ms_condaddtzutc<'de, D: Deserializer<'de>>(
     })
 }
 
+// Convert a string to UTC time in ms as i64
+#[allow(unused)]
+pub fn se_time_ms_to_rfc3339<S>(time_ms: &i64, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    dbg!(time_ms);
+    let dt = time_ms_to_utc(*time_ms);
+    dbg!(&dt);
+    let dt_string = dt.to_rfc3339();
+    dbg!(&dt_string);
+
+    s.serialize_str(&dt_string)
+}
+
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use serde::Serialize;
 
@@ -23,15 +38,16 @@ mod tests {
     struct TimeRec {
         #[serde(rename = "Time")]
         #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+        #[serde(serialize_with = "se_time_ms_to_rfc3339")]
         time: i64,
     }
 
     #[test]
     fn test_de_string_to_utc_time_ms_json() {
         let js = r#"{ "Time": "1970-01-01 00:00:00" }"#;
-        println!("{js}");
+        dbg!(js);
         let ap: TimeRec = serde_json::from_str(js).expect("Error de from str");
-        println!("{:#?}", ap);
+        dbg!(&ap);
 
         assert_eq!(ap.time, 0);
     }
@@ -58,5 +74,24 @@ Time
                 Err(e) => panic!("Error: {e}"),
             }
         }
+    }
+
+    #[test]
+    fn test_se_time_ms_to_rfc3339() {
+        let trs = vec![TimeRec { time: 0 }, TimeRec { time: 123 }];
+
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        for tr in trs.iter() {
+            wtr.serialize(tr).expect("Error serializing");
+        }
+
+        let vec = wtr.into_inner().expect("Unexpected into Vec<u8>");
+        let data = String::from_utf8(vec).expect("Unexpected convert vec to String");
+        dbg!(&data);
+
+        assert_eq!(
+            data,
+            "Time\n1970-01-01T00:00:00+00:00\n1970-01-01T00:00:00.123+00:00\n"
+        );
     }
 }
