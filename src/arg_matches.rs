@@ -247,7 +247,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                     Arg::with_name("SYMBOL")
                         .help("Name of asset")
                         .required(true)
-                        .index(10),
+                        .index(1),
                 ),
         )
         .subcommand(
@@ -258,7 +258,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                     Arg::with_name("SYMBOL")
                         .help("Name of asset")
                         .required(true)
-                        .index(10),
+                        .index(1),
                 ),
         )
         .subcommand(
@@ -269,7 +269,7 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                     Arg::with_name("SYMBOL")
                         .help("Name of asset")
                         .required(true)
-                        .index(10),
+                        .index(1),
                 ),
         )
         .subcommand(
