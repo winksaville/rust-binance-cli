@@ -207,6 +207,8 @@ pub async fn get_klines(
     trace!("get_klines: url={}", url);
 
     let response = get_req_get_response(config.keys.get_ak_or_err()?, &url).await?;
+    let response_headers = response.headers().clone();
+    //println!("{response_headers:#?}");
     let response_status = response.status();
     let response_body = response.text().await?;
 
@@ -219,7 +221,13 @@ pub async fn get_klines(
         trace!("get_klines: klines={:?}", klines);
         Ok(klines)
     } else {
-        let rer = ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
+        let rer = ResponseErrorRec::new(
+            false,
+            response_status.as_u16(),
+            &url,
+            response_headers,
+            &response_body,
+        );
         let binance_error_response = TradeResponse::FailureResponse(rer);
 
         trace!(

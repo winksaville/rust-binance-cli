@@ -256,6 +256,7 @@ async fn withdraw_post_and_response(
     let tr = if !config.test {
         let response = post_req_get_response(api_key, &url, &query_string).await?;
         trace!("withdraw_post_and_repsonse: response={:#?}", response);
+        let response_headers = response.headers().clone();
         let response_status = response.status();
         let response_body = response.text().await?;
         trace!(
@@ -287,6 +288,7 @@ async fn withdraw_post_and_response(
                 false,
                 response_status.as_u16(),
                 &query_string,
+                response_headers,
                 &format!(r#"response_body: {}"#, response_body),
             );
             trace!(

@@ -21,6 +21,7 @@ pub async fn get_avg_price<'e>(
     trace!("get_avg_price: url={}", url);
 
     let response = get_req_get_response(config.keys.get_ak_or_err()?, &url).await?;
+    let response_headers = response.headers().clone();
     let response_status = response.status();
     let response_body = response.text().await?;
 
@@ -30,7 +31,13 @@ pub async fn get_avg_price<'e>(
         trace!("get_avg_price: avg_price={:?}", avg_price);
         Ok(avg_price)
     } else {
-        let rer = ResponseErrorRec::new(false, response_status.as_u16(), &url, &response_body);
+        let rer = ResponseErrorRec::new(
+            false,
+            response_status.as_u16(),
+            &url,
+            response_headers,
+            &response_body,
+        );
         let binance_error_response = TradeResponse::FailureResponse(rer);
 
         trace!(

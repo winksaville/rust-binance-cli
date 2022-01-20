@@ -98,6 +98,7 @@ async fn orders_get_req_and_response(
 
     let response = get_req_get_response(api_key, &url).await?;
     trace!("response={:#?}", response);
+    let response_headers = response.headers().clone();
     let response_status = response.status();
     let response_body = response.text().await?;
 
@@ -115,6 +116,7 @@ async fn orders_get_req_and_response(
             false,
             response_status.as_u16(),
             &query_string,
+            response_headers,
             &response_body,
         );
         let binance_error_response = TradeResponse::FailureResponse(rer);

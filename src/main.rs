@@ -20,6 +20,7 @@ mod common;
 mod configuration;
 mod de_string_or_number;
 mod de_string_to_utc_time_ms;
+mod serde_header_map;
 
 use clap::SubCommand;
 use log::trace;

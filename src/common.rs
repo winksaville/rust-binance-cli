@@ -21,6 +21,7 @@ use strum_macros::IntoStaticStr;
 use serde::{Deserialize, Serialize};
 
 use crate::de_string_or_number::de_string_or_number_to_i64;
+use crate::serde_header_map::{de_header_map, se_header_map};
 
 const PKG_VER: &str = env!("CARGO_PKG_VERSION");
 const GIT_SHORT_SHA: &str = env!("VERGEN_GIT_SHA_SHORT");
@@ -154,6 +155,34 @@ pub struct ResponseErrorRec {
     #[serde(deserialize_with = "de_string_or_number_to_i64")]
     pub code: i64,
     pub msg: String,
+
+    // Maybe headers don't need to be optional, as it's most
+    // likely there are never empty on a response and they are
+    // needed to eventually handle binance errors 429 and 418
+    // to fetch the Retry-After.
+    //
+    // So I need it but there maybe no need to ever serde it!
+    //
+    // But if I do want to be able to serde it there appears
+    // to be no reason to make it Optional. The original thought
+    // was I needed to be able to set it to None when deserializing
+    // "old" order logs that wouldn't have it. But there it can
+    // be handled as an empty HeaderMap.
+    //
+    // So for the moment leave it as is, but Optional probably
+    // isn't necessary any maybe there is no need to support
+    // serde at all!
+
+    // But using "skip_serializing_if" is the way to have headers
+    // never be serialized when None!!!!!!!!
+    // I figured this out using this search: https://www.google.com/search?q=rust+serializer+generate+nothing+if+None
+    // And findin this https://stackoverflow.com/a/53900684/4812090 on this
+    // stackoverflow question: https://stackoverflow.com/questions/53900612/how-do-i-avoid-generating-json-when-serializing-a-value-that-is-null-or-a-defaul
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(deserialize_with = "de_header_map")]
+    #[serde(serialize_with = "se_header_map")]
+    pub headers: Option<HeaderMap>,
 }
 
 impl ResponseErrorRec {
@@ -161,6 +190,7 @@ impl ResponseErrorRec {
         test: bool,
         status: u16,
         query: &str,
+        headers: HeaderMap,
         body: &str, // Assumed to be json object: "{ \"code\": -1121, \"msg\": \"string message\" }"
     ) -> Self {
         #[derive(Deserialize, Serialize)]
@@ -176,12 +206,18 @@ impl ResponseErrorRec {
             },
         };
 
+        let h = if headers.is_empty() {
+            None
+        } else {
+            Some(headers)
+        };
         Self {
             test,
             status,
             query: query.to_string(),
             code: code_msg.code,
             msg: code_msg.msg,
+            headers: h,
         }
     }
 }
@@ -437,6 +473,7 @@ pub fn dec_to_separated_string(v: Decimal, dp: u32) -> String {
 #[cfg(test)]
 mod test {
     use chrono::SecondsFormat;
+    use reqwest::header::HeaderName;
     use rust_decimal_macros::dec;
 
     use super::*;
@@ -446,20 +483,58 @@ mod test {
     fn test_binance_response_error_rec() {
         const RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
 
-        let response = ResponseErrorRec::new(false, 400, "a_query", RESPONSE_FAILURE_BODY);
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static("yo"),
+            HeaderValue::from_static("dude"),
+        );
+
+        let response = ResponseErrorRec::new(false, 400, "a_query", headers, RESPONSE_FAILURE_BODY);
 
         assert_eq!(response.test, false);
         assert_eq!(response.query, "a_query");
         assert_eq!(response.status, 400);
         assert_eq!(response.code, -1121);
+        if let Some(headers) = response.headers {
+            let val_as_str = headers.get("yo").unwrap().to_str().unwrap();
+            assert_eq!("dude", val_as_str);
+        }
         assert_eq!(response.msg, "Invalid symbol.");
+    }
+
+    #[test]
+    fn test_binance_response_error_rec_serialization() {
+        const RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static("yo"),
+            HeaderValue::from_static("dude"),
+        );
+
+        let response = ResponseErrorRec::new(false, 400, "a_query", headers, RESPONSE_FAILURE_BODY);
+        let response_json = serde_json::to_string(&response).unwrap();
+        dbg!(&response_json);
+        assert_eq!(&response_json, "{\"test\":false,\"status\":400,\"query\":\"a_query\",\"code\":-1121,\"msg\":\"Invalid symbol.\",\"headers\":{\"yo\":\"dude\"}}");
+    }
+
+    #[test]
+    fn test_binance_response_error_rec_serialization_empty() {
+        const RESPONSE_FAILURE_BODY: &str = r#"{"code":-1121,"msg":"Invalid symbol."}"#;
+
+        let headers = HeaderMap::new();
+        let response = ResponseErrorRec::new(false, 400, "a_query", headers, RESPONSE_FAILURE_BODY);
+        let response_json = serde_json::to_string(&response).unwrap();
+        dbg!(&response_json);
+        assert_eq!(&response_json, "{\"test\":false,\"status\":400,\"query\":\"a_query\",\"code\":-1121,\"msg\":\"Invalid symbol.\"}");
     }
 
     #[test]
     fn test_binance_response_error_rec_bad_body() {
         const RESPONSE_FAILURE_BODY: &str = "An unexpected error";
+        let headers = HeaderMap::new();
 
-        let response = ResponseErrorRec::new(false, 505, "a_query", RESPONSE_FAILURE_BODY);
+        let response = ResponseErrorRec::new(false, 505, "a_query", headers, RESPONSE_FAILURE_BODY);
 
         assert_eq!(response.test, false);
         assert_eq!(response.query, "a_query");

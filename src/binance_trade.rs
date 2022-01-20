@@ -225,6 +225,8 @@ pub async fn binance_new_order_or_test(
 
     let response = post_req_get_response(api_key, &url, &query_string).await?;
     trace!("response={:#?}", response);
+    let response_headers = response.headers().clone();
+    trace!("response_headers={:#?}", response_headers);
     let response_status = response.status();
     trace!("response_status={:#?}", response_status);
     let response_body = response.text().await?;
@@ -321,6 +323,7 @@ pub async fn binance_new_order_or_test(
             test,
             response_status.as_u16(),
             &query_string,
+            response_headers,
             &response_body,
         );
         let order_resp = TradeResponse::FailureResponse(rer);
