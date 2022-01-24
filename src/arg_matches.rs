@@ -394,10 +394,16 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                 .display_order(9)
                 .about("process distribution files")
                 .arg(
-                    Arg::with_name("FILE")
+                    Arg::with_name("IN_FILE")
                     .help("File to process")
                     .required(true)
                     .index(1),
+                )
+                .arg(
+                    Arg::with_name("OUT_FILE")
+                    .help("Output File, optional")
+                    .required(false)
+                    .index(2),
                 ),
         )
         .subcommand(

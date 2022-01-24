@@ -28,7 +28,7 @@
 //!
 
 //!
-use std::{collections::HashMap, fs::File, io::BufReader};
+use std::{collections::HashMap, fs::File, io::BufReader, io::BufWriter};
 
 use clap::SubCommand;
 
@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{dec_to_money_string, dec_to_separated_string},
     configuration::Configuration,
-    de_string_to_utc_time_ms::de_string_to_utc_time_ms_condaddtzutc,
+    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -49,6 +49,7 @@ pub struct DistRec {
     pub user_id: String,
     #[serde(rename = "Time")]
     #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub time: i64,
     #[serde(rename = "Category")]
     pub category: String,
@@ -95,16 +96,25 @@ pub struct DistRec {
 /// TODO: How to allow the reader to be a file or a buffer. Specifically
 /// I'd like to provide data in a buffer for testing and not have to use
 /// ./test_data/ like I am now!
-pub async fn iterate_dist_reader(
+pub async fn iterate_dist_processor(
     reader: BufReader<File>,
+    writer: Option<BufWriter<File>>,
     mut process_line: impl FnMut(&mut DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_dist_reader:+");
 
     let mut rdr = csv::Reader::from_reader(reader);
+
+    // Clippy suggested changing this to the the map code below:
+    //   let mut wdr = if let Some(wtr) = writer { Some(csv::Writer::from_writer(wtr)) } else { None };
+    let mut wdr = writer.map(csv::Writer::from_writer);
+
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr = result?;
         process_line(&mut dr, line_index)?;
+        if let Some(w) = &mut wdr {
+            w.serialize(&dr)?;
+        }
     }
 
     //println!("iterate_dist_reader:-");
@@ -112,14 +122,21 @@ pub async fn iterate_dist_reader(
 }
 
 pub async fn iterate_dist_file(
-    dist_file_str: &str,
+    in_dist_file_path: &str,
+    out_dist_file_path: Option<&str>,
     process_line: impl FnMut(&mut DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_distribution_file:+ dist_file_path={}", dist_file_str);
 
-    let file = File::open(dist_file_str)?;
-    let reader = BufReader::new(file);
-    iterate_dist_reader(reader, process_line).await?;
+    let in_file = File::open(in_dist_file_path)?;
+    let reader = BufReader::new(in_file);
+    let writer = if let Some(of) = out_dist_file_path {
+        let out_file = File::create(of)?;
+        Some(BufWriter::new(out_file))
+    } else {
+        None
+    };
+    iterate_dist_processor(reader, writer, process_line).await?;
 
     //println!("iterate_distribution_file:- dist_file_path={}", dist_file_str);
     Ok(())
@@ -168,9 +185,6 @@ pub async fn process_dist_files(
             config, subcmd
         );
     }
-
-    //iterate_dist_file("./test_data/dist_file_one_rec.csv", display_rec).await?;
-    //iterate_dist_file("./test_data/dist_file_several_recs.csv", display_rec).await?;
 
     #[derive(Debug)]
     #[allow(unused)]
@@ -272,8 +286,9 @@ pub async fn process_dist_files(
             Ok(())
         };
 
-    let file_path = subcmd.matches.value_of("FILE").expect("FILE is missing");
-    iterate_dist_file(file_path, process_hm_entry).await?;
+    let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
+    let out_dist_file_path = subcmd.matches.value_of("OUT_FILE");
+    iterate_dist_file(in_dist_file_path, out_dist_file_path, process_hm_entry).await?;
     //dbg!("\nhm: {:#?}", hm);
 
     if config.verbose {
