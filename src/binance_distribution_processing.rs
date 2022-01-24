@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{dec_to_money_string, dec_to_separated_string},
     configuration::Configuration,
-    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
+    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string}, //binance_klines::get_kline,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -91,15 +91,75 @@ pub struct DistRec {
     pub additional_note: String,
 }
 
+#[derive(Debug)]
+pub struct AssetRec {
+    pub asset: String,
+    pub quantity: Decimal,
+    pub value_usd: Decimal,
+    pub transaction_count: u64,
+}
+
+impl AssetRec {
+    fn new(asset: &str, quantity: Decimal, value_usd: Decimal, transaction_count: u64) -> AssetRec {
+        AssetRec {
+            asset: asset.to_string(),
+            quantity,
+            value_usd,
+            transaction_count,
+        }
+    }
+}
+
+pub type AssetRecHashMap = HashMap<String, AssetRec>;
+
+#[derive(Debug)]
+pub struct ProcessedData {
+    pub hm: AssetRecHashMap,
+    pub total_rpa_usd: Decimal,
+    pub empty_rpa: u64,
+    pub empty_rpa_usd: u64,
+    pub total_count: u64,
+    pub distribution_category_count: u64,
+    pub quick_buy_category_count: u64,
+    pub quick_sell_category_count: u64,
+    pub spot_trading_category_count: u64,
+    pub withdrawal_category_count: u64,
+    pub unprocessed_category_count: u64,
+}
+
+impl ProcessedData {
+    fn new() -> ProcessedData {
+        ProcessedData {
+            hm: AssetRecHashMap::new(),
+            total_rpa_usd: dec!(0),
+            empty_rpa: 0u64,
+            empty_rpa_usd: 0u64,
+            total_count: 0u64,
+            distribution_category_count: 0u64,
+            quick_buy_category_count: 0u64,
+            quick_sell_category_count: 0u64,
+            spot_trading_category_count: 0u64,
+            withdrawal_category_count: 0u64,
+            unprocessed_category_count: 0u64,
+        }
+    }
+}
 /// Iterate over a reader which returns lines from the distribution file.
 ///
 /// TODO: How to allow the reader to be a file or a buffer. Specifically
 /// I'd like to provide data in a buffer for testing and not have to use
 /// ./test_data/ like I am now!
 pub async fn iterate_dist_processor(
+    config: &Configuration,
+    data: &mut ProcessedData,
     reader: BufReader<File>,
     writer: Option<BufWriter<File>>,
-    mut process_line: impl FnMut(&mut DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
+    mut process_line: impl FnMut(
+        &Configuration,
+        &mut ProcessedData,
+        &mut DistRec,
+        usize,
+    ) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_dist_reader:+");
 
@@ -111,7 +171,7 @@ pub async fn iterate_dist_processor(
 
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr = result?;
-        process_line(&mut dr, line_index)?;
+        process_line(config, data, &mut dr, line_index)?;
         if let Some(w) = &mut wdr {
             w.serialize(&dr)?;
         }
@@ -122,9 +182,16 @@ pub async fn iterate_dist_processor(
 }
 
 pub async fn iterate_dist_file(
+    config: &Configuration,
+    data: &mut ProcessedData,
     in_dist_file_path: &str,
     out_dist_file_path: Option<&str>,
-    process_line: impl FnMut(&mut DistRec, usize) -> Result<(), Box<dyn std::error::Error>>,
+    process_line: impl FnMut(
+        &Configuration,
+        &mut ProcessedData,
+        &mut DistRec,
+        usize,
+    ) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_distribution_file:+ dist_file_path={}", dist_file_str);
 
@@ -136,14 +203,19 @@ pub async fn iterate_dist_file(
     } else {
         None
     };
-    iterate_dist_processor(reader, writer, process_line).await?;
+    iterate_dist_processor(config, data, reader, writer, process_line).await?;
 
     //println!("iterate_distribution_file:- dist_file_path={}", dist_file_str);
     Ok(())
 }
 
 #[allow(unused)]
-pub fn display_rec(dr: &mut DistRec, line_index: usize) -> Result<(), Box<dyn std::error::Error>> {
+pub fn display_rec(
+    config: &Configuration,
+    data: &mut ProcessedData,
+    dr: &mut DistRec,
+    line_index: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
     let rpa = match dr.realized_amount_for_primary_asset {
         Some(v) => v,
         None => dec!(0),
@@ -168,6 +240,8 @@ pub fn display_rec(dr: &mut DistRec, line_index: usize) -> Result<(), Box<dyn st
 
 #[allow(unused)]
 pub fn display_full_rec(
+    config: &Configuration,
+    data: &mut ProcessedData,
     dr: &mut DistRec,
     line_index: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -186,109 +260,86 @@ pub async fn process_dist_files(
         );
     }
 
-    #[derive(Debug)]
-    #[allow(unused)]
-    struct AssetRec {
-        pub asset: String,
-        pub quantity: Decimal,
-        pub value_usd: Decimal,
-        pub transaction_count: u64,
-    }
+    fn process_hm_entry(
+        config: &Configuration,
+        data: &mut ProcessedData,
+        dr: &mut DistRec,
+        line_index: usize,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        data.total_count += 1;
+        match dr.category.as_ref() {
+            "Distribution" => {
+                data.distribution_category_count += 1;
+                let rpa = match dr.realized_amount_for_primary_asset {
+                    Some(v) => v,
+                    None => {
+                        data.empty_rpa += 1;
+                        dec!(0)
+                    }
+                };
+                let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
+                    Some(v) => v,
+                    None => {
+                        //let kr = get_kline(config, &(dr.primary_asset + "USD"), dr.time).await?;
+                        data.empty_rpa_usd += 1;
+                        dec!(0)
+                    }
+                };
 
-    impl AssetRec {
-        fn new(
-            asset: &str,
-            quantity: Decimal,
-            value_usd: Decimal,
-            transaction_count: u64,
-        ) -> AssetRec {
-            AssetRec {
-                asset: asset.to_string(),
-                quantity,
-                value_usd,
-                transaction_count,
+                let entry = data
+                    .hm
+                    .entry(dr.primary_asset.clone())
+                    .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
+                entry.transaction_count += 1;
+                if entry.transaction_count > 1 {
+                    // Sum realized amounts
+                    entry.quantity += rpa;
+                    entry.value_usd += rpa_usd;
+                }
+                data.total_rpa_usd += rpa_usd;
+                if config.verbose {
+                    print!(
+                        "{} {} {} {} {}                                               \r",
+                        line_index + 1,
+                        entry.asset,
+                        rpa_usd,
+                        entry.value_usd,
+                        data.total_rpa_usd
+                    );
+                }
+            }
+            "Quick Buy" => {
+                data.quick_buy_category_count += 1;
+            }
+            "Quick Sell" => {
+                data.quick_sell_category_count += 1;
+            }
+            "Spot Trading" => {
+                data.spot_trading_category_count += 1;
+            }
+            "Withdrawal" => {
+                data.withdrawal_category_count += 1;
+            }
+            _ => {
+                data.unprocessed_category_count += 1;
             }
         }
+
+        Ok(())
     }
 
-    type AssetRecHashMap = HashMap<String, AssetRec>;
-    let mut hm = AssetRecHashMap::new();
-
-    let mut total_rpa_usd = dec!(0);
-    let mut empty_rpa = 0u64;
-    let mut empty_rpa_usd = 0u64;
-    let mut total_count = 0u64;
-    let mut distribution_category_count = 0u64;
-    let mut quick_buy_category_count = 0u64;
-    let mut quick_sell_category_count = 0u64;
-    let mut spot_trading_category_count = 0u64;
-    let mut withdrawal_category_count = 0u64;
-    let mut unprocessed_category_count = 0u64;
-    let process_hm_entry =
-        |dr: &mut DistRec, line_index: usize| -> Result<(), Box<dyn std::error::Error>> {
-            total_count += 1;
-            match dr.category.as_ref() {
-                "Distribution" => {
-                    distribution_category_count += 1;
-                    let rpa = match dr.realized_amount_for_primary_asset {
-                        Some(v) => v,
-                        None => {
-                            empty_rpa += 1;
-                            dec!(0)
-                        }
-                    };
-                    let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
-                        Some(v) => v,
-                        None => {
-                            empty_rpa_usd += 1;
-                            dec!(0)
-                        }
-                    };
-
-                    let entry = hm
-                        .entry(dr.primary_asset.clone())
-                        .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
-                    entry.transaction_count += 1;
-                    if entry.transaction_count > 1 {
-                        // Sum realized amounts
-                        entry.quantity += rpa;
-                        entry.value_usd += rpa_usd;
-                    }
-                    total_rpa_usd += rpa_usd;
-                    if config.verbose {
-                        print!(
-                            "{} {} {} {} {}                                               \r",
-                            line_index + 1,
-                            entry.asset,
-                            rpa_usd,
-                            entry.value_usd,
-                            total_rpa_usd
-                        );
-                    }
-                }
-                "Quick Buy" => {
-                    quick_buy_category_count += 1;
-                }
-                "Quick Sell" => {
-                    quick_sell_category_count += 1;
-                }
-                "Spot Trading" => {
-                    spot_trading_category_count += 1;
-                }
-                "Withdrawal" => {
-                    withdrawal_category_count += 1;
-                }
-                _ => {
-                    unprocessed_category_count += 1;
-                }
-            }
-
-            Ok(())
-        };
+    let mut data = ProcessedData::new();
 
     let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
     let out_dist_file_path = subcmd.matches.value_of("OUT_FILE");
-    iterate_dist_file(in_dist_file_path, out_dist_file_path, process_hm_entry).await?;
+    iterate_dist_file(
+        config,
+        &mut data,
+        in_dist_file_path,
+        out_dist_file_path,
+        process_hm_entry,
+    )
+    .await?;
     //dbg!("\nhm: {:#?}", hm);
 
     if config.verbose {
@@ -297,7 +348,7 @@ pub async fn process_dist_files(
 
     let mut total_hm_value_usd = dec!(0);
     let mut total_hm_transaction_count = 0u64;
-    for (_, ar) in hm {
+    for (_, ar) in data.hm {
         total_hm_value_usd += ar.value_usd;
         total_hm_transaction_count += ar.transaction_count; // as usize;
         println!(
@@ -313,7 +364,7 @@ pub async fn process_dist_files(
         "{:>27}: {} no USD amount: {}",
         "Distribution Transactions",
         dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0),
-        dec_to_separated_string(Decimal::from(empty_rpa_usd), 0),
+        dec_to_separated_string(Decimal::from(data.empty_rpa_usd), 0),
     );
     println!(
         "{:>27}: {} ",
@@ -323,52 +374,52 @@ pub async fn process_dist_files(
     println!(
         "{:>27}: {} ",
         "Distribution count",
-        dec_to_separated_string(Decimal::from(distribution_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
     );
     println!(
         "{:>27}: {} ",
         "Quick Buy count",
-        dec_to_separated_string(Decimal::from(quick_buy_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.quick_buy_category_count), 0)
     );
     println!(
         "{:>27}: {} ",
         "Quick Sell count",
-        dec_to_separated_string(Decimal::from(quick_sell_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.quick_sell_category_count), 0)
     );
     println!(
         "{:>27}: {} ",
         "Spot Trading count",
-        dec_to_separated_string(Decimal::from(spot_trading_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.spot_trading_category_count), 0)
     );
     println!(
         "{:>27}: {} ",
         "Withdrawal count",
-        dec_to_separated_string(Decimal::from(withdrawal_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.withdrawal_category_count), 0)
     );
     println!(
         "{:>27}: {} ",
         "Unprocessed count",
-        dec_to_separated_string(Decimal::from(unprocessed_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.unprocessed_category_count), 0)
     );
     println!(
         "{:>27}: {} ",
         "Total count",
-        dec_to_separated_string(Decimal::from(total_count), 0)
+        dec_to_separated_string(Decimal::from(data.total_count), 0)
     );
 
     // Assertions!
     assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
-    assert_eq!(total_rpa_usd, total_hm_value_usd);
-    assert_eq!(empty_rpa, 0);
-    assert_eq!(total_hm_transaction_count, distribution_category_count);
+    assert_eq!(data.total_rpa_usd, total_hm_value_usd);
+    assert_eq!(data.empty_rpa, 0);
+    assert_eq!(total_hm_transaction_count, data.distribution_category_count);
     assert_eq!(
-        total_count,
-        distribution_category_count
-            + quick_buy_category_count
-            + quick_sell_category_count
-            + spot_trading_category_count
-            + withdrawal_category_count
-            + unprocessed_category_count
+        data.total_count,
+        data.distribution_category_count
+            + data.quick_buy_category_count
+            + data.quick_sell_category_count
+            + data.spot_trading_category_count
+            + data.withdrawal_category_count
+            + data.unprocessed_category_count
     );
 
     //println!("process_dist_files:-");
