@@ -247,6 +247,74 @@ pub fn display_full_rec(
     Ok(())
 }
 
+fn process_hm_entry(
+    config: &Configuration,
+    data: &mut ProcessedData,
+    dr: &mut DistRec,
+    line_index: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    data.total_count += 1;
+    match dr.category.as_ref() {
+        "Distribution" => {
+            data.distribution_category_count += 1;
+            let rpa = match dr.realized_amount_for_primary_asset {
+                Some(v) => v,
+                None => {
+                    data.empty_rpa += 1;
+                    dec!(0)
+                }
+            };
+            let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
+                Some(v) => v,
+                None => {
+                    //let kr = get_kline(config, &(dr.primary_asset.to_ownede() + "USD"), dr.time).await?;
+                    data.empty_rpa_usd += 1;
+                    dec!(0)
+                }
+            };
+
+            let entry = data
+                .hm
+                .entry(dr.primary_asset.clone())
+                .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
+            entry.transaction_count += 1;
+            if entry.transaction_count > 1 {
+                // Sum realized amounts
+                entry.quantity += rpa;
+                entry.value_usd += rpa_usd;
+            }
+            data.total_rpa_usd += rpa_usd;
+            if config.verbose {
+                print!(
+                    "{} {} {} {} {}                                               \r",
+                    line_index + 1,
+                    entry.asset,
+                    rpa_usd,
+                    entry.value_usd,
+                    data.total_rpa_usd
+                );
+            }
+        }
+        "Quick Buy" => {
+            data.quick_buy_category_count += 1;
+        }
+        "Quick Sell" => {
+            data.quick_sell_category_count += 1;
+        }
+        "Spot Trading" => {
+            data.spot_trading_category_count += 1;
+        }
+        "Withdrawal" => {
+            data.withdrawal_category_count += 1;
+        }
+        _ => {
+            data.unprocessed_category_count += 1;
+        }
+    }
+
+    Ok(())
+}
+
 pub async fn process_dist_files(
     config: &Configuration,
     subcmd: &SubCommand<'static>,
@@ -257,75 +325,6 @@ pub async fn process_dist_files(
             config, subcmd
         );
     }
-
-    fn process_hm_entry(
-        config: &Configuration,
-        data: &mut ProcessedData,
-        dr: &mut DistRec,
-        line_index: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        data.total_count += 1;
-        match dr.category.as_ref() {
-            "Distribution" => {
-                data.distribution_category_count += 1;
-                let rpa = match dr.realized_amount_for_primary_asset {
-                    Some(v) => v,
-                    None => {
-                        data.empty_rpa += 1;
-                        dec!(0)
-                    }
-                };
-                let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
-                    Some(v) => v,
-                    None => {
-                        //let kr = get_kline(config, &(dr.primary_asset.to_ownede() + "USD"), dr.time).await?;
-                        data.empty_rpa_usd += 1;
-                        dec!(0)
-                    }
-                };
-
-                let entry = data
-                    .hm
-                    .entry(dr.primary_asset.clone())
-                    .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
-                entry.transaction_count += 1;
-                if entry.transaction_count > 1 {
-                    // Sum realized amounts
-                    entry.quantity += rpa;
-                    entry.value_usd += rpa_usd;
-                }
-                data.total_rpa_usd += rpa_usd;
-                if config.verbose {
-                    print!(
-                        "{} {} {} {} {}                                               \r",
-                        line_index + 1,
-                        entry.asset,
-                        rpa_usd,
-                        entry.value_usd,
-                        data.total_rpa_usd
-                    );
-                }
-            }
-            "Quick Buy" => {
-                data.quick_buy_category_count += 1;
-            }
-            "Quick Sell" => {
-                data.quick_sell_category_count += 1;
-            }
-            "Spot Trading" => {
-                data.spot_trading_category_count += 1;
-            }
-            "Withdrawal" => {
-                data.withdrawal_category_count += 1;
-            }
-            _ => {
-                data.unprocessed_category_count += 1;
-            }
-        }
-
-        Ok(())
-    }
-
     let mut data = ProcessedData::new();
 
     let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
