@@ -4,10 +4,17 @@
 > **Note: In no case can the authors of this program be held responsible
 > for any damanges or monetary losses.**
 
+## TODO
+
+ - More tests
+ - Use csv-async to support tokio::io
+
+## Introduction
+
 This program provides a command line interface to some of the
 binance.us API's. It also Includes some higher level capabilities
 such as automatically buying and selling of assets. Eventually other
-higher level capabilities maybe provoded.
+higher level capabilities maybe provided.
 
 Also, there are some **really dangerous** subcommands, such as
 `auto-sell` and `auto-buy`. The `auto-sell` is particularly **DANGEROUS**
@@ -21,7 +28,7 @@ is `--no-test`, this allows you to leave the default configuration with
 `test = true` and then when you're ready to do trades, automatic or
 manual, pass the `--no-test` flag.
 
-As mentioned above the program is uses a configuration file. There are
+As mentioned above the program uses a configuration file. There are
 comments, lines with "#" in them, that provide additional information
 about each field. Refer to that file for up-to-date information.
 
@@ -32,11 +39,11 @@ Finally, use the `help` subcommand or `--help` or `-h` flags as a
 source of information while using the program.
 
 ```
-wink@3900x:~/prgs/rust/myrepos/binance-cli (main)
+wink@3900x:~/prgs/rust/myrepos/binance-cli (Add-binance-distribution-processing)
 $ cargo run help
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
      Running `target/debug/binance-cli help`
-binance-cli 0.3.0-ca767f1
+binance-cli 0.3.2-f94a15e
 Binance cli app
 
 USAGE:
@@ -84,6 +91,8 @@ SUBCOMMANDS:
     mt                   Display my trades for a symbol
     ao                   Dispaly all orders
     ol                   Display order log
+    pdf                  process distribution files
+    pol                  process order log
     ei                   Display the exchange info
     oo                   Display a symbols open orders
     sap                  Display a symbols 5 minute average price
