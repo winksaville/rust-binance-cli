@@ -144,6 +144,14 @@ impl ProcessedData {
         }
     }
 }
+
+type ProcessLine = fn(
+    &Configuration,
+    &mut ProcessedData,
+    &mut DistRec,
+    usize,
+) -> Result<(), Box<dyn std::error::Error>>;
+
 /// Iterate over a reader which returns lines from the distribution file.
 ///
 /// TODO: How to allow the reader to be a file or a buffer. Specifically
@@ -154,12 +162,7 @@ pub async fn iterate_dist_processor(
     data: &mut ProcessedData,
     reader: BufReader<File>,
     writer: Option<BufWriter<File>>,
-    mut process_line: impl FnMut(
-        &Configuration,
-        &mut ProcessedData,
-        &mut DistRec,
-        usize,
-    ) -> Result<(), Box<dyn std::error::Error>>,
+    process_line: ProcessLine,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_dist_reader:+");
 
@@ -186,12 +189,7 @@ pub async fn iterate_dist_file(
     data: &mut ProcessedData,
     in_dist_file_path: &str,
     out_dist_file_path: Option<&str>,
-    process_line: impl FnMut(
-        &Configuration,
-        &mut ProcessedData,
-        &mut DistRec,
-        usize,
-    ) -> Result<(), Box<dyn std::error::Error>>,
+    process_line: ProcessLine,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("iterate_distribution_file:+ dist_file_path={}", dist_file_str);
 
@@ -280,7 +278,7 @@ pub async fn process_dist_files(
                 let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
                     Some(v) => v,
                     None => {
-                        //let kr = get_kline(config, &(dr.primary_asset + "USD"), dr.time).await?;
+                        //let kr = get_kline(config, &(dr.primary_asset.to_ownede() + "USD"), dr.time).await?;
                         data.empty_rpa_usd += 1;
                         dec!(0)
                     }
