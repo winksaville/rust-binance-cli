@@ -37,9 +37,10 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{dec_to_money_string, dec_to_separated_string},
+    binance_klines::get_kline,
+    common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc},
     configuration::Configuration,
-    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string}, //binance_klines::get_kline,
+    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -145,7 +146,7 @@ impl ProcessedData {
     }
 }
 
-fn process_hm_entry(
+async fn process_hm_entry(
     config: &Configuration,
     data: &mut ProcessedData,
     dr: &mut DistRec,
@@ -165,7 +166,27 @@ fn process_hm_entry(
             let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
                 Some(v) => v,
                 None => {
-                    //let kr = get_kline(config, &(dr.primary_asset.to_ownede() + "USD"), dr.time).await?;
+                    let sym_name = dr.primary_asset.to_owned() + "USD";
+                    let _kr = match get_kline(config, &sym_name, dr.time).await {
+                        Ok(kr) => {
+                            println!("\nOk: {sym_name} line_inde: {line_index} dr.time: {} dr: {dr:?} kr: {kr:?}", time_ms_to_utc(dr.time));
+                            kr
+                        }
+                        Err(e) => {
+                            println!("\nError: {sym_name} line_index: {line_index} dr.time: {} dr: {dr:?} e: {e}", time_ms_to_utc(dr.time));
+                            let sym_name = dr.primary_asset.to_owned() + "USDT";
+                            match get_kline(config, &sym_name, dr.time).await {
+                                Ok(kr) => {
+                                    println!("Ok: {sym_name} line_index: {line_index} dr.time: {}  dr: {dr:?} kr: {kr:?}", time_ms_to_utc(dr.time));
+                                    kr
+                                }
+                                Err(e) => {
+                                    println!("Error: {sym_name} line_index: {line_index} dr.time: {} dr: {dr:?} e: {e}", time_ms_to_utc(dr.time));
+                                    return Err(e.into());
+                                }
+                            }
+                        }
+                    };
                     data.empty_rpa_usd += 1;
                     dec!(0)
                 }
@@ -248,7 +269,7 @@ pub async fn process_dist_files(
 
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr = result?;
-        process_hm_entry(config, &mut data, &mut dr, line_index)?;
+        process_hm_entry(config, &mut data, &mut dr, line_index).await?;
         if let Some(w) = &mut wdr {
             w.serialize(&dr)?;
         }
