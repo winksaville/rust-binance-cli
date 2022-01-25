@@ -145,108 +145,6 @@ impl ProcessedData {
     }
 }
 
-type ProcessLine = fn(
-    &Configuration,
-    &mut ProcessedData,
-    &mut DistRec,
-    usize,
-) -> Result<(), Box<dyn std::error::Error>>;
-
-/// Iterate over a reader which returns lines from the distribution file.
-///
-/// TODO: How to allow the reader to be a file or a buffer. Specifically
-/// I'd like to provide data in a buffer for testing and not have to use
-/// ./test_data/ like I am now!
-pub async fn iterate_dist_processor(
-    config: &Configuration,
-    data: &mut ProcessedData,
-    reader: BufReader<File>,
-    writer: Option<BufWriter<File>>,
-    process_line: ProcessLine,
-) -> Result<(), Box<dyn std::error::Error>> {
-    //println!("iterate_dist_reader:+");
-
-    let mut rdr = csv::Reader::from_reader(reader);
-
-    // Clippy suggested changing this to the the map code below:
-    //   let mut wdr = if let Some(wtr) = writer { Some(csv::Writer::from_writer(wtr)) } else { None };
-    let mut wdr = writer.map(csv::Writer::from_writer);
-
-    for (line_index, result) in rdr.deserialize().enumerate() {
-        let mut dr = result?;
-        process_line(config, data, &mut dr, line_index)?;
-        if let Some(w) = &mut wdr {
-            w.serialize(&dr)?;
-        }
-    }
-
-    //println!("iterate_dist_reader:-");
-    Ok(())
-}
-
-pub async fn iterate_dist_file(
-    config: &Configuration,
-    data: &mut ProcessedData,
-    in_dist_file_path: &str,
-    out_dist_file_path: Option<&str>,
-    process_line: ProcessLine,
-) -> Result<(), Box<dyn std::error::Error>> {
-    //println!("iterate_distribution_file:+ dist_file_path={}", dist_file_str);
-
-    let in_file = File::open(in_dist_file_path)?;
-    let reader = BufReader::new(in_file);
-    let writer = if let Some(of) = out_dist_file_path {
-        let out_file = File::create(of)?;
-        Some(BufWriter::new(out_file))
-    } else {
-        None
-    };
-    iterate_dist_processor(config, data, reader, writer, process_line).await?;
-
-    //println!("iterate_distribution_file:- dist_file_path={}", dist_file_str);
-    Ok(())
-}
-
-#[allow(unused)]
-pub fn display_rec(
-    config: &Configuration,
-    data: &mut ProcessedData,
-    dr: &mut DistRec,
-    line_index: usize,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let rpa = match dr.realized_amount_for_primary_asset {
-        Some(v) => v,
-        None => dec!(0),
-    };
-    let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
-        Some(v) => v,
-        None => dec!(0),
-    };
-
-    println!(
-        "{:9}: {:>10}     {:25} {:5} {:16.8}  {:>12}  {:>12}",
-        line_index + 1,
-        dr.user_id,
-        dr.time,
-        dr.primary_asset,
-        rpa,
-        dec_to_money_string(rpa_usd),
-        dec_to_money_string(rpa_usd / rpa),
-    );
-    Ok(())
-}
-
-#[allow(unused)]
-pub fn display_full_rec(
-    config: &Configuration,
-    data: &mut ProcessedData,
-    dr: &mut DistRec,
-    line_index: usize,
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}: {:?}", line_index + 1, dr);
-    Ok(())
-}
-
 fn process_hm_entry(
     config: &Configuration,
     data: &mut ProcessedData,
@@ -329,15 +227,32 @@ pub async fn process_dist_files(
 
     let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
     let out_dist_file_path = subcmd.matches.value_of("OUT_FILE");
-    iterate_dist_file(
-        config,
-        &mut data,
-        in_dist_file_path,
-        out_dist_file_path,
-        process_hm_entry,
-    )
-    .await?;
-    //dbg!("\nhm: {:#?}", hm);
+
+    //iterate_dist_file( config, &mut data, in_dist_file_path, out_dist_file_path, process_hm_entry).await?;
+    let in_file = File::open(in_dist_file_path)?;
+    let reader = BufReader::new(in_file);
+    let writer = if let Some(of) = out_dist_file_path {
+        let out_file = File::create(of)?;
+        Some(BufWriter::new(out_file))
+    } else {
+        None
+    };
+
+    //iterate_dist_processor(config, data, reader, writer, process_line).await?;
+    let mut rdr = csv::Reader::from_reader(reader);
+
+    // Clippy suggested changing this:
+    //   let mut wdr = if let Some(wtr) = writer { Some(csv::Writer::from_writer(wtr)) } else { None };
+    // To this:
+    let mut wdr = writer.map(csv::Writer::from_writer);
+
+    for (line_index, result) in rdr.deserialize().enumerate() {
+        let mut dr = result?;
+        process_hm_entry(config, &mut data, &mut dr, line_index)?;
+        if let Some(w) = &mut wdr {
+            w.serialize(&dr)?;
+        }
+    }
 
     if config.verbose {
         println!("\n");
