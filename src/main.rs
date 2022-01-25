@@ -199,7 +199,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .matches
                 .value_of("SYMBOL")
                 .expect("SYMBOL is missing");
-            let kr: KlineRec = get_kline(&config, sym_name, utc_now_to_time_ms()).await?;
+            let start_time_ms = if let Some(x) = subcmd.matches.value_of("START-TIME-UTC") {
+                // User provided a time
+                if let Ok(v) = x.parse() {
+                    v
+                } else {
+                    return Err(format!("Could not convert {x} to time as i64").into());
+                }
+            } else {
+                // Use now as time
+                utc_now_to_time_ms()
+            };
+
+            let kr: KlineRec = get_kline(&config, sym_name, start_time_ms).await?;
             println!("{}", kr);
         }
         "skrs" => {

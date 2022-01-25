@@ -270,6 +270,12 @@ pub fn arg_matches() -> Result<ArgMatches<'static>, Box<dyn Error>> {
                         .help("Name of asset")
                         .required(true)
                         .index(1),
+                )
+                .arg(
+                    Arg::with_name("START-TIME-UTC")
+                        .help("Start time UTC")
+                        .required(false)
+                        .index(2),
                 ),
         )
         .subcommand(
