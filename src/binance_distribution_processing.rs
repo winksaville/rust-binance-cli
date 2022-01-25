@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     binance_klines::get_kline_of_primary_asset_for_value_asset,
-    common::{dec_to_money_string, dec_to_separated_string},
+    common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc},
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
@@ -117,8 +117,9 @@ pub type AssetRecHashMap = HashMap<String, AssetRec>;
 pub struct ProcessedData {
     pub hm: AssetRecHashMap,
     pub total_rpa_usd: Decimal,
-    pub empty_rpa: u64,
-    pub empty_rpa_usd: u64,
+    pub empty_rpa_count: u64,
+    pub empty_rpa_usd_count: u64,
+    pub empty_rpa_usd_value: Decimal,
     pub total_count: u64,
     pub distribution_category_count: u64,
     pub quick_buy_category_count: u64,
@@ -133,8 +134,9 @@ impl ProcessedData {
         ProcessedData {
             hm: AssetRecHashMap::new(),
             total_rpa_usd: dec!(0),
-            empty_rpa: 0u64,
-            empty_rpa_usd: 0u64,
+            empty_rpa_count: 0u64,
+            empty_rpa_usd_count: 0u64,
+            empty_rpa_usd_value: dec!(0),
             total_count: 0u64,
             distribution_category_count: 0u64,
             quick_buy_category_count: 0u64,
@@ -160,7 +162,7 @@ async fn process_hm_entry(
             let rpa = match dr.realized_amount_for_primary_asset {
                 Some(v) => v,
                 None => {
-                    data.empty_rpa += 1;
+                    data.empty_rpa_count += 1;
                     dec!(0)
                 }
             };
@@ -169,8 +171,9 @@ async fn process_hm_entry(
                 None => {
                     let leading_nl = if config.verbose { "\n" } else { "" };
                     let time = dr.time;
+                    let time_utc = time_ms_to_utc(time);
                     let value_assets = ["USD", "USDT", "BUSD"];
-                    data.empty_rpa_usd += 1;
+                    data.empty_rpa_usd_count += 1;
                     let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
                         config,
                         time,
@@ -182,18 +185,24 @@ async fn process_hm_entry(
                         Some(r) => r,
                         None => {
                             return Err(
-                                format!("{leading_nl}Unable to convert {primary_asset} to {value_assets:?} at line_index: {line_index} time: {time} dr: {dr:?}").into()
+                                format!("{leading_nl}Unable to convert {primary_asset} to {value_assets:?} at line_index: {line_index} time: {time_utc} dr: {dr:?}").into()
                             );
                         }
                     };
 
-                    //if config.verbose {
-                        println!("{leading_nl}Ok: {primary_asset} to {sym_name} for line_index: {line_index} time: {time} dr: {dr:?}");
-                    //}
-
                     // Calculate rpa_usd using the closing price of the kline, other
                     // options could be avg of kr open, close, high and low ...
-                    kr.close * rpa
+                    let usd_value = kr.close * rpa;
+
+                    // Update Distribution and Data record
+                    dr.realized_amount_for_primary_asset_in_usd_value = Some(usd_value.to_owned());
+                    data.empty_rpa_usd_value += usd_value;
+
+                    if config.verbose {
+                        println!("{leading_nl}Ok: {primary_asset} to {sym_name} is {usd_value} for line_index: {line_index} time: {time_utc} empty_rpa_usd_value: {}", data.empty_rpa_usd_value);
+                    }
+
+                    usd_value
                 }
             };
 
@@ -299,10 +308,11 @@ pub async fn process_dist_files(
     }
     println!("\n");
     println!(
-        "{:>27}: {} no USD amount: {}",
+        "{:>27}: {} empty USD count: {} updated empty USD value: {}",
         "Distribution Transactions",
         dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0),
-        dec_to_separated_string(Decimal::from(data.empty_rpa_usd), 0),
+        dec_to_separated_string(Decimal::from(data.empty_rpa_usd_count), 0),
+        dec_to_money_string(data.empty_rpa_usd_value),
     );
     println!(
         "{:>27}: {} ",
@@ -348,7 +358,7 @@ pub async fn process_dist_files(
     // Assertions!
     assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
     assert_eq!(data.total_rpa_usd, total_hm_value_usd);
-    assert_eq!(data.empty_rpa, 0);
+    assert_eq!(data.empty_rpa_count, 0);
     assert_eq!(total_hm_transaction_count, data.distribution_category_count);
     assert_eq!(
         data.total_count,
