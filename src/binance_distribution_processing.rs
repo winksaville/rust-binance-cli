@@ -37,8 +37,8 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    binance_klines::get_kline,
-    common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc},
+    binance_klines::get_kline_of_primary_asset_for_value_asset,
+    common::{dec_to_money_string, dec_to_separated_string},
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
@@ -156,6 +156,7 @@ async fn process_hm_entry(
     match dr.category.as_ref() {
         "Distribution" => {
             data.distribution_category_count += 1;
+            let primary_asset = &dr.primary_asset;
             let rpa = match dr.realized_amount_for_primary_asset {
                 Some(v) => v,
                 None => {
@@ -166,29 +167,33 @@ async fn process_hm_entry(
             let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
                 Some(v) => v,
                 None => {
-                    let sym_name = dr.primary_asset.to_owned() + "USD";
-                    let _kr = match get_kline(config, &sym_name, dr.time).await {
-                        Ok(kr) => {
-                            println!("\nOk: {sym_name} line_inde: {line_index} dr.time: {} dr: {dr:?} kr: {kr:?}", time_ms_to_utc(dr.time));
-                            kr
-                        }
-                        Err(e) => {
-                            println!("\nError: {sym_name} line_index: {line_index} dr.time: {} dr: {dr:?} e: {e}", time_ms_to_utc(dr.time));
-                            let sym_name = dr.primary_asset.to_owned() + "USDT";
-                            match get_kline(config, &sym_name, dr.time).await {
-                                Ok(kr) => {
-                                    println!("Ok: {sym_name} line_index: {line_index} dr.time: {}  dr: {dr:?} kr: {kr:?}", time_ms_to_utc(dr.time));
-                                    kr
-                                }
-                                Err(e) => {
-                                    println!("Error: {sym_name} line_index: {line_index} dr.time: {} dr: {dr:?} e: {e}", time_ms_to_utc(dr.time));
-                                    return Err(e.into());
-                                }
-                            }
+                    let leading_nl = if config.verbose { "\n" } else { "" };
+                    let time = dr.time;
+                    let value_assets = ["USD", "USDT", "BUSD"];
+                    data.empty_rpa_usd += 1;
+                    let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
+                        config,
+                        time,
+                        primary_asset,
+                        &value_assets,
+                    )
+                    .await
+                    {
+                        Some(r) => r,
+                        None => {
+                            return Err(
+                                format!("{leading_nl}Unable to convert {primary_asset} to {value_assets:?} at line_index: {line_index} time: {time} dr: {dr:?}").into()
+                            );
                         }
                     };
-                    data.empty_rpa_usd += 1;
-                    dec!(0)
+
+                    //if config.verbose {
+                        println!("{leading_nl}Ok: {primary_asset} to {sym_name} for line_index: {line_index} time: {time} dr: {dr:?}");
+                    //}
+
+                    // Calculate rpa_usd using the closing price of the kline, other
+                    // options could be avg of kr open, close, high and low ...
+                    kr.close * rpa
                 }
             };
 

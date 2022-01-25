@@ -279,9 +279,14 @@ pub async fn get_kline(
 
 /// Get the approximate value of a base_asset in one of
 /// the provided value_assets for the specified time.
-pub async fn get_kline_of_base_asset_for_value_asset(config: &Configuration, time: i64, base_asset: &str, value_assets: &Vec<&str>) -> Option<(String, KlineRec)> {
+pub async fn get_kline_of_primary_asset_for_value_asset(
+    config: &Configuration,
+    time: i64,
+    primary_asset: &str,
+    value_assets: &[&str],
+) -> Option<(String, KlineRec)> {
     for value_asset in value_assets {
-        let sym_name = base_asset.to_owned() + value_asset;
+        let sym_name = primary_asset.to_owned() + value_asset;
         match get_kline(config, &sym_name, time).await {
             Ok(kr) => {
                 trace!("Ok: {sym_name} time: {} kr: {kr:?}", time_ms_to_utc(time));
@@ -294,7 +299,6 @@ pub async fn get_kline_of_base_asset_for_value_asset(config: &Configuration, tim
     }
     None
 }
-
 
 #[cfg(test)]
 mod test {
