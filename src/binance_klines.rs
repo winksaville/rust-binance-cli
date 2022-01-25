@@ -250,7 +250,7 @@ pub async fn get_kline(
     sym_name: &str,
     start_time_ms: i64,
 ) -> Result<KlineRec, Box<dyn std::error::Error>> {
-    trace!("get_kline:");
+    //println!("get_kline: {sym_name} {start_time_ms} {}", time_ms_to_utc(start_time_ms));
 
     let krs: Vec<KlineRec> = get_klines(
         config,
@@ -272,7 +272,6 @@ pub async fn get_kline(
             time_ms_to_utc(kr.close_time),
             (kr.close_time - kr.open_time) as f64 / MIN as f64
         );
-        trace!("{:#?}", kr);
         Ok(kr)
     }
 }
