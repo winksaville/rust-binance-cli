@@ -28,7 +28,10 @@
 //!
 
 //!
-use std::{collections::HashMap, fs::File, io::BufReader, io::BufWriter};
+
+//use core::future::Future;
+
+use std::{collections::HashMap, fs::File, io::BufReader, io::BufWriter, future::Future}; //, pin::Pin};
 
 use clap::SubCommand;
 
@@ -39,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{dec_to_money_string, dec_to_separated_string},
     configuration::Configuration,
-    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string}, //binance_klines::get_kline,
+    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},// binance_klines::get_kline,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -150,7 +153,29 @@ type ProcessLine = fn(
     &mut ProcessedData,
     &mut DistRec,
     usize,
-) -> Result<(), Box<dyn std::error::Error>>;
+//) -> Result<(), Box<dyn std::error::Error>>;
+) -> dyn Future<Output = Result<(), Box<dyn std::error::Error>>>;
+
+//// From: https://stackoverflow.com/a/66769658/4812090
+//type ProcessLine = fn(
+//    &Configuration,
+//    &mut ProcessedData,
+//    &mut DistRec,
+//    usize,
+//) -> Pin::<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>>>>;
+//
+//fn force_boxed<T>(f: fn(
+//        &Configuration,
+//        &mut ProcessedData,
+//        &mut DistRec,
+//        usize,
+//) -> T) -> ProcessLine
+//where
+//    T: Future<Output = Result<(), Box<dyn std::error::Error>>> + 'static,
+//{
+//    Box::new(move |config, data, dr, index| Box::pin(f(config, data, dr, index)))
+//}
+
 
 /// Iterate over a reader which returns lines from the distribution file.
 ///
@@ -174,7 +199,7 @@ pub async fn iterate_dist_processor(
 
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr = result?;
-        process_line(config, data, &mut dr, line_index)?;
+        process_line(config, data, &mut dr, line_index).await?;
         if let Some(w) = &mut wdr {
             w.serialize(&dr)?;
         }
@@ -267,7 +292,7 @@ fn process_hm_entry(
             let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
                 Some(v) => v,
                 None => {
-                    //let kr = get_kline(config, &(dr.primary_asset.to_ownede() + "USD"), dr.time).await?;
+                    //let kr = get_kline(config, &(dr.primary_asset.to_owned() + "USD"), dr.time).await?;
                     data.empty_rpa_usd += 1;
                     dec!(0)
                 }
@@ -315,6 +340,29 @@ fn process_hm_entry(
     Ok(())
 }
 
+//macro_rules! forced_boxed_process_line {
+//    ($inc:expr) => {{
+//        fn a_mr_function(
+//            config: &Configuration,
+//            data: &mut ProcessedData,
+//            dr: &mut DistRec,
+//            line_index: usize,
+//        ) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>>>> {
+//            Box::pin($inc(config, data, dr, line_index))
+//        }
+//        a_mr_function
+//    }}
+//}
+
+//fn boxed_process_line(
+//    config: &Configuration,
+//    data: &mut ProcessedData,
+//    dr: &mut DistRec,
+//    line_index: usize,
+//) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>>>> {
+//    Box::pin(process_hm_entry(config, data, dr, line_index))
+//}
+
 pub async fn process_dist_files(
     config: &Configuration,
     subcmd: &SubCommand<'static>,
@@ -325,6 +373,7 @@ pub async fn process_dist_files(
             config, subcmd
         );
     }
+
     let mut data = ProcessedData::new();
 
     let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
