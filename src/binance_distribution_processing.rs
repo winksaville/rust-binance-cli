@@ -28,7 +28,7 @@
 //!
 
 //!
-use std::{collections::HashMap, fs::File, io::BufReader, io::BufWriter};
+use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter};
 
 use clap::SubCommand;
 
@@ -111,11 +111,11 @@ impl AssetRec {
     }
 }
 
-pub type AssetRecHashMap = HashMap<String, AssetRec>;
+pub type AssetRecMap = BTreeMap<String, AssetRec>;
 
 #[derive(Debug)]
 pub struct ProcessedData {
-    pub hm: AssetRecHashMap,
+    pub arm: AssetRecMap,
     pub total_rpa_usd: Decimal,
     pub empty_rpa_count: u64,
     pub empty_rpa_usd_count: u64,
@@ -132,7 +132,7 @@ pub struct ProcessedData {
 impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
-            hm: AssetRecHashMap::new(),
+            arm: AssetRecMap::new(),
             total_rpa_usd: dec!(0),
             empty_rpa_count: 0u64,
             empty_rpa_usd_count: 0u64,
@@ -207,7 +207,7 @@ async fn process_entry(
             };
 
             let entry = data
-                .hm
+                .arm
                 .entry(dr.primary_asset.clone())
                 .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
             entry.transaction_count += 1;
@@ -295,7 +295,7 @@ pub async fn process_dist_files(
 
     let mut total_hm_value_usd = dec!(0);
     let mut total_hm_transaction_count = 0u64;
-    for (_, ar) in data.hm {
+    for (_, ar) in data.arm {
         total_hm_value_usd += ar.value_usd;
         total_hm_transaction_count += ar.transaction_count; // as usize;
         println!(
