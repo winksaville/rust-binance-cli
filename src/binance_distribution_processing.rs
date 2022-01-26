@@ -306,12 +306,18 @@ pub async fn process_dist_files(
     }
     println!("\n");
     println!(
-        "{:>27}: {} empty USD count: {} updated empty USD value: {}",
+        "{:>27}: {}",
         "Distribution Transactions",
         dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0),
-        dec_to_separated_string(Decimal::from(data.empty_rpa_usd_count), 0),
-        dec_to_money_string(data.empty_rpa_usd_value),
     );
+    if data.empty_rpa_usd_count > 0 || data.empty_rpa_usd_value > dec!(0) {
+        println!(
+            "{:>27}: {} with a total updated value of {}",
+            "Records with no USD value",
+            dec_to_separated_string(Decimal::from(data.empty_rpa_usd_count), 0),
+            dec_to_money_string(data.empty_rpa_usd_value),
+        );
+    }
     println!(
         "{:>27}: {} ",
         "Total USD",
