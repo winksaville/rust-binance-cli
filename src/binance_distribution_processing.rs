@@ -252,12 +252,10 @@ pub async fn process_dist_files(
     config: &Configuration,
     subcmd: &SubCommand<'static>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if config.verbose {
-        println!(
-            "process_dist_files:+\n config={:?} \nsubcmd={:?}",
-            config, subcmd
-        );
-    }
+    //println!(
+    //    "process_dist_files:+\n config={:?} \nsubcmd={:?}",
+    //    config, subcmd
+    //);
     let mut data = ProcessedData::new();
 
     let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
