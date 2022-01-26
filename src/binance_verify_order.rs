@@ -221,9 +221,8 @@ pub fn adj_quantity_verify_lot_size(symbol: &Symbol, quantity: Decimal) -> Decim
 mod test {
     use super::*;
 
-    use test_env_log::test;
-
     /// More testing needed on the bounds of min_qty, max_qty and step_size
+
     #[test]
     fn test_adj_quantity_verify_lot_size() {
         let symbol: Symbol = serde_json::from_str(SYMBOL_DATA).unwrap();

@@ -348,7 +348,6 @@ pub async fn binance_new_order_or_test(
 #[cfg(test)]
 mod test {
     use std::io::{Read, Seek, SeekFrom};
-    use test_env_log::test;
 
     use super::*;
 
@@ -377,7 +376,7 @@ mod test {
         ]
     }"#;
 
-    #[test(tokio::test)]
+    #[tokio::test]
     async fn test_convert() {
         let mut config = Configuration::default();
         config.keys.api_key = Some("a_key".to_string());
