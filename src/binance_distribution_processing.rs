@@ -148,7 +148,7 @@ impl ProcessedData {
     }
 }
 
-async fn process_hm_entry(
+async fn process_entry(
     config: &Configuration,
     data: &mut ProcessedData,
     dr: &mut DistRec,
@@ -283,7 +283,7 @@ pub async fn process_dist_files(
 
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr = result?;
-        process_hm_entry(config, &mut data, &mut dr, line_index).await?;
+        process_entry(config, &mut data, &mut dr, line_index).await?;
         if let Some(w) = &mut wdr {
             w.serialize(&dr)?;
         }
