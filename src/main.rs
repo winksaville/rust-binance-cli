@@ -57,7 +57,7 @@ use crate::{
     binance_withdraw_cmd::{withdraw_cmd, WithdrawParams},
     common::{
         dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
-        InternalErrorRec,
+        InternalErrorRec, APP_VERSION,
     },
 };
 
@@ -80,7 +80,27 @@ fn get_configuration_and_sub_command(
     Ok((config, subcmd))
 }
 
-use common::APP_VERSION;
+fn get_sym_qty_or_val(
+    subcmd: &SubCommand,
+    quantity_or_value: &str,
+) -> Result<(String, Decimal), Box<dyn std::error::Error>> {
+    let sym_name = subcmd
+        .matches
+        .value_of("SYMBOL")
+        .unwrap_or_else(|| panic!("SYMBOL is missing"));
+    let q = subcmd
+        .matches
+        .value_of(quantity_or_value)
+        .unwrap_or_else(|| panic!("{} is missing", quantity_or_value));
+    let quantity = match Decimal::from_str(q) {
+        Ok(qty) => qty,
+        Err(e) => {
+            return Err(format!("converting {} to Decimal: e={}", quantity_or_value, e).into())
+        }
+    };
+
+    Ok((sym_name.to_string(), quantity))
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -108,29 +128,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (config, subcmd) = get_configuration_and_sub_command()?;
     // println!("subcmd: {:#?}", subcmd);
-
-    fn get_sym_qty_or_val(
-        subcmd: &SubCommand,
-        quantity_or_value: &str,
-    ) -> Result<(String, Decimal), Box<dyn std::error::Error>> {
-        let sym_name = subcmd
-            .matches
-            .value_of("SYMBOL")
-            .unwrap_or_else(|| panic!("SYMBOL is missing"));
-        let q = subcmd
-            .matches
-            .value_of(quantity_or_value)
-            .unwrap_or_else(|| panic!("{} is missing", quantity_or_value));
-        let quantity = match Decimal::from_str(q) {
-            Ok(qty) => qty,
-            Err(e) => {
-                return Err(format!("converting {} to Decimal: e={}", quantity_or_value, e).into())
-            }
-        };
-
-        Ok((sym_name.to_string(), quantity))
-    }
-
     match subcmd.name.as_str() {
         "do-nothing" => {}
         "version" => {
