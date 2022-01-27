@@ -32,25 +32,49 @@ fn test_help() -> Result<(), Box<dyn Error>> {
 
 #[test]
 #[cfg(not(tarpaulin_include))]
-fn test_req_params() -> Result<(), Box<dyn Error>> {
+fn test_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
-    cmd.arg("do-nothing");
-    cmd.arg("--secret-key=secret_key");
+    cmd.arg("check-params");
+    cmd.arg("--secret-key=secret-key");
     cmd.arg("--api-key").arg("api key");
+
+    //let p = cmd.output();
+    //println!("{p:#?}");
 
     cmd.assert().code(predicate::eq(0));
 
     Ok(())
 }
+
 #[test]
 #[cfg(not(tarpaulin_include))]
-fn test_req_params_as_env_vars() -> Result<(), Box<dyn Error>> {
+fn test_params_as_env_vars() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
-    cmd.arg("do-nothing");
-    cmd.env("SECRET_KEY", "secret key");
-    cmd.env("API_KEY", "api key");
+    cmd.arg("check-params");
+    cmd.env("BINANCE_SECRET_KEY", "secret-key");
+    cmd.env("BINANCE_API_KEY", "api key");
+
+    //let p = cmd.output();
+    //println!("{p:#?}");
 
     cmd.assert().code(predicate::eq(0));
+
+    Ok(())
+}
+
+#[test]
+#[cfg(not(tarpaulin_include))]
+fn test_params_failure() -> Result<(), Box<dyn Error>> {
+    let mut cmd = Command::cargo_bin(APP_NAME)?;
+    cmd.arg("check-params");
+    //cmd.arg("--secret-key=secret-key");
+    cmd.arg("--api-key").arg("api key");
+
+    //let p = cmd.output();
+    //println!("{p:#?}");
+
+    // Should fail because --secret-key is missing
+    cmd.assert().code(predicate::eq(1));
 
     Ok(())
 }

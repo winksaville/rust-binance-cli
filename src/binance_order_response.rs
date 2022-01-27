@@ -1,6 +1,6 @@
 use std::{error::Error, fmt, fs::File, io::BufRead, io::BufReader, path::PathBuf};
 
-use clap::SubCommand;
+use clap::ArgMatches;
 use log::trace;
 use serde::{Deserialize, Serialize};
 
@@ -451,9 +451,9 @@ pub async fn display_order_log(config: &Configuration) -> Result<(), Box<dyn std
 
 pub async fn process_order_log(
     config: &Configuration,
-    _subcmd: &SubCommand<'static>,
+    _sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    //println!("process_order_log: config={:?} subcmd={:?}", config, _subcmd);
+    //println!("process_order_log: config={config:?} sc_matches={_sc_matches:?}");
 
     pub fn process_order_log_line(
         line: &str,

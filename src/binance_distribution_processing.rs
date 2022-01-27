@@ -30,7 +30,7 @@
 //!
 use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter};
 
-use clap::SubCommand;
+use clap::ArgMatches;
 
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
@@ -250,16 +250,13 @@ async fn process_entry(
 
 pub async fn process_dist_files(
     config: &Configuration,
-    subcmd: &SubCommand<'static>,
+    sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    //println!(
-    //    "process_dist_files:+\n config={:?} \nsubcmd={:?}",
-    //    config, subcmd
-    //);
+    //println!("process_dist_files:+ config: {config:?} sc_matches: {sc_matches:?}");
     let mut data = ProcessedData::new();
 
-    let in_dist_file_path = subcmd.matches.value_of("IN_FILE").expect("FILE is missing");
-    let out_dist_file_path = subcmd.matches.value_of("OUT_FILE");
+    let in_dist_file_path = sc_matches.value_of("IN_FILE").expect("FILE is missing");
+    let out_dist_file_path = sc_matches.value_of("OUT_FILE");
 
     //iterate_dist_file( config, &mut data, in_dist_file_path, out_dist_file_path, process_hm_entry).await?;
     let in_file = File::open(in_dist_file_path)?;

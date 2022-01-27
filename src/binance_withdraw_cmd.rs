@@ -3,7 +3,7 @@ use std::{
     io::Write,
 };
 
-use clap::SubCommand;
+use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
 
 use log::trace;
@@ -177,37 +177,34 @@ impl Default for WithdrawParams {
 
 impl WithdrawParams {
     pub fn from_subcommand(
-        subcmd: &SubCommand,
+        sc_matches: &ArgMatches,
     ) -> Result<WithdrawParams, Box<dyn std::error::Error>> {
-        let sym_name = if let Some(s) = subcmd.matches.value_of("SYMBOL") {
+        let sym_name = if let Some(s) = sc_matches.value_of("SYMBOL") {
             s.to_string()
         } else {
             return Err("SYMBOL is missing".into());
         };
-        let amt_val = if let Some(a) = subcmd.matches.value_of("AMOUNT") {
+        let amt_val = if let Some(a) = sc_matches.value_of("AMOUNT") {
             a
         } else {
             return Err("AMOUNT is missing".into());
         };
         let amount = Amount::new(amt_val)?;
 
-        let address = if let Some(a) = subcmd.matches.value_of("ADDRESS") {
+        let address = if let Some(a) = sc_matches.value_of("ADDRESS") {
             a.to_string()
         } else {
             return Err("ADDRESS is missing".into());
         };
 
-        let keep_min = subcmd.matches.value_of("keep-min").map(|s| s.to_string());
+        let keep_min = sc_matches.value_of("keep-min").map(|s| s.to_string());
         let keep_min_amount = match keep_min {
             Some(v) => Some(Amount::new(&v)?),
             None => None,
         };
 
-        let secondary_address = subcmd
-            .matches
-            .value_of("dest-sec-addr")
-            .map(|s| s.to_string());
-        let label = subcmd.matches.value_of("dest-label").map(|s| s.to_string());
+        let secondary_address = sc_matches.value_of("dest-sec-addr").map(|s| s.to_string());
+        let label = sc_matches.value_of("dest-label").map(|s| s.to_string());
 
         Ok(WithdrawParams {
             sym_name,
