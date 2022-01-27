@@ -255,14 +255,21 @@ pub async fn process_dist_files(
     //println!("process_dist_files:+ config: {config:?} sc_matches: {sc_matches:?}");
     let mut data = ProcessedData::new();
 
-    let in_dist_file_path = sc_matches.value_of("IN_FILE").expect("FILE is missing");
+    let in_dist_file_path = sc_matches.value_of("IN_FILE").expect("IN_FILE is missing");
     let out_dist_file_path = sc_matches.value_of("OUT_FILE");
 
-    //iterate_dist_file( config, &mut data, in_dist_file_path, out_dist_file_path, process_hm_entry).await?;
-    let in_file = File::open(in_dist_file_path)?;
+    let in_file = if let Ok(in_f) = File::open(in_dist_file_path) {
+        in_f
+    } else {
+        return Err(format!("Unable to open {in_dist_file_path}").into());
+    };
     let reader = BufReader::new(in_file);
-    let writer = if let Some(of) = out_dist_file_path {
-        let out_file = File::create(of)?;
+    let writer = if let Some(out_f_path) = out_dist_file_path {
+        let out_file = if let Ok(out_f) = File::create(out_f_path) {
+            out_f
+        } else {
+            return Err(format!("Unable to create {out_f_path}").into());
+        };
         Some(BufWriter::new(out_file))
     } else {
         None

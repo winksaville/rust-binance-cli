@@ -404,10 +404,15 @@ pub async fn iterate_order_log(
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("terate_order_log: order_log_path={:?}", order_log_path);
 
-    match order_log_path {
+    match &order_log_path {
         Some(path) => {
-            let file = File::open(path)?;
-            let reader = BufReader::new(file);
+            let in_file = if let Ok(in_f) = File::open(path) {
+                in_f
+            } else {
+                let path_string = path.to_string_lossy();
+                return Err(format!("Unable to open {path_string:?}").into());
+            };
+            let reader = BufReader::new(in_file);
             for (i, result) in reader.lines().enumerate() {
                 let line = match result {
                     Ok(r) => r,
