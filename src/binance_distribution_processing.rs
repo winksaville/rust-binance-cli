@@ -115,37 +115,122 @@ pub type AssetRecMap = BTreeMap<String, AssetRec>;
 
 #[derive(Debug)]
 pub struct ProcessedData {
-    pub arm: AssetRecMap,
     pub total_rpa_usd: Decimal,
-    pub empty_rpa_count: u64,
-    pub empty_rpa_usd_count: u64,
-    pub empty_rpa_usd_value: Decimal,
     pub total_count: u64,
     pub distribution_category_count: u64,
-    pub quick_buy_category_count: u64,
-    pub quick_sell_category_count: u64,
+    pub distribution_category_arm: AssetRecMap,
+    pub distribution_operation_referral_commission_count: u64,
+    pub distribution_operation_staking_reward_count: u64,
+    pub distribution_operation_others_count: u64,
+    pub distribution_operation_unknown_count: u64,
+    pub quick_category_count: u64,
+    pub quick_buy_operation_buy_count: u64,
+    pub quick_buy_base_asset_in_usd_value: Decimal,
+    pub quick_sell_operation_sell_count: u64,
+    pub quick_sell_base_asset_in_usd_value: Decimal,
+    pub quick_operation_unknown_count: u64,
     pub spot_trading_category_count: u64,
+    pub spot_trading_operation_unknown_count: u64,
+    pub spot_trading_operation_buy_count: u64,
+    pub spot_trading_base_asset_buy_in_usd_value: Decimal,
+    pub spot_trading_operation_sell_count: u64,
+    pub spot_trading_base_asset_sell_in_usd_value: Decimal,
     pub withdrawal_category_count: u64,
+    pub withdrawal_operation_crypto_withdrawal_count: u64,
+    pub withdrawal_operation_unknown_count: u64,
+    pub withdrawal_realized_amount_for_primary_asset_in_usd_value: Decimal,
     pub unprocessed_category_count: u64,
 }
 
 impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
-            arm: AssetRecMap::new(),
             total_rpa_usd: dec!(0),
-            empty_rpa_count: 0u64,
-            empty_rpa_usd_count: 0u64,
-            empty_rpa_usd_value: dec!(0),
             total_count: 0u64,
             distribution_category_count: 0u64,
-            quick_buy_category_count: 0u64,
-            quick_sell_category_count: 0u64,
+            distribution_category_arm: AssetRecMap::new(),
+            distribution_operation_referral_commission_count: 0u64,
+            distribution_operation_staking_reward_count: 0u64,
+            distribution_operation_others_count: 0u64,
+            distribution_operation_unknown_count: 0u64,
+            quick_category_count: 0u64,
+            quick_buy_operation_buy_count: 0u64,
+            quick_buy_base_asset_in_usd_value: dec!(0),
+            quick_sell_operation_sell_count: 0u64,
+            quick_sell_base_asset_in_usd_value: dec!(0),
+            quick_operation_unknown_count: 0u64,
             spot_trading_category_count: 0u64,
+            spot_trading_operation_unknown_count: 0u64,
+            spot_trading_operation_buy_count: 0u64,
+            spot_trading_base_asset_buy_in_usd_value: dec!(0),
+            spot_trading_operation_sell_count: 0u64,
+            spot_trading_base_asset_sell_in_usd_value: dec!(0),
             withdrawal_category_count: 0u64,
+            withdrawal_operation_crypto_withdrawal_count: 0u64,
+            withdrawal_operation_unknown_count: 0u64,
+            withdrawal_realized_amount_for_primary_asset_in_usd_value: dec!(0),
             unprocessed_category_count: 0u64,
         }
     }
+}
+
+async fn get_asset_in_usd_value_update_if_none(
+    config: &Configuration,
+    line_index: usize,
+    time: i64,
+    asset: &str,
+    asset_value: Option<Decimal>,
+    usd_value: &mut Option<Decimal>,
+) -> Result<Decimal, Box<dyn std::error::Error>> {
+    let line_index = line_index + 1usize;
+    // Error if there is no asset_value
+    let leading_nl = if config.verbose { "\n" } else { "" };
+    let asset_value = if let Some(value) = asset_value {
+        value
+    } else {
+        return Err(format!(
+            "{leading_nl}No asset_value so unable to convert {asset} at line_index: {line_index} time: {}",
+            time_ms_to_utc(time)
+        )
+        .into());
+    };
+    let usd = match *usd_value {
+        Some(v) => v,
+        None => {
+            let time_utc = time_ms_to_utc(time);
+            let value_assets = ["USD", "USDT", "BUSD"];
+            let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
+                config,
+                time,
+                asset,
+                &value_assets,
+            )
+            .await
+            {
+                Some(r) => r,
+                None => {
+                    return Err(
+                        format!("{leading_nl}Unable to convert {asset} to {value_assets:?} at line_index: {line_index} time: {time_utc}").into()
+                    );
+                }
+            };
+
+            // Calculate the value in usd using the closing price of the kline, other
+            // options could be avg of kr open, close, high and low ...
+            let value = kr.close * asset_value;
+
+            // Update the passed in value
+            *usd_value = Some(value);
+
+            if config.verbose {
+                println!("{leading_nl}Ok: Missing {sym_name} value, updated to {value} for line_index: {line_index} time: {time_utc}");
+            }
+
+            value
+        }
+    };
+
+    Ok(usd)
 }
 
 async fn process_entry(
@@ -155,59 +240,38 @@ async fn process_entry(
     line_index: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     data.total_count += 1;
+    let leading_nl = if config.verbose { "\n" } else { "" };
+    if config.verbose {
+        print!(
+            "Processing {} {}                            \r",
+            line_index + 1,
+            if !dr.primary_asset.is_empty() {
+                &dr.primary_asset
+            } else {
+                &dr.base_asset
+            },
+        );
+    }
     match dr.category.as_ref() {
         "Distribution" => {
+            let rpa_usd = get_asset_in_usd_value_update_if_none(
+                config,
+                line_index,
+                dr.time,
+                &dr.primary_asset,
+                dr.realized_amount_for_primary_asset,
+                &mut dr.realized_amount_for_primary_asset_in_usd_value,
+            )
+            .await?;
+
+            // Since invoking `get_asset_in_usd_value_update_if_none` above
+            // will return an error, we can safely use unwrap().
+            let rpa = dr.realized_amount_for_primary_asset.unwrap();
             data.distribution_category_count += 1;
-            let primary_asset = &dr.primary_asset;
-            let rpa = match dr.realized_amount_for_primary_asset {
-                Some(v) => v,
-                None => {
-                    data.empty_rpa_count += 1;
-                    dec!(0)
-                }
-            };
-            let rpa_usd = match dr.realized_amount_for_primary_asset_in_usd_value {
-                Some(v) => v,
-                None => {
-                    let leading_nl = if config.verbose { "\n" } else { "" };
-                    let time = dr.time;
-                    let time_utc = time_ms_to_utc(time);
-                    let value_assets = ["USD", "USDT", "BUSD"];
-                    data.empty_rpa_usd_count += 1;
-                    let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
-                        config,
-                        time,
-                        primary_asset,
-                        &value_assets,
-                    )
-                    .await
-                    {
-                        Some(r) => r,
-                        None => {
-                            return Err(
-                                format!("{leading_nl}Unable to convert {primary_asset} to {value_assets:?} at line_index: {line_index} time: {time_utc} dr: {dr:?}").into()
-                            );
-                        }
-                    };
-
-                    // Calculate rpa_usd using the closing price of the kline, other
-                    // options could be avg of kr open, close, high and low ...
-                    let usd_value = kr.close * rpa;
-
-                    // Update Distribution and Data record
-                    dr.realized_amount_for_primary_asset_in_usd_value = Some(usd_value.to_owned());
-                    data.empty_rpa_usd_value += usd_value;
-
-                    if config.verbose {
-                        println!("{leading_nl}Ok: {primary_asset} to {sym_name} is {usd_value} for line_index: {line_index} time: {time_utc} empty_rpa_usd_value: {}", data.empty_rpa_usd_value);
-                    }
-
-                    usd_value
-                }
-            };
+            dr.realized_amount_for_primary_asset_in_usd_value = Some(rpa_usd);
 
             let entry = data
-                .arm
+                .distribution_category_arm
                 .entry(dr.primary_asset.clone())
                 .or_insert_with(|| AssetRec::new(&dr.primary_asset, rpa, rpa_usd, 0));
             entry.transaction_count += 1;
@@ -217,28 +281,114 @@ async fn process_entry(
                 entry.value_usd += rpa_usd;
             }
             data.total_rpa_usd += rpa_usd;
-            if config.verbose {
-                print!(
-                    "{} {} {} {} {}                                               \r",
-                    line_index + 1,
-                    entry.asset,
-                    rpa_usd,
-                    entry.value_usd,
-                    data.total_rpa_usd
-                );
+            match dr.operation.as_ref() {
+                "Referral Commission" => {
+                    data.distribution_operation_referral_commission_count += 1;
+                }
+                "Staking Rewards" => data.distribution_operation_staking_reward_count += 1,
+                "Others" => data.distribution_operation_others_count += 1,
+                _ => {
+                    data.distribution_operation_unknown_count += 1;
+                    println!(
+                        "{leading_nl}{} {} Distribution unknown operation: {}",
+                        line_index + 1,
+                        dr.primary_asset,
+                        dr.operation
+                    );
+                }
             }
         }
-        "Quick Buy" => {
-            data.quick_buy_category_count += 1;
-        }
-        "Quick Sell" => {
-            data.quick_sell_category_count += 1;
+        "Quick Buy" | "Quick Sell" => {
+            data.quick_category_count += 1;
+            match dr.operation.as_ref() {
+                "Buy" | "Sell" => {
+                    let base_asset_usd_value = get_asset_in_usd_value_update_if_none(
+                        config,
+                        line_index,
+                        dr.time,
+                        &dr.base_asset,
+                        dr.realized_amount_for_base_asset,
+                        &mut dr.realized_amount_for_base_asset_in_usd_value,
+                    )
+                    .await?;
+                    if dr.operation == "Buy" {
+                        data.quick_buy_operation_buy_count += 1;
+                        data.quick_buy_base_asset_in_usd_value += base_asset_usd_value;
+                    } else {
+                        data.quick_sell_operation_sell_count += 1;
+                        data.quick_sell_base_asset_in_usd_value += base_asset_usd_value;
+                    }
+                }
+                _ => {
+                    data.quick_operation_unknown_count += 1;
+                    println!(
+                        "{leading_nl}{} {} Quick Sell unknown operation: {}",
+                        line_index + 1,
+                        dr.base_asset,
+                        dr.operation
+                    );
+                }
+            }
         }
         "Spot Trading" => {
             data.spot_trading_category_count += 1;
+            match dr.operation.as_ref() {
+                "Buy" | "Sell" => {
+                    let base_asset_usd_value = get_asset_in_usd_value_update_if_none(
+                        config,
+                        line_index,
+                        dr.time,
+                        &dr.base_asset,
+                        dr.realized_amount_for_base_asset,
+                        &mut dr.realized_amount_for_base_asset_in_usd_value,
+                    )
+                    .await?;
+                    if dr.operation == "Buy" {
+                        data.spot_trading_operation_buy_count += 1;
+                        data.spot_trading_base_asset_buy_in_usd_value += base_asset_usd_value;
+                    } else {
+                        data.spot_trading_operation_sell_count += 1;
+                        data.spot_trading_base_asset_sell_in_usd_value += base_asset_usd_value;
+                    }
+                }
+                _ => {
+                    data.spot_trading_operation_unknown_count += 1;
+                    println!(
+                        "{leading_nl}{} {} Spot trading unknown operation: {}",
+                        line_index + 1,
+                        dr.base_asset,
+                        dr.operation
+                    );
+                }
+            }
         }
         "Withdrawal" => {
             data.withdrawal_category_count += 1;
+            match dr.operation.as_ref() {
+                "Crypto Withdrawal" => {
+                    let primary_asset_usd_value = get_asset_in_usd_value_update_if_none(
+                        config,
+                        line_index,
+                        dr.time,
+                        &dr.primary_asset,
+                        dr.realized_amount_for_primary_asset,
+                        &mut dr.realized_amount_for_primary_asset_in_usd_value,
+                    )
+                    .await?;
+                    data.withdrawal_operation_crypto_withdrawal_count += 1;
+                    data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
+                        primary_asset_usd_value;
+                }
+                _ => {
+                    data.withdrawal_operation_unknown_count += 1;
+                    println!(
+                        "{leading_nl}{} {} Withdrawal unknown operation: {}",
+                        line_index + 1,
+                        dr.primary_asset,
+                        dr.operation
+                    );
+                }
+            }
         }
         _ => {
             data.unprocessed_category_count += 1;
@@ -295,11 +445,9 @@ pub async fn process_dist_files(
         println!("\n");
     }
 
-    let mut total_hm_value_usd = dec!(0);
-    let mut total_hm_transaction_count = 0u64;
-    for (_, ar) in data.arm {
-        total_hm_value_usd += ar.value_usd;
-        total_hm_transaction_count += ar.transaction_count; // as usize;
+    let mut total_distribution_value_usd = dec!(0);
+    for (_, ar) in data.distribution_category_arm {
+        total_distribution_value_usd += ar.value_usd;
         println!(
             "{:10} {:20.6} {:>10} {:>14}",
             ar.asset,
@@ -310,73 +458,149 @@ pub async fn process_dist_files(
     }
     println!("\n");
     println!(
-        "{:>27}: {}",
-        "Distribution Transactions",
-        dec_to_separated_string(Decimal::from(total_hm_transaction_count), 0),
-    );
-    if data.empty_rpa_usd_count > 0 || data.empty_rpa_usd_value > dec!(0) {
-        println!(
-            "{:>27}: {} with a total updated value of {}",
-            "Records with no USD value",
-            dec_to_separated_string(Decimal::from(data.empty_rpa_usd_count), 0),
-            dec_to_money_string(data.empty_rpa_usd_value),
-        );
-    }
-    println!(
-        "{:>27}: {} ",
-        "Total USD",
-        dec_to_money_string(total_hm_value_usd)
+        "{:>33}: {}",
+        "Distribution referral commissions",
+        dec_to_separated_string(
+            Decimal::from(data.distribution_operation_referral_commission_count),
+            0
+        ),
     );
     println!(
-        "{:>27}: {} ",
-        "Distribution count",
-        dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
+        "{:>33}: {}",
+        "Distribution staking rewards",
+        dec_to_separated_string(
+            Decimal::from(data.distribution_operation_staking_reward_count),
+            0
+        ),
     );
     println!(
-        "{:>27}: {} ",
+        "{:>33}: {}",
+        "Distribution others",
+        dec_to_separated_string(Decimal::from(data.distribution_operation_others_count), 0),
+    );
+    //println!(
+    //    "{:>33}: {} ",
+    //    "Distribution count",
+    //    dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
+    //);
+    println!(
+        "{:>33}: {} ",
+        "Total distribution USD",
+        dec_to_money_string(total_distribution_value_usd)
+    );
+    println!(
+        "{:>33}: {} ",
         "Quick Buy count",
-        dec_to_separated_string(Decimal::from(data.quick_buy_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0)
     );
     println!(
-        "{:>27}: {} ",
+        "{:>33}: {} ",
+        "Quick Buy USD value",
+        dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
+    );
+    println!(
+        "{:>33}: {} ",
         "Quick Sell count",
-        dec_to_separated_string(Decimal::from(data.quick_sell_category_count), 0)
+        dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0)
     );
     println!(
-        "{:>27}: {} ",
-        "Spot Trading count",
-        dec_to_separated_string(Decimal::from(data.spot_trading_category_count), 0)
+        "{:>33}: {} ",
+        "Quick Sell USD value",
+        dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
+    );
+    //println!(
+    //    "{:>33}: {} ",
+    //    "Quick count",
+    //    dec_to_separated_string(Decimal::from(data.quick_category_count), 0)
+    //);
+    println!(
+        "{:>33}: {} ",
+        "Spot Trading buy count",
+        dec_to_separated_string(Decimal::from(data.spot_trading_operation_buy_count), 0)
     );
     println!(
-        "{:>27}: {} ",
-        "Withdrawal count",
-        dec_to_separated_string(Decimal::from(data.withdrawal_category_count), 0)
+        "{:>33}: {} ",
+        "Spot Trading buy USD value",
+        dec_to_money_string(data.spot_trading_base_asset_buy_in_usd_value),
     );
     println!(
-        "{:>27}: {} ",
-        "Unprocessed count",
-        dec_to_separated_string(Decimal::from(data.unprocessed_category_count), 0)
+        "{:>33}: {} ",
+        "Spot Trading sell count",
+        dec_to_separated_string(Decimal::from(data.spot_trading_operation_sell_count), 0)
     );
     println!(
-        "{:>27}: {} ",
+        "{:>33}: {} ",
+        "Spot Trading sell USD value",
+        dec_to_money_string(data.spot_trading_base_asset_sell_in_usd_value),
+    );
+    //println!(
+    //    "{:>33}: {} ",
+    //    "Spot Trading count",
+    //    dec_to_separated_string(Decimal::from(data.spot_trading_category_count), 0)
+    //);
+    println!(
+        "{:>33}: {} ",
+        "Withdrawal crypto count",
+        dec_to_separated_string(
+            Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
+            0
+        )
+    );
+    println!(
+        "{:>33}: {} ",
+        "Withdrawal crypto USD value",
+        &dec_to_money_string(data.withdrawal_realized_amount_for_primary_asset_in_usd_value)
+    );
+    println!(
+        "{:>33}: {} ",
         "Total count",
         dec_to_separated_string(Decimal::from(data.total_count), 0)
     );
 
     // Assertions!
     assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
-    assert_eq!(data.total_rpa_usd, total_hm_value_usd);
-    assert_eq!(data.empty_rpa_count, 0);
-    assert_eq!(total_hm_transaction_count, data.distribution_category_count);
+    assert_eq!(data.total_rpa_usd, total_distribution_value_usd);
+
+    assert_eq!(
+        data.distribution_category_count,
+        data.distribution_operation_referral_commission_count
+            + data.distribution_operation_staking_reward_count
+            + data.distribution_operation_others_count
+            + data.distribution_operation_unknown_count
+    );
+    assert_eq!(data.distribution_operation_unknown_count, 0);
+
+    assert_eq!(
+        data.quick_category_count,
+        data.quick_sell_operation_sell_count
+            + data.quick_buy_operation_buy_count
+            + data.quick_operation_unknown_count
+    );
+    assert_eq!(data.quick_operation_unknown_count, 0);
+
+    assert_eq!(
+        data.spot_trading_category_count,
+        data.spot_trading_operation_buy_count
+            + data.spot_trading_operation_sell_count
+            + data.spot_trading_operation_unknown_count
+    );
+    assert_eq!(data.spot_trading_operation_unknown_count, 0);
+
+    assert_eq!(
+        data.withdrawal_category_count,
+        data.withdrawal_operation_crypto_withdrawal_count + data.withdrawal_operation_unknown_count
+    );
+    assert_eq!(data.withdrawal_operation_unknown_count, 0);
+
     assert_eq!(
         data.total_count,
         data.distribution_category_count
-            + data.quick_buy_category_count
-            + data.quick_sell_category_count
+            + data.quick_category_count
             + data.spot_trading_category_count
             + data.withdrawal_category_count
             + data.unprocessed_category_count
     );
+    assert_eq!(data.unprocessed_category_count, 0);
 
     //println!("process_dist_files:-");
     Ok(())
