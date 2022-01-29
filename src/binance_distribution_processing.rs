@@ -100,6 +100,7 @@ pub struct AssetRec {
     pub transaction_count: u64,
 }
 
+#[allow(unused)]
 impl AssetRec {
     fn new(asset: &str, quantity: Decimal, value_usd: Decimal, transaction_count: u64) -> AssetRec {
         AssetRec {
@@ -222,9 +223,7 @@ async fn get_asset_in_usd_value_update_if_none(
             // Update the passed in value
             *usd_value = Some(value);
 
-            if config.verbose {
-                println!("{leading_nl}Ok: Missing {sym_name} value, updated to {value} for line_index: {line_index} time: {time_utc}");
-            }
+            println!("{leading_nl}Updating {sym_name} value, updated to {value} for line_index: {line_index} time: {time_utc}");
 
             value
         }
@@ -233,42 +232,78 @@ async fn get_asset_in_usd_value_update_if_none(
     Ok(usd)
 }
 
-async fn process_entry(
+async fn update_all_usd_values(
     config: &Configuration,
-    data: &mut ProcessedData,
     dr: &mut DistRec,
     line_index: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    data.total_count += 1;
-    let leading_nl = if config.verbose { "\n" } else { "" };
-    if config.verbose {
-        print!(
-            "Processing {} {}                            \r",
-            line_index + 1,
-            if !dr.primary_asset.is_empty() {
-                &dr.primary_asset
-            } else {
-                &dr.base_asset
-            },
-        );
+    if !dr.primary_asset.is_empty() {
+        let _usd_value = get_asset_in_usd_value_update_if_none(
+            config,
+            line_index,
+            dr.time,
+            &dr.primary_asset,
+            dr.realized_amount_for_primary_asset,
+            &mut dr.realized_amount_for_primary_asset_in_usd_value,
+        )
+        .await?;
     }
+
+    if !dr.base_asset.is_empty() {
+        let _usd_value = get_asset_in_usd_value_update_if_none(
+            config,
+            line_index,
+            dr.time,
+            &dr.base_asset,
+            dr.realized_amount_for_base_asset,
+            &mut dr.realized_amount_for_base_asset_in_usd_value,
+        )
+        .await?;
+    }
+
+    if !dr.quote_asset.is_empty() {
+        let _usd_value = get_asset_in_usd_value_update_if_none(
+            config,
+            line_index,
+            dr.time,
+            &dr.quote_asset,
+            dr.realized_amount_for_quote_asset,
+            &mut dr.realized_amount_for_quote_asset_in_usd_value,
+        )
+        .await?;
+    }
+
+    if !dr.fee_asset.is_empty() {
+        let _usd_value = get_asset_in_usd_value_update_if_none(
+            config,
+            line_index,
+            dr.time,
+            &dr.fee_asset,
+            dr.realized_amount_for_fee_asset,
+            &mut dr.realized_amount_for_fee_asset_in_usd_value,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+fn process_entry(
+    config: &Configuration,
+    data: &mut ProcessedData,
+    dr: &DistRec,
+    line_index: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    data.total_count += 1;
+
+    let leading_nl = if config.verbose { "\n" } else { "" };
     match dr.category.as_ref() {
         "Distribution" => {
-            let rpa_usd = get_asset_in_usd_value_update_if_none(
-                config,
-                line_index,
-                dr.time,
-                &dr.primary_asset,
-                dr.realized_amount_for_primary_asset,
-                &mut dr.realized_amount_for_primary_asset_in_usd_value,
-            )
-            .await?;
-
             // Since invoking `get_asset_in_usd_value_update_if_none` above
             // will return an error, we can safely use unwrap().
             let rpa = dr.realized_amount_for_primary_asset.unwrap();
+            let rpa_usd = dr.realized_amount_for_primary_asset_in_usd_value.unwrap();
             data.distribution_category_count += 1;
-            dr.realized_amount_for_primary_asset_in_usd_value = Some(rpa_usd);
 
             let entry = data
                 .distribution_category_arm
@@ -302,15 +337,8 @@ async fn process_entry(
             data.quick_category_count += 1;
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
-                    let base_asset_usd_value = get_asset_in_usd_value_update_if_none(
-                        config,
-                        line_index,
-                        dr.time,
-                        &dr.base_asset,
-                        dr.realized_amount_for_base_asset,
-                        &mut dr.realized_amount_for_base_asset_in_usd_value,
-                    )
-                    .await?;
+                    let base_asset_usd_value =
+                        dr.realized_amount_for_base_asset_in_usd_value.unwrap();
                     if dr.operation == "Buy" {
                         data.quick_buy_operation_buy_count += 1;
                         data.quick_buy_base_asset_in_usd_value += base_asset_usd_value;
@@ -322,7 +350,7 @@ async fn process_entry(
                 _ => {
                     data.quick_operation_unknown_count += 1;
                     println!(
-                        "{leading_nl}{} {} Quick Sell unknown operation: {}",
+                        "{leading_nl}{} {} Quick unknown operation: {}",
                         line_index + 1,
                         dr.base_asset,
                         dr.operation
@@ -334,15 +362,8 @@ async fn process_entry(
             data.spot_trading_category_count += 1;
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
-                    let base_asset_usd_value = get_asset_in_usd_value_update_if_none(
-                        config,
-                        line_index,
-                        dr.time,
-                        &dr.base_asset,
-                        dr.realized_amount_for_base_asset,
-                        &mut dr.realized_amount_for_base_asset_in_usd_value,
-                    )
-                    .await?;
+                    let base_asset_usd_value =
+                        dr.realized_amount_for_base_asset_in_usd_value.unwrap();
                     if dr.operation == "Buy" {
                         data.spot_trading_operation_buy_count += 1;
                         data.spot_trading_base_asset_buy_in_usd_value += base_asset_usd_value;
@@ -366,15 +387,8 @@ async fn process_entry(
             data.withdrawal_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Withdrawal" => {
-                    let primary_asset_usd_value = get_asset_in_usd_value_update_if_none(
-                        config,
-                        line_index,
-                        dr.time,
-                        &dr.primary_asset,
-                        dr.realized_amount_for_primary_asset,
-                        &mut dr.realized_amount_for_primary_asset_in_usd_value,
-                    )
-                    .await?;
+                    let primary_asset_usd_value =
+                        dr.realized_amount_for_primary_asset_in_usd_value.unwrap();
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
                         primary_asset_usd_value;
@@ -425,7 +439,7 @@ pub async fn process_dist_files(
         None
     };
 
-    //iterate_dist_processor(config, data, reader, writer, process_line).await?;
+    // Create reader and writer
     let mut rdr = csv::Reader::from_reader(reader);
 
     // Clippy suggested changing this:
@@ -434,8 +448,23 @@ pub async fn process_dist_files(
     let mut wdr = writer.map(csv::Writer::from_writer);
 
     for (line_index, result) in rdr.deserialize().enumerate() {
-        let mut dr = result?;
-        process_entry(config, &mut data, &mut dr, line_index).await?;
+        let mut dr: DistRec = result?;
+
+        if config.verbose {
+            let asset = if !dr.primary_asset.is_empty() {
+                &dr.primary_asset
+            } else {
+                &dr.base_asset
+            };
+            print!(
+                "Processing {} {asset}                        \r",
+                line_index + 1,
+            );
+        }
+
+        update_all_usd_values(config, &mut dr, line_index).await?;
+        process_entry(config, &mut data, &dr, line_index)?;
+
         if let Some(w) = &mut wdr {
             w.serialize(&dr)?;
         }
