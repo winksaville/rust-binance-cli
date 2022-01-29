@@ -369,7 +369,7 @@ pub async fn get_fiat_currency_deposit_history(
     start_date_time: Option<DateTime<Utc>>,
     end_date_time: Option<DateTime<Utc>>,
 ) -> Result<Vec<AssetLogRec>, Box<dyn std::error::Error>> {
-    Ok(get_fiat_currency_history(
+    get_fiat_currency_history(
         config,
         "/sapi/v1/fiatpayment/query/deposit/history",
         fiat_currency,
@@ -380,7 +380,7 @@ pub async fn get_fiat_currency_deposit_history(
         start_date_time,
         end_date_time,
     )
-    .await?)
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -394,7 +394,7 @@ pub async fn get_fiat_currency_withdraw_history(
     start_date_time: Option<DateTime<Utc>>,
     end_date_time: Option<DateTime<Utc>>,
 ) -> Result<Vec<AssetLogRec>, Box<dyn std::error::Error>> {
-    Ok(get_fiat_currency_history(
+    get_fiat_currency_history(
         config,
         "/sapi/v1/fiatpayment/query/withdraw/history",
         fiat_currency,
@@ -405,7 +405,7 @@ pub async fn get_fiat_currency_withdraw_history(
         start_date_time,
         end_date_time,
     )
-    .await?)
+    .await
 }
 
 #[cfg(test)]
