@@ -37,7 +37,7 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
-    binance_distribution_processing::process_dist_files,
+    binance_distribution_processing::{process_dist_files, ProcessType},
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
     binance_history::{
@@ -387,7 +387,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "ol" => display_order_log(&config).await?,
             "pol" => process_order_log(&config, sc_matches).await?,
-            "pdf" => process_dist_files(&config, sc_matches).await?,
+            "udf" => process_dist_files(&config, sc_matches, ProcessType::Update).await?,
+            "pdf" => process_dist_files(&config, sc_matches, ProcessType::Process).await?,
             _ => println!("Unknown subcommand: {}", sc_name),
         }
     }

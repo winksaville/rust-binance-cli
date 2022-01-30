@@ -396,9 +396,9 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .about("process order log"),
         )
         .subcommand(
-            App::new("pdf")
+            App::new("udf")
                 .display_order(9)
-                .about("process distribution files")
+                .about("update distribution files")
                 .arg(
                     Arg::new("IN_FILE")
                     .help("File to process")
@@ -408,9 +408,20 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(
                     Arg::new("OUT_FILE")
                     .help("Output File, optional")
-                    .required(false)
+                    .required(true)
                     .index(2),
                 ),
+        )
+        .subcommand(
+            App::new("pdf")
+                .display_order(9)
+                .about("process distribution files")
+                .arg(
+                    Arg::new("IN_FILE")
+                    .help("File to process")
+                    .required(true)
+                    .index(1),
+                )
         )
         .subcommand(
             App::new("version")

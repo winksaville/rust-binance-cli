@@ -230,10 +230,11 @@ pub async fn get_klines(
         );
         let binance_error_response = TradeResponse::FailureResponse(rer);
 
-        //trace!(
-        println!(
+        trace!(
+            //println!(
             "get_klines: error symbol={} resp_failure={:?}",
-            symbol, binance_error_response,
+            symbol,
+            binance_error_response,
         );
 
         Err(binance_error_response.into())
