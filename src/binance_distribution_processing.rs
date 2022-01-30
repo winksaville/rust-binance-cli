@@ -140,6 +140,10 @@ pub struct ProcessedData {
     pub withdrawal_operation_crypto_withdrawal_count: u64,
     pub withdrawal_operation_unknown_count: u64,
     pub withdrawal_realized_amount_for_primary_asset_in_usd_value: Decimal,
+    pub deposit_category_count: u64,
+    pub deposit_operation_crypto_deposit_count: u64,
+    pub deposit_operation_unknown_count: u64,
+    pub deposit_realized_amount_for_primary_asset_in_usd_value: Decimal,
     pub unprocessed_category_count: u64,
 }
 
@@ -170,6 +174,10 @@ impl ProcessedData {
             withdrawal_operation_crypto_withdrawal_count: 0u64,
             withdrawal_operation_unknown_count: 0u64,
             withdrawal_realized_amount_for_primary_asset_in_usd_value: dec!(0),
+            deposit_category_count: 0u64,
+            deposit_operation_crypto_deposit_count: 0u64,
+            deposit_operation_unknown_count: 0u64,
+            deposit_realized_amount_for_primary_asset_in_usd_value: dec!(0),
             unprocessed_category_count: 0u64,
         }
     }
@@ -404,8 +412,34 @@ fn process_entry(
                 }
             }
         }
+        "Deposit" => {
+            data.deposit_category_count += 1;
+            match dr.operation.as_ref() {
+                "Crypto Deposit" => {
+                    let primary_asset_usd_value =
+                        dr.realized_amount_for_primary_asset_in_usd_value.unwrap();
+                    data.deposit_operation_crypto_deposit_count += 1;
+                    data.deposit_realized_amount_for_primary_asset_in_usd_value +=
+                        primary_asset_usd_value;
+                }
+                _ => {
+                    data.deposit_operation_unknown_count += 1;
+                    println!(
+                        "{leading_nl}{} {} Deposit unknown operation: {}",
+                        line_index + 1,
+                        dr.primary_asset,
+                        dr.operation
+                    );
+                }
+            }
+        }
         _ => {
             data.unprocessed_category_count += 1;
+            println!(
+                "{leading_nl}{} Unknown category: {}",
+                line_index + 1,
+                dr.category
+            );
         }
     }
 
@@ -582,6 +616,19 @@ pub async fn process_dist_files(
     );
     println!(
         "{:>33}: {} ",
+        "Deposit crypto count",
+        dec_to_separated_string(
+            Decimal::from(data.deposit_operation_crypto_deposit_count),
+            0
+        )
+    );
+    println!(
+        "{:>33}: {} ",
+        "Deposit crypto USD value",
+        &dec_to_money_string(data.deposit_realized_amount_for_primary_asset_in_usd_value)
+    );
+    println!(
+        "{:>33}: {} ",
         "Total count",
         dec_to_separated_string(Decimal::from(data.total_count), 0)
     );
@@ -622,11 +669,18 @@ pub async fn process_dist_files(
     assert_eq!(data.withdrawal_operation_unknown_count, 0);
 
     assert_eq!(
+        data.deposit_category_count,
+        data.deposit_operation_crypto_deposit_count + data.deposit_operation_unknown_count
+    );
+    assert_eq!(data.deposit_operation_unknown_count, 0);
+
+    assert_eq!(
         data.total_count,
         data.distribution_category_count
             + data.quick_category_count
             + data.spot_trading_category_count
             + data.withdrawal_category_count
+            + data.deposit_category_count
             + data.unprocessed_category_count
     );
     assert_eq!(data.unprocessed_category_count, 0);
