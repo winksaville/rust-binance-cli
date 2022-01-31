@@ -335,6 +335,12 @@ fn process_entry(
 
     entry.transaction_count += 1;
 
+    fn dbg_x(x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &AssetRec) {
+        if asset == x {
+            println!("{line_index} {asset} {asset_value} {} {category} {operation} {ar:?}", dec_to_money_string(asset_value_usd));
+        }
+    }
+
     let leading_nl = if config.verbose { "\n" } else { "" };
     match dr.category.as_ref() {
         "Distribution" => {
@@ -344,6 +350,8 @@ fn process_entry(
 
             entry.quantity += asset_value;
             //entry.value_usd += asset_value_usd;
+
+            dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
 
             data.total_distribution_value_usd += asset_value_usd;
             match dr.operation.as_ref() {
@@ -367,18 +375,18 @@ fn process_entry(
             data.quick_category_count += 1;
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
-                    let base_asset_usd_value =
-                        dr.realized_amount_for_base_asset_in_usd_value.unwrap();
                     if dr.operation == "Buy" {
                         entry.quantity += asset_value;
                         //entry.value_usd += asset_value_usd;
                         data.quick_buy_operation_buy_count += 1;
-                        data.quick_buy_base_asset_in_usd_value += base_asset_usd_value;
+                        data.quick_buy_base_asset_in_usd_value += asset_value_usd;
+                        dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     } else {
                         entry.quantity -= asset_value;
                         //entry.value_usd -= asset_value_usd;
                         data.quick_sell_operation_sell_count += 1;
-                        data.quick_sell_base_asset_in_usd_value += base_asset_usd_value;
+                        data.quick_sell_base_asset_in_usd_value += asset_value_usd;
+                        dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     }
                 }
                 _ => {
@@ -396,18 +404,18 @@ fn process_entry(
             data.spot_trading_category_count += 1;
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
-                    let base_asset_usd_value =
-                        dr.realized_amount_for_base_asset_in_usd_value.unwrap();
                     if dr.operation == "Buy" {
                         entry.quantity += asset_value;
                         //entry.value_usd += asset_value_usd;
                         data.spot_trading_operation_buy_count += 1;
-                        data.spot_trading_base_asset_buy_in_usd_value += base_asset_usd_value;
+                        data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
+                        dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     } else {
                         entry.quantity -= asset_value;
                         //entry.value_usd -= asset_value_usd;
                         data.spot_trading_operation_sell_count += 1;
-                        data.spot_trading_base_asset_sell_in_usd_value += base_asset_usd_value;
+                        data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
+                        dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     }
                 }
                 _ => {
@@ -429,11 +437,10 @@ fn process_entry(
                     entry.quantity -= asset_value;
                     //entry.value_usd -= asset_value_usd;
 
-                    let primary_asset_usd_value =
-                        dr.realized_amount_for_primary_asset_in_usd_value.unwrap();
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
-                        primary_asset_usd_value;
+                        asset_value_usd;
+                    dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                 }
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
@@ -455,6 +462,7 @@ fn process_entry(
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
+                    dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                 }
                 _ => {
                     data.deposit_operation_unknown_count += 1;
