@@ -386,6 +386,29 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .about("Dispaly all orders"),
         )
         .subcommand(
+            App::new("obid")
+                .display_order(9)
+                .about("Order by id")
+                .arg(
+                    Arg::new("SYMBOL")
+                        .help("Symbol such as BTC")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::new("ORDER_ID")
+                        .help("Numeric Order id")
+                        .required(true)
+                        .index(2),
+                )
+                .arg(
+                    Arg::new("LIMIT")
+                        .help("Numeric limit 1..1000")
+                        .required(true)
+                        .index(3),
+                ),
+        )
+        .subcommand(
             App::new("ol")
                 .display_order(9)
                 .about("Display order log"),

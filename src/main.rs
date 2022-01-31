@@ -235,6 +235,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+            "obid" => {
+                let sym_name = sc_matches.value_of("SYMBOL").expect("SYMBOL is missing");
+                let order_id = sc_matches.value_of("ORDER_ID").expect("ORDER_ID is missing").parse::<u64>()?;
+                let limit= sc_matches.value_of("LIMIT").expect("LIMIT is missing").parse::<i64>()?;
+                let o: Orders =
+                    get_all_orders(&config, sym_name, Some(order_id), None, None, Some(limit)).await?;
+                if !o.orders.is_empty() {
+                    println!("o: {:#?}", o);
+                }
+            }
             "mt" => {
                 // TODO: Add support for getting from_id, start_data_time, end_data_time and limit
                 let sym_name = sc_matches.value_of("SYMBOL").expect("SYMBOL is missing");
