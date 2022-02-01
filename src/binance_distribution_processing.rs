@@ -373,7 +373,7 @@ fn process_entry(
             .or_insert_with(|| RefCell::new(AssetRec::new(&asset)));
     }
 
-    let mut entry = arm.get(&asset.to_owned()).unwrap().borrow_mut();
+    let mut entry = arm.get_mut(&asset.to_owned()).unwrap().borrow_mut();
     entry.transaction_count += 1;
 
     fn dbg_x(_x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &RefMut<AssetRec>) {
@@ -611,21 +611,6 @@ pub async fn process_dist_files(
         match process_type {
             ProcessType::Update => update_all_usd_values(config, &mut dr, line_index).await?,
             ProcessType::Process => {
-                //let asset = if !dr.primary_asset.is_empty() {
-                //    assert!(dr.base_asset.is_empty());
-                //    &dr.primary_asset
-                //} else {
-                //    &dr.base_asset
-                //};
-                //if !asset_rec_map.contains_key(asset) {
-                ////if asset_rec_map.len() < 3 && !asset_rec_map.contains_key(asset) {
-                //    asset_rec_map.insert(asset.to_owned(), RefCell::new(AssetRec::new(&asset)));
-                //    let x = asset_rec_map.get(&asset.to_owned());
-                //    println!("Inserted {x:?}");
-                //}
-                //let _ = asset_rec_map 
-                //    .entry(asset.to_owned())
-                //    .or_insert_with(|| RefCell::new(AssetRec::new(&asset)));
                 process_entry(config, &mut data, &mut asset_rec_map, &dr, line_index)?;
             }
         }
@@ -635,45 +620,23 @@ pub async fn process_dist_files(
         }
     }
 
-    let x = asset_rec_map.get("ETH");
-    println!("after: {x:?}");
-
-    for (_, ar) in &mut asset_rec_map {
-        println!("loop: {ar:?}");
-    }
-
     match process_type {
         ProcessType::Update => println!("\nDone"),
         ProcessType::Process => {
-            for (_, ar) in &mut asset_rec_map {
-                println!("loop2: {ar:?}");
+            if config.verbose {
+                println!("\n");
             }
-        }
-    }
-
-    match process_type {
-        ProcessType::Update => println!("\nDone"),
-        ProcessType::Process => {
-            //if config.verbose {
-            //    println!("\n");
-            //}
 
             let mut total_value_usd = dec!(0);
 
             #[allow(clippy::for_kv_map)]
             for (_, ar) in &mut asset_rec_map {
-                //println!("ar: {ar:?}");
                 let mut usd_value: Option<Decimal> = None;
-                //let a = &ar.borrow().asset.clone();
-                //let a = &ar.borrow_mut().asset;
-                //let a = &"USD".to_string();
                 let usd: Decimal = match get_asset_in_usd_value_update_if_none(
-                //ar.borrow_mut().value_usd = match get_asset_in_usd_value_update_if_none(
                     config,
                     0,
                     utc_now_to_time_ms(),
                     &ar.borrow().asset.clone(),
-                    //Some(dec!(10)), //Some(ar.borrow().quantity),
                     Some(ar.borrow().quantity.clone()),
                     &mut usd_value,
                     false,
