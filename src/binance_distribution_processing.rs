@@ -28,7 +28,7 @@
 //!
 
 //!
-use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter, cell::RefCell};
+use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter, cell::{RefCell, RefMut}};
 
 use clap::ArgMatches;
 
@@ -376,11 +376,11 @@ fn process_entry(
     let mut entry = arm.get(&asset.to_owned()).unwrap().borrow_mut();
     entry.transaction_count += 1;
 
-    //fn dbg_x(_x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &RefCell<AssetRec>) {
-    //    //if asset == x {
-    //        println!("{line_index} {asset} {asset_value} {} {category} {operation} {ar:?}", dec_to_money_string(asset_value_usd));
-    //    //}
-    //}
+    fn dbg_x(_x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &RefMut<AssetRec>) {
+        //if asset == x {
+            println!("{line_index} {asset} {asset_value} {} {category} {operation} {ar:?}", dec_to_money_string(asset_value_usd));
+        //}
+    }
 
     let leading_nl = if config.verbose { "\n" } else { "" };
     match dr.category.as_ref() {
@@ -392,7 +392,7 @@ fn process_entry(
             entry.quantity += asset_value;
             //entry.value_usd += asset_value_usd;
 
-            //dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, entry);
+            dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
 
             data.total_distribution_value_usd += asset_value_usd;
             match dr.operation.as_ref() {
@@ -423,13 +423,13 @@ fn process_entry(
                         //entry.value_usd += asset_value_usd;
                         data.quick_buy_operation_buy_count += 1;
                         data.quick_buy_base_asset_in_usd_value += asset_value_usd;
-                        //dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     } else {
                         entry.quantity -= asset_value;
                         //entry.value_usd -= asset_value_usd;
                         data.quick_sell_operation_sell_count += 1;
                         data.quick_sell_base_asset_in_usd_value += asset_value_usd;
-                        //dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     }
                 }
                 _ => {
@@ -452,13 +452,13 @@ fn process_entry(
                         //entry.value_usd += asset_value_usd;
                         data.spot_trading_operation_buy_count += 1;
                         data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
-                        //dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     } else {
                         entry.quantity -= asset_value;
                         //entry.value_usd -= asset_value_usd;
                         data.spot_trading_operation_sell_count += 1;
                         data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
-                        //dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     }
                 }
                 _ => {
@@ -483,7 +483,7 @@ fn process_entry(
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
                         asset_value_usd;
-                    //dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                    dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                 }
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
@@ -505,14 +505,14 @@ fn process_entry(
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
-                    //dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                    dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                 }
                 "USD Deposit" => {
                     entry.quantity += asset_value;
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
-                    //dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                    dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                 }
                 _ => {
                     data.deposit_operation_unknown_count += 1;
