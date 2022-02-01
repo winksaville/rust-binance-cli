@@ -28,7 +28,7 @@
 //!
 
 //!
-use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter};
+use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter, cell::RefCell};
 
 use clap::ArgMatches;
 
@@ -112,11 +112,11 @@ impl AssetRec {
     }
 }
 
-pub type AssetRecMap = BTreeMap<String, AssetRec>;
+pub type AssetRecMap = BTreeMap<String, RefCell<AssetRec>>;
 
 #[derive(Debug)]
 pub struct ProcessedData {
-    pub asset_rec_map: AssetRecMap,
+    //pub asset_rec_map: AssetRecMap,
     pub total_distribution_value_usd: Decimal,
     pub total_count: u64,
     pub distribution_category_count: u64,
@@ -150,7 +150,7 @@ pub struct ProcessedData {
 impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
-            asset_rec_map: AssetRecMap::new(),
+            //asset_rec_map: AssetRecMap::new(),
             total_distribution_value_usd: dec!(0),
             total_count: 0u64,
             distribution_category_count: 0u64,
@@ -303,12 +303,50 @@ async fn update_all_usd_values(
     Ok(())
 }
 
+#[allow(unused)]
+#[derive(PartialEq)]
+enum TradeType {
+    Buy,
+    Sell,
+}
+
+#[allow(unused)]
+fn trade_asset(tt: TradeType, dr: &DistRec, arm: &mut AssetRecMap) -> Result<(), Box<dyn std::error::Error>> {
+    let base_entry = if let Some(v) = arm.get(&dr.base_asset) {
+        v
+    } else {
+        return Err(format!("{} not in AssetRecMap", dr.base_asset).into())
+    };
+    let quote_entry = if let Some(v) = arm.get(&dr.quote_asset) {
+        v
+    } else {
+        return Err(format!("{} not in AssetRecMap", dr.quote_asset).into())
+    };
+    if tt == TradeType::Buy {
+        base_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
+        quote_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
+    } else {
+        base_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
+        quote_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
+    }
+
+    let fee_entry = if let Some(v) = arm.get(&dr.fee_asset) {
+        v
+    } else {
+        return Err(format!("{} not in AssetRecMap", dr.fee_asset).into())
+    };
+    fee_entry.borrow_mut().quantity -= dr.realized_amount_for_fee_asset.unwrap();
+
+    Ok(())
+}
+
 // We assume that update_all_usd_values has been run prior
 // to calling process_entry and thus can use unwrap() on
 // the Option<Decimal> fields.
 fn process_entry(
     config: &Configuration,
     data: &mut ProcessedData,
+    arm: &mut AssetRecMap,
     dr: &DistRec,
     line_index: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -318,6 +356,7 @@ fn process_entry(
     let asset_value: Decimal;
     let asset_value_usd: Decimal;
     let asset = if !dr.primary_asset.is_empty() {
+        assert!(dr.base_asset.is_empty());
         asset_value = dr.realized_amount_for_primary_asset.unwrap();
         asset_value_usd = dr.realized_amount_for_primary_asset_in_usd_value.unwrap();
         &dr.primary_asset
@@ -328,17 +367,19 @@ fn process_entry(
     };
 
     // Get the entry or insert a new one
-    let entry = data
-        .asset_rec_map
-        .entry(asset.clone())
-        .or_insert_with(|| AssetRec::new(asset));
+    {
+        let _x = arm
+            .entry(asset.to_owned())
+            .or_insert_with(|| RefCell::new(AssetRec::new(&asset)));
+    }
 
-    entry.transaction_count += 1;
+    let entry = arm.get(&asset.to_owned()).unwrap();
+    entry.borrow_mut().transaction_count += 1;
 
-    fn dbg_x(x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &AssetRec) {
-        if asset == x {
+    fn dbg_x(_x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &RefCell<AssetRec>) {
+        //if asset == x {
             println!("{line_index} {asset} {asset_value} {} {category} {operation} {ar:?}", dec_to_money_string(asset_value_usd));
-        }
+        //}
     }
 
     let leading_nl = if config.verbose { "\n" } else { "" };
@@ -348,10 +389,10 @@ fn process_entry(
             // will return an error, we can safely use unwrap().
             data.distribution_category_count += 1;
 
-            entry.quantity += asset_value;
+            entry.borrow_mut().quantity += asset_value;
             //entry.value_usd += asset_value_usd;
 
-            dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+            dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, entry);
 
             data.total_distribution_value_usd += asset_value_usd;
             match dr.operation.as_ref() {
@@ -376,13 +417,15 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        entry.quantity += asset_value;
+                        //trade_asset(TradeType::Buy, &dr, arm)?;
+
+                        entry.borrow_mut().quantity += asset_value;
                         //entry.value_usd += asset_value_usd;
                         data.quick_buy_operation_buy_count += 1;
                         data.quick_buy_base_asset_in_usd_value += asset_value_usd;
                         dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     } else {
-                        entry.quantity -= asset_value;
+                        entry.borrow_mut().quantity -= asset_value;
                         //entry.value_usd -= asset_value_usd;
                         data.quick_sell_operation_sell_count += 1;
                         data.quick_sell_base_asset_in_usd_value += asset_value_usd;
@@ -405,13 +448,13 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        entry.quantity += asset_value;
+                        entry.borrow_mut().quantity += asset_value;
                         //entry.value_usd += asset_value_usd;
                         data.spot_trading_operation_buy_count += 1;
                         data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
                         dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
                     } else {
-                        entry.quantity -= asset_value;
+                        entry.borrow_mut().quantity -= asset_value;
                         //entry.value_usd -= asset_value_usd;
                         data.spot_trading_operation_sell_count += 1;
                         data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
@@ -434,7 +477,7 @@ fn process_entry(
             data.withdrawal_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Withdrawal" => {
-                    entry.quantity -= asset_value;
+                    entry.borrow_mut().quantity -= asset_value;
                     //entry.value_usd -= asset_value_usd;
 
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
@@ -458,7 +501,14 @@ fn process_entry(
             data.deposit_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Deposit" => {
-                    entry.quantity += asset_value;
+                    entry.borrow_mut().quantity += asset_value;
+                    //entry.value_usd += asset_value_usd;
+                    data.deposit_operation_crypto_deposit_count += 1;
+                    data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
+                    dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                }
+                "USD Deposit" => {
+                    entry.borrow_mut().quantity += asset_value;
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
@@ -500,16 +550,8 @@ pub async fn process_dist_files(
     process_type: ProcessType,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("process_dist_files:+ config: {config:?} sc_matches: {sc_matches:?}");
-    let asset_rec = AssetRec {
-        asset: "BTC".to_owned(),
-        quantity: dec!(0), //dec!(0.262542),
-        transaction_count: 0,
-        value_usd: dec!(0),
-    };
 
     let mut data = ProcessedData::new();
-    data.asset_rec_map
-        .insert(asset_rec.asset.to_owned(), asset_rec);
 
     let in_dist_file_path = sc_matches.value_of("IN_FILE").expect("IN_FILE is missing");
     let out_dist_file_path = sc_matches.value_of("OUT_FILE");
@@ -539,6 +581,18 @@ pub async fn process_dist_files(
     // To this:
     let mut wdr = writer.map(csv::Writer::from_writer);
 
+    let mut asset_rec_map = AssetRecMap::new();
+
+    // Dummy
+    //let asset_rec = AssetRec {
+    //    asset: "BTC".to_owned(),
+    //    quantity: dec!(0), //dec!(0.262542),
+    //    transaction_count: 0,
+    //    value_usd: dec!(0),
+    //};
+    //asset_rec_map
+    //    .insert(asset_rec.asset.to_owned(), RefCell::new(asset_rec));
+
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr: DistRec = result?;
 
@@ -556,7 +610,24 @@ pub async fn process_dist_files(
 
         match process_type {
             ProcessType::Update => update_all_usd_values(config, &mut dr, line_index).await?,
-            ProcessType::Process => process_entry(config, &mut data, &dr, line_index)?,
+            ProcessType::Process => {
+                //let asset = if !dr.primary_asset.is_empty() {
+                //    assert!(dr.base_asset.is_empty());
+                //    &dr.primary_asset
+                //} else {
+                //    &dr.base_asset
+                //};
+                //if !asset_rec_map.contains_key(asset) {
+                ////if asset_rec_map.len() < 3 && !asset_rec_map.contains_key(asset) {
+                //    asset_rec_map.insert(asset.to_owned(), RefCell::new(AssetRec::new(&asset)));
+                //    let x = asset_rec_map.get(&asset.to_owned());
+                //    println!("Inserted {x:?}");
+                //}
+                //let _ = asset_rec_map 
+                //    .entry(asset.to_owned())
+                //    .or_insert_with(|| RefCell::new(AssetRec::new(&asset)));
+                process_entry(config, &mut data, &mut asset_rec_map, &dr, line_index)?;
+            }
         }
 
         if let Some(w) = &mut wdr {
@@ -564,24 +635,46 @@ pub async fn process_dist_files(
         }
     }
 
+    let x = asset_rec_map.get("ETH");
+    println!("after: {x:?}");
+
+    for (_, ar) in &mut asset_rec_map {
+        println!("loop: {ar:?}");
+    }
+
     match process_type {
         ProcessType::Update => println!("\nDone"),
         ProcessType::Process => {
-            if config.verbose {
-                println!("\n");
+            for (_, ar) in &mut asset_rec_map {
+                println!("loop2: {ar:?}");
             }
+        }
+    }
+
+    match process_type {
+        ProcessType::Update => println!("\nDone"),
+        ProcessType::Process => {
+            //if config.verbose {
+            //    println!("\n");
+            //}
 
             let mut total_value_usd = dec!(0);
 
             #[allow(clippy::for_kv_map)]
-            for (_, ar) in &mut data.asset_rec_map {
+            for (_, ar) in &mut asset_rec_map {
+                //println!("ar: {ar:?}");
                 let mut usd_value: Option<Decimal> = None;
-                ar.value_usd = match get_asset_in_usd_value_update_if_none(
+                //let a = &ar.borrow().asset.clone();
+                //let a = &ar.borrow_mut().asset;
+                //let a = &"USD".to_string();
+                let usd: Decimal = match get_asset_in_usd_value_update_if_none(
+                //ar.borrow_mut().value_usd = match get_asset_in_usd_value_update_if_none(
                     config,
                     0,
                     utc_now_to_time_ms(),
-                    &ar.asset,
-                    Some(ar.quantity),
+                    &ar.borrow().asset.clone(),
+                    //Some(dec!(10)), //Some(ar.borrow().quantity),
+                    Some(ar.borrow().quantity.clone()),
                     &mut usd_value,
                     false,
                 )
@@ -590,14 +683,15 @@ pub async fn process_dist_files(
                     Ok(v) => v,
                     Err(_) => dec!(0),
                 };
+                ar.borrow_mut().value_usd = usd;
 
-                total_value_usd += ar.value_usd;
+                total_value_usd += ar.borrow().value_usd;
                 println!(
                     "{:10} {:20.6} {:>10} {:>14}",
-                    ar.asset,
-                    ar.quantity,
-                    dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
-                    dec_to_money_string(ar.value_usd)
+                    ar.borrow().asset,
+                    ar.borrow().quantity,
+                    dec_to_separated_string(Decimal::from(ar.borrow().transaction_count), 0),
+                    dec_to_money_string(ar.borrow().value_usd)
                 );
             }
 
