@@ -28,7 +28,7 @@
 //!
 
 //!
-use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter, cell::{RefCell, RefMut}};
+use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter};
 
 use clap::ArgMatches;
 
@@ -112,7 +112,38 @@ impl AssetRec {
     }
 }
 
-pub type AssetRecMap = BTreeMap<String, RefCell<AssetRec>>;
+struct AssetRecMap {
+    bt: BTreeMap<String, AssetRec>,
+}
+
+impl AssetRecMap {
+    fn new() -> AssetRecMap {
+        AssetRecMap {
+            bt: BTreeMap::<String, AssetRec>::new(),
+        }
+    }
+
+    fn inc_transaction_count(&mut self, asset: &str) {
+        let entry = self.bt.get_mut(asset).unwrap();
+        entry.transaction_count += 1;
+    }
+
+    fn add_quantity(&mut self, asset: &str, val: Decimal) {
+        let entry = self.bt.get_mut(asset).unwrap();
+        entry.quantity += val;
+    }
+
+    #[allow(unused)]
+    fn sub_quantity(&mut self, asset: &str, val: Decimal) {
+        self.add_quantity(asset, -val)
+    }
+
+    #[allow(unused)]
+    fn set_value_usd(&mut self, asset: &str, val: Decimal) {
+        let entry = self.bt.get_mut(asset).unwrap();
+        entry.value_usd = val;
+    }
+}
 
 #[derive(Debug)]
 pub struct ProcessedData {
@@ -310,35 +341,35 @@ enum TradeType {
     Sell,
 }
 
-#[allow(unused)]
-fn trade_asset(tt: TradeType, dr: &DistRec, arm: &mut AssetRecMap) -> Result<(), Box<dyn std::error::Error>> {
-    let base_entry = if let Some(v) = arm.get(&dr.base_asset) {
-        v
-    } else {
-        return Err(format!("{} not in AssetRecMap", dr.base_asset).into())
-    };
-    let quote_entry = if let Some(v) = arm.get(&dr.quote_asset) {
-        v
-    } else {
-        return Err(format!("{} not in AssetRecMap", dr.quote_asset).into())
-    };
-    if tt == TradeType::Buy {
-        base_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
-        quote_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
-    } else {
-        base_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
-        quote_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
-    }
-
-    let fee_entry = if let Some(v) = arm.get(&dr.fee_asset) {
-        v
-    } else {
-        return Err(format!("{} not in AssetRecMap", dr.fee_asset).into())
-    };
-    fee_entry.borrow_mut().quantity -= dr.realized_amount_for_fee_asset.unwrap();
-
-    Ok(())
-}
+//#[allow(unused)]
+//fn trade_asset(tt: TradeType, dr: &DistRec, arm: &mut AssetRecMap) -> Result<(), Box<dyn std::error::Error>> {
+//    let base_entry = if let Some(v) = arm.get(&dr.base_asset) {
+//        v
+//    } else {
+//        return Err(format!("{} not in AssetRecMap", dr.base_asset).into())
+//    };
+//    let quote_entry = if let Some(v) = arm.get(&dr.quote_asset) {
+//        v
+//    } else {
+//        return Err(format!("{} not in AssetRecMap", dr.quote_asset).into())
+//    };
+//    if tt == TradeType::Buy {
+//        base_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
+//        quote_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
+//    } else {
+//        base_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
+//        quote_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
+//    }
+//
+//    let fee_entry = if let Some(v) = arm.get(&dr.fee_asset) {
+//        v
+//    } else {
+//        return Err(format!("{} not in AssetRecMap", dr.fee_asset).into())
+//    };
+//    fee_entry.borrow_mut().quantity -= dr.realized_amount_for_fee_asset.unwrap();
+//
+//    Ok(())
+//}
 
 // We assume that update_all_usd_values has been run prior
 // to calling process_entry and thus can use unwrap() on
@@ -369,16 +400,27 @@ fn process_entry(
     // Get the entry or insert a new one
     {
         let _x = arm
+            .bt
             .entry(asset.to_owned())
-            .or_insert_with(|| RefCell::new(AssetRec::new(&asset)));
+            .or_insert_with(|| AssetRec::new(asset));
     }
 
-    let mut entry = arm.get_mut(&asset.to_owned()).unwrap().borrow_mut();
-    entry.transaction_count += 1;
+    arm.inc_transaction_count(asset);
 
-    fn dbg_x(_x: &str, line_index: usize, asset: &str, asset_value: Decimal, asset_value_usd: Decimal, category: &str, operation: &str, ar: &RefMut<AssetRec>) {
+    fn dbg_x(
+        _x: &str,
+        line_index: usize,
+        asset: &str,
+        asset_value: Decimal,
+        asset_value_usd: Decimal,
+        category: &str,
+        operation: &str,
+    ) {
         //if asset == x {
-            println!("{line_index} {asset} {asset_value} {} {category} {operation} {ar:?}", dec_to_money_string(asset_value_usd));
+        println!(
+            "{line_index} {asset} {asset_value} {} {category} {operation}",
+            dec_to_money_string(asset_value_usd)
+        );
         //}
     }
 
@@ -389,10 +431,18 @@ fn process_entry(
             // will return an error, we can safely use unwrap().
             data.distribution_category_count += 1;
 
-            entry.quantity += asset_value;
+            arm.add_quantity(asset, asset_value);
             //entry.value_usd += asset_value_usd;
 
-            dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+            dbg_x(
+                "BTC",
+                line_index,
+                asset,
+                asset_value,
+                asset_value_usd,
+                &dr.category,
+                &dr.operation,
+            );
 
             data.total_distribution_value_usd += asset_value_usd;
             match dr.operation.as_ref() {
@@ -419,17 +469,33 @@ fn process_entry(
                     if dr.operation == "Buy" {
                         //trade_asset(TradeType::Buy, &dr, arm)?;
 
-                        entry.quantity += asset_value;
+                        arm.add_quantity(asset, asset_value);
                         //entry.value_usd += asset_value_usd;
                         data.quick_buy_operation_buy_count += 1;
                         data.quick_buy_base_asset_in_usd_value += asset_value_usd;
-                        dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x(
+                            "BTC",
+                            line_index,
+                            asset,
+                            asset_value,
+                            asset_value_usd,
+                            &dr.category,
+                            &dr.operation,
+                        );
                     } else {
-                        entry.quantity -= asset_value;
+                        arm.sub_quantity(asset, asset_value);
                         //entry.value_usd -= asset_value_usd;
                         data.quick_sell_operation_sell_count += 1;
                         data.quick_sell_base_asset_in_usd_value += asset_value_usd;
-                        dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x(
+                            "BTC",
+                            line_index,
+                            asset,
+                            -asset_value,
+                            asset_value_usd,
+                            &dr.category,
+                            &dr.operation,
+                        );
                     }
                 }
                 _ => {
@@ -448,17 +514,33 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        entry.quantity += asset_value;
+                        arm.add_quantity(asset, asset_value);
                         //entry.value_usd += asset_value_usd;
                         data.spot_trading_operation_buy_count += 1;
                         data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
-                        dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x(
+                            "BTC",
+                            line_index,
+                            asset,
+                            asset_value,
+                            asset_value_usd,
+                            &dr.category,
+                            &dr.operation,
+                        );
                     } else {
-                        entry.quantity -= asset_value;
+                        arm.sub_quantity(asset, asset_value);
                         //entry.value_usd -= asset_value_usd;
                         data.spot_trading_operation_sell_count += 1;
                         data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
-                        dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                        dbg_x(
+                            "BTC",
+                            line_index,
+                            asset,
+                            -asset_value,
+                            asset_value_usd,
+                            &dr.category,
+                            &dr.operation,
+                        );
                     }
                 }
                 _ => {
@@ -477,13 +559,21 @@ fn process_entry(
             data.withdrawal_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Withdrawal" => {
-                    entry.quantity -= asset_value;
+                    arm.sub_quantity(asset, asset_value);
                     //entry.value_usd -= asset_value_usd;
 
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
                         asset_value_usd;
-                    dbg_x("BTC", line_index, &asset, -asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                    dbg_x(
+                        "BTC",
+                        line_index,
+                        asset,
+                        -asset_value,
+                        asset_value_usd,
+                        &dr.category,
+                        &dr.operation,
+                    );
                 }
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
@@ -501,18 +591,34 @@ fn process_entry(
             data.deposit_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Deposit" => {
-                    entry.quantity += asset_value;
+                    arm.add_quantity(asset, asset_value);
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
-                    dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                    dbg_x(
+                        "BTC",
+                        line_index,
+                        asset,
+                        asset_value,
+                        asset_value_usd,
+                        &dr.category,
+                        &dr.operation,
+                    );
                 }
                 "USD Deposit" => {
-                    entry.quantity += asset_value;
+                    arm.add_quantity(asset, asset_value);
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
-                    dbg_x("BTC", line_index, &asset, asset_value, asset_value_usd, &dr.category, &dr.operation, &entry);
+                    dbg_x(
+                        "BTC",
+                        line_index,
+                        asset,
+                        asset_value,
+                        asset_value_usd,
+                        &dr.category,
+                        &dr.operation,
+                    );
                 }
                 _ => {
                     data.deposit_operation_unknown_count += 1;
@@ -583,16 +689,6 @@ pub async fn process_dist_files(
 
     let mut asset_rec_map = AssetRecMap::new();
 
-    // Dummy
-    //let asset_rec = AssetRec {
-    //    asset: "BTC".to_owned(),
-    //    quantity: dec!(0), //dec!(0.262542),
-    //    transaction_count: 0,
-    //    value_usd: dec!(0),
-    //};
-    //asset_rec_map
-    //    .insert(asset_rec.asset.to_owned(), RefCell::new(asset_rec));
-
     for (line_index, result) in rdr.deserialize().enumerate() {
         let mut dr: DistRec = result?;
 
@@ -630,14 +726,14 @@ pub async fn process_dist_files(
             let mut total_value_usd = dec!(0);
 
             #[allow(clippy::for_kv_map)]
-            for (_, ar) in &mut asset_rec_map {
+            for (_, ar) in &mut asset_rec_map.bt {
                 let mut usd_value: Option<Decimal> = None;
                 let usd: Decimal = match get_asset_in_usd_value_update_if_none(
                     config,
                     0,
                     utc_now_to_time_ms(),
-                    &ar.borrow().asset.clone(),
-                    Some(ar.borrow().quantity.clone()),
+                    &ar.asset.clone(),
+                    Some(ar.quantity),
                     &mut usd_value,
                     false,
                 )
@@ -646,15 +742,15 @@ pub async fn process_dist_files(
                     Ok(v) => v,
                     Err(_) => dec!(0),
                 };
-                ar.borrow_mut().value_usd = usd;
+                ar.value_usd = usd;
 
-                total_value_usd += ar.borrow().value_usd;
+                total_value_usd += ar.value_usd;
                 println!(
                     "{:10} {:20.6} {:>10} {:>14}",
-                    ar.borrow().asset,
-                    ar.borrow().quantity,
-                    dec_to_separated_string(Decimal::from(ar.borrow().transaction_count), 0),
-                    dec_to_money_string(ar.borrow().value_usd)
+                    ar.asset,
+                    ar.quantity,
+                    dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
+                    dec_to_money_string(ar.value_usd)
                 );
             }
 
