@@ -8,9 +8,11 @@ use std::{
     io::{stdout, Write},
 };
 
-use crate::binance_signature::{append_signature, binance_signature, query_vec_u8};
 use crate::{
-    binance_klines::get_kline,
+    binance_klines::get_kline_of_primary_asset_for_value_asset,
+    binance_signature::{append_signature, binance_signature, query_vec_u8},
+};
+use crate::{
     common::{dec_to_money_string, get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
     de_string_or_number::de_string_or_number_to_i64,
     Configuration,
@@ -88,18 +90,26 @@ impl AccountInfo {
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
                 let price_in_usd = if balance.asset != "USD" {
-                    let sym = balance.asset.clone() + "USD";
-                    if verbose {
-                        print!("{:-10} {:+10}\r", "Updating", sym);
-                        let _ = stdout().flush();
-                    }
-                    let price = match get_kline(config, &sym, utc_now_to_time_ms()).await {
-                        Ok(kr) => kr.close,
-                        Err(_) => {
-                            dec!(0)
+                    let value_assets = ["USD", "USDT", "BUSD"];
+                    let r = get_kline_of_primary_asset_for_value_asset(
+                        config,
+                        utc_now_to_time_ms(),
+                        &balance.asset,
+                        &value_assets,
+                    )
+                    .await;
+
+                    match r {
+                        Some((sym, kr)) => {
+                            if verbose {
+                                print!("{:-10} {:+10} {:+20}\r", "Updated ", sym, " ");
+                                let _ = stdout().flush();
+                            }
+
+                            kr.close
                         }
-                    };
-                    price
+                        None => dec!(0),
+                    }
                 } else {
                     dec!(1)
                 };
