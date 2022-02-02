@@ -130,7 +130,9 @@ impl AssetRecMap {
 
     fn add_quantity(&mut self, asset: &str, val: Decimal) {
         let entry = self.bt.get_mut(asset).unwrap();
+        println!("add_quantity:+ {asset} {val} {}", entry.quantity);
         entry.quantity += val;
+        println!("add_quantity:- {asset} {val} {}", entry.quantity);
     }
 
     #[allow(unused)]
@@ -341,35 +343,22 @@ enum TradeType {
     Sell,
 }
 
-//#[allow(unused)]
-//fn trade_asset(tt: TradeType, dr: &DistRec, arm: &mut AssetRecMap) -> Result<(), Box<dyn std::error::Error>> {
-//    let base_entry = if let Some(v) = arm.get(&dr.base_asset) {
-//        v
-//    } else {
-//        return Err(format!("{} not in AssetRecMap", dr.base_asset).into())
-//    };
-//    let quote_entry = if let Some(v) = arm.get(&dr.quote_asset) {
-//        v
-//    } else {
-//        return Err(format!("{} not in AssetRecMap", dr.quote_asset).into())
-//    };
-//    if tt == TradeType::Buy {
-//        base_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
-//        quote_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
-//    } else {
-//        base_entry.borrow_mut().quantity -= dr.realized_amount_for_base_asset.unwrap();
-//        quote_entry.borrow_mut().quantity += dr.realized_amount_for_base_asset.unwrap();
-//    }
-//
-//    let fee_entry = if let Some(v) = arm.get(&dr.fee_asset) {
-//        v
-//    } else {
-//        return Err(format!("{} not in AssetRecMap", dr.fee_asset).into())
-//    };
-//    fee_entry.borrow_mut().quantity -= dr.realized_amount_for_fee_asset.unwrap();
-//
-//    Ok(())
-//}
+fn trade_asset(tt: TradeType, dr: &DistRec, arm: &mut AssetRecMap) -> Result<(), Box<dyn std::error::Error>> {
+    match tt {
+        TradeType::Buy => {
+            arm.add_quantity(&dr.base_asset, dr.realized_amount_for_base_asset.unwrap());
+            arm.sub_quantity(&dr.quote_asset, dr.realized_amount_for_quote_asset.unwrap());
+        }
+        TradeType::Sell => {
+            arm.sub_quantity(&dr.base_asset, dr.realized_amount_for_base_asset.unwrap());
+            arm.add_quantity(&dr.quote_asset, dr.realized_amount_for_quote_asset.unwrap());
+        }
+    }
+
+    arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
+
+    Ok(())
+}
 
 // We assume that update_all_usd_values has been run prior
 // to calling process_entry and thus can use unwrap() on
@@ -467,10 +456,9 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        //trade_asset(TradeType::Buy, &dr, arm)?;
+                        trade_asset(TradeType::Buy, &dr, arm)?;
 
-                        arm.add_quantity(asset, asset_value);
-                        //entry.value_usd += asset_value_usd;
+                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.quick_buy_operation_buy_count += 1;
                         data.quick_buy_base_asset_in_usd_value += asset_value_usd;
                         dbg_x(
@@ -483,8 +471,9 @@ fn process_entry(
                             &dr.operation,
                         );
                     } else {
-                        arm.sub_quantity(asset, asset_value);
-                        //entry.value_usd -= asset_value_usd;
+                        trade_asset(TradeType::Sell, &dr, arm)?;
+
+                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.quick_sell_operation_sell_count += 1;
                         data.quick_sell_base_asset_in_usd_value += asset_value_usd;
                         dbg_x(
@@ -514,8 +503,9 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        arm.add_quantity(asset, asset_value);
-                        //entry.value_usd += asset_value_usd;
+                        trade_asset(TradeType::Buy, &dr, arm)?;
+
+                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.spot_trading_operation_buy_count += 1;
                         data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
                         dbg_x(
@@ -528,8 +518,9 @@ fn process_entry(
                             &dr.operation,
                         );
                     } else {
-                        arm.sub_quantity(asset, asset_value);
-                        //entry.value_usd -= asset_value_usd;
+                        trade_asset(TradeType::Sell, &dr, arm)?;
+
+                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.spot_trading_operation_sell_count += 1;
                         data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
                         dbg_x(
