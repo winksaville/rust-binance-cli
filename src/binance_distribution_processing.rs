@@ -130,9 +130,7 @@ impl AssetRecMap {
 
     fn add_quantity(&mut self, asset: &str, val: Decimal) {
         let entry = self.bt.get_mut(asset).unwrap();
-        println!("add_quantity:+ {asset} {val} {}", entry.quantity);
         entry.quantity += val;
-        println!("add_quantity:- {asset} {val} {}", entry.quantity);
     }
 
     #[allow(unused)]
@@ -152,6 +150,11 @@ pub struct ProcessedData {
     //pub asset_rec_map: AssetRecMap,
     pub total_distribution_value_usd: Decimal,
     pub total_count: u64,
+    pub total_usd_deposit_fee_count: u64,
+    pub total_usd_deposit_fee: Decimal,
+    pub total_crypto_deposit_fee_count: u64,
+    pub total_crypto_withdrawal_fee_count: u64,
+    pub total_crypto_withdrawal_fee_in_usd_value: Decimal,
     pub distribution_category_count: u64,
     pub distribution_operation_referral_commission_count: u64,
     pub distribution_operation_staking_reward_count: u64,
@@ -186,6 +189,11 @@ impl ProcessedData {
             //asset_rec_map: AssetRecMap::new(),
             total_distribution_value_usd: dec!(0),
             total_count: 0u64,
+            total_usd_deposit_fee_count: 0u64,
+            total_usd_deposit_fee: dec!(0),
+            total_crypto_deposit_fee_count: 0u64,
+            total_crypto_withdrawal_fee_count: 0u64,
+            total_crypto_withdrawal_fee_in_usd_value: dec!(0),
             distribution_category_count: 0u64,
             distribution_operation_referral_commission_count: 0u64,
             distribution_operation_staking_reward_count: 0u64,
@@ -225,6 +233,12 @@ async fn get_asset_in_usd_value_update_if_none(
     usd_value: &mut Option<Decimal>,
     verbose: bool,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
+    if asset == "USD" {
+        *usd_value = asset_value;
+        let v = asset_value.unwrap();
+        return Ok(v);
+    }
+
     let line_index = line_index + 1usize;
     // Error if there is no asset_value
     let leading_nl = if config.verbose { "\n" } else { "" };
@@ -237,10 +251,16 @@ async fn get_asset_in_usd_value_update_if_none(
         )
         .into());
     };
+    let time_utc = time_ms_to_utc(time);
     let usd = match *usd_value {
-        Some(v) => v,
+        Some(v) => {
+            if verbose {
+                println!("{leading_nl}USD value for {asset} is {v} for line_index: {line_index} time: {time_utc}");
+            }
+
+            v
+        }
         None => {
-            let time_utc = time_ms_to_utc(time);
             let value_assets = ["USD", "USDT", "BUSD"];
             let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
                 config,
@@ -266,7 +286,7 @@ async fn get_asset_in_usd_value_update_if_none(
             *usd_value = Some(value);
 
             if verbose {
-                println!("{leading_nl}Updating {sym_name} value, updated to {value} for line_index: {line_index} time: {time_utc}");
+                println!("{leading_nl}Updating {sym_name} value to {value} for line_index: {line_index} time: {time_utc}");
             }
 
             value
@@ -337,13 +357,36 @@ async fn update_all_usd_values(
 }
 
 #[allow(unused)]
-#[derive(PartialEq)]
+fn dbg_x(
+    x: &str,
+    line_index: usize,
+    asset: &str,
+    asset_value: Decimal,
+    asset_value_usd: Decimal,
+    category: &str,
+    operation: &str,
+) {
+    if x.is_empty() || asset == x {
+        println!(
+            "{line_index} {asset} {asset_value} {} {category} {operation}",
+            dec_to_money_string(asset_value_usd)
+        );
+    }
+}
+
+#[derive(PartialEq, Debug)]
 enum TradeType {
     Buy,
     Sell,
 }
 
-fn trade_asset(tt: TradeType, dr: &DistRec, arm: &mut AssetRecMap) -> Result<(), Box<dyn std::error::Error>> {
+fn trade_asset(
+    tt: TradeType,
+    dr: &DistRec,
+    arm: &mut AssetRecMap,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //println!("trade_asset:+\ntt: {tt:?}\nbase_asset ar: {:?}\nquote_asset ar: {:?}\nfee_asset ar: {:?}",
+    //     arm.bt.get(&dr.base_asset), arm.bt.get(&dr.quote_asset), arm.bt.get(&dr.fee_asset));
     match tt {
         TradeType::Buy => {
             arm.add_quantity(&dr.base_asset, dr.realized_amount_for_base_asset.unwrap());
@@ -386,34 +429,32 @@ fn process_entry(
         &dr.base_asset
     };
 
-    // Get the entry or insert a new one
+    // Add possibly missing AssetRecMap entries
     {
-        let _x = arm
-            .bt
-            .entry(asset.to_owned())
-            .or_insert_with(|| AssetRec::new(asset));
+        let _ = arm.bt.entry(asset.to_owned()).or_insert_with(|| {
+            // This is "normal" if it's a buy or deposit
+            //println!("Adding missing asset: {}", asset);
+            AssetRec::new(asset)
+        });
+        if !dr.quote_asset.is_empty() {
+            let _ = arm.bt.entry(dr.quote_asset.to_owned()).or_insert_with(|| {
+                println!("WARNING adding missing quote_asset: {}", dr.quote_asset);
+                AssetRec::new(&dr.quote_asset)
+            });
+        }
+        if !dr.fee_asset.is_empty() {
+            let _ = arm.bt.entry(dr.fee_asset.to_owned()).or_insert_with(|| {
+                println!("WARNING adding missing fee_asset: {}", dr.fee_asset);
+                AssetRec::new(&dr.fee_asset)
+            });
+        }
     }
 
     arm.inc_transaction_count(asset);
 
-    fn dbg_x(
-        _x: &str,
-        line_index: usize,
-        asset: &str,
-        asset_value: Decimal,
-        asset_value_usd: Decimal,
-        category: &str,
-        operation: &str,
-    ) {
-        //if asset == x {
-        println!(
-            "{line_index} {asset} {asset_value} {} {category} {operation}",
-            dec_to_money_string(asset_value_usd)
-        );
-        //}
-    }
-
     let leading_nl = if config.verbose { "\n" } else { "" };
+
+    // TODO: For all the category and operations we need to save asset_value_usd as "usd_cost_basis"
     match dr.category.as_ref() {
         "Distribution" => {
             // Since invoking `get_asset_in_usd_value_update_if_none` above
@@ -421,17 +462,13 @@ fn process_entry(
             data.distribution_category_count += 1;
 
             arm.add_quantity(asset, asset_value);
-            //entry.value_usd += asset_value_usd;
-
-            dbg_x(
-                "BTC",
-                line_index,
-                asset,
-                asset_value,
-                asset_value_usd,
-                &dr.category,
-                &dr.operation,
-            );
+            if !dr.fee_asset.is_empty() {
+                println!(
+                    "Distribution fee: {} {:?}",
+                    dr.fee_asset, dr.realized_amount_for_fee_asset
+                );
+                arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
+            }
 
             data.total_distribution_value_usd += asset_value_usd;
             match dr.operation.as_ref() {
@@ -456,35 +493,15 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        trade_asset(TradeType::Buy, &dr, arm)?;
+                        trade_asset(TradeType::Buy, dr, arm)?;
 
-                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.quick_buy_operation_buy_count += 1;
                         data.quick_buy_base_asset_in_usd_value += asset_value_usd;
-                        dbg_x(
-                            "BTC",
-                            line_index,
-                            asset,
-                            asset_value,
-                            asset_value_usd,
-                            &dr.category,
-                            &dr.operation,
-                        );
                     } else {
-                        trade_asset(TradeType::Sell, &dr, arm)?;
+                        trade_asset(TradeType::Sell, dr, arm)?;
 
-                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.quick_sell_operation_sell_count += 1;
                         data.quick_sell_base_asset_in_usd_value += asset_value_usd;
-                        dbg_x(
-                            "BTC",
-                            line_index,
-                            asset,
-                            -asset_value,
-                            asset_value_usd,
-                            &dr.category,
-                            &dr.operation,
-                        );
                     }
                 }
                 _ => {
@@ -503,35 +520,15 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Buy" | "Sell" => {
                     if dr.operation == "Buy" {
-                        trade_asset(TradeType::Buy, &dr, arm)?;
+                        trade_asset(TradeType::Buy, dr, arm)?;
 
-                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.spot_trading_operation_buy_count += 1;
                         data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
-                        dbg_x(
-                            "BTC",
-                            line_index,
-                            asset,
-                            asset_value,
-                            asset_value_usd,
-                            &dr.category,
-                            &dr.operation,
-                        );
                     } else {
-                        trade_asset(TradeType::Sell, &dr, arm)?;
+                        trade_asset(TradeType::Sell, dr, arm)?;
 
-                        // TODO: save as "usd_cost_basis" asset_value_usd;
                         data.spot_trading_operation_sell_count += 1;
                         data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
-                        dbg_x(
-                            "BTC",
-                            line_index,
-                            asset,
-                            -asset_value,
-                            asset_value_usd,
-                            &dr.category,
-                            &dr.operation,
-                        );
                     }
                 }
                 _ => {
@@ -551,20 +548,18 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Crypto Withdrawal" => {
                     arm.sub_quantity(asset, asset_value);
-                    //entry.value_usd -= asset_value_usd;
+                    if !dr.fee_asset.is_empty() {
+                        //println!("Crypto Withdrawal fee: {} {} {:?}", dr.fee_asset, dec_to_money_string(dr.realized_amount_for_fee_asset_in_usd_value.unwrap()), dr.realized_amount_for_fee_asset);
+                        arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
+                        data.total_crypto_withdrawal_fee_count += 1;
+                        //data.total_crypto_withdrawal_fee_in_usd_value = data.total_crypto_withdrawal_fee_in_usd_value + dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
+                        data.total_crypto_withdrawal_fee_in_usd_value +=
+                            dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
+                    }
 
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
                         asset_value_usd;
-                    dbg_x(
-                        "BTC",
-                        line_index,
-                        asset,
-                        -asset_value,
-                        asset_value_usd,
-                        &dr.category,
-                        &dr.operation,
-                    );
                 }
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
@@ -583,33 +578,38 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Crypto Deposit" => {
                     arm.add_quantity(asset, asset_value);
+                    if !dr.fee_asset.is_empty() {
+                        println!(
+                            "Crypto Deposit fee: {} {:?}",
+                            dr.fee_asset, dr.realized_amount_for_fee_asset
+                        );
+                        data.total_crypto_deposit_fee_count += 1;
+                        // If this occurs it needs to be per asset, and
+                        // we'll need to add a new field to the AssetRec or
+                        // keep a separate BTreeMap<AssetRec> with fees!
+                        //data.total_crypto_deposit_fee = data.total_crypto_deposit_fee + dr.realized_amount_for_fee_asset_in_usd_value;
+                    }
+
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
-                    dbg_x(
-                        "BTC",
-                        line_index,
-                        asset,
-                        asset_value,
-                        asset_value_usd,
-                        &dr.category,
-                        &dr.operation,
-                    );
                 }
                 "USD Deposit" => {
                     arm.add_quantity(asset, asset_value);
-                    //entry.value_usd += asset_value_usd;
+                    if !dr.fee_asset.is_empty() {
+                        // This is subtracted on the way in so this needs to be tracked in a separate
+                        // "external_fees: BTreeMap<AssetRec>" collection. Especially if total_crypto_deposit_fee_count != 0.
+                        println!(
+                            "USD Deposit fee: {} {:?}",
+                            dr.fee_asset, dr.realized_amount_for_fee_asset
+                        );
+                        data.total_usd_deposit_fee_count += 1;
+                        data.total_usd_deposit_fee +=
+                            dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
+                    }
+
                     data.deposit_operation_crypto_deposit_count += 1;
                     data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
-                    dbg_x(
-                        "BTC",
-                        line_index,
-                        asset,
-                        asset_value,
-                        asset_value_usd,
-                        &dr.category,
-                        &dr.operation,
-                    );
                 }
                 _ => {
                     data.deposit_operation_unknown_count += 1;
@@ -752,7 +752,32 @@ pub async fn process_dist_files(
             );
             println!();
             println!(
-                "{:>33}: {}",
+                "{:>38}: {}",
+                "Total USD Deposit fee count",
+                dec_to_separated_string(Decimal::from(data.total_usd_deposit_fee_count), 0),
+            );
+            println!(
+                "{:>38}: {}",
+                "Total USD Deposit fee",
+                dec_to_money_string(data.total_usd_deposit_fee),
+            );
+            println!(
+                "{:>38}: {}",
+                "Total Crypto Deposit fee count",
+                dec_to_separated_string(Decimal::from(data.total_crypto_deposit_fee_count), 0),
+            );
+            println!(
+                "{:>38}: {}",
+                "Total Crypto Withdrawal fee count",
+                dec_to_separated_string(Decimal::from(data.total_crypto_withdrawal_fee_count), 0),
+            );
+            println!(
+                "{:>38}: {}",
+                "Total Crypto Withdrawal fee usd value",
+                dec_to_money_string(data.total_crypto_withdrawal_fee_in_usd_value),
+            );
+            println!(
+                "{:>38}: {}",
                 "Distribution referral commissions",
                 dec_to_separated_string(
                     Decimal::from(data.distribution_operation_referral_commission_count),
@@ -760,7 +785,7 @@ pub async fn process_dist_files(
                 ),
             );
             println!(
-                "{:>33}: {}",
+                "{:>38}: {}",
                 "Distribution staking rewards",
                 dec_to_separated_string(
                     Decimal::from(data.distribution_operation_staking_reward_count),
@@ -768,72 +793,72 @@ pub async fn process_dist_files(
                 ),
             );
             println!(
-                "{:>33}: {}",
+                "{:>38}: {}",
                 "Distribution others",
                 dec_to_separated_string(Decimal::from(data.distribution_operation_others_count), 0),
             );
             //println!(
-            //    "{:>33}: {} ",
+            //    "{:>38}: {} ",
             //    "Distribution count",
             //    dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
             //);
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Total distribution USD",
                 dec_to_money_string(data.total_distribution_value_usd)
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Quick Buy count",
                 dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0)
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Quick Buy USD value",
                 dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Quick Sell count",
                 dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0)
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Quick Sell USD value",
                 dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
             );
             //println!(
-            //    "{:>33}: {} ",
+            //    "{:>38}: {} ",
             //    "Quick count",
             //    dec_to_separated_string(Decimal::from(data.quick_category_count), 0)
             //);
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Spot Trading buy count",
                 dec_to_separated_string(Decimal::from(data.spot_trading_operation_buy_count), 0)
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Spot Trading buy USD value",
                 dec_to_money_string(data.spot_trading_base_asset_buy_in_usd_value),
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Spot Trading sell count",
                 dec_to_separated_string(Decimal::from(data.spot_trading_operation_sell_count), 0)
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Spot Trading sell USD value",
                 dec_to_money_string(data.spot_trading_base_asset_sell_in_usd_value),
             );
             //println!(
-            //    "{:>33}: {} ",
+            //    "{:>38}: {} ",
             //    "Spot Trading count",
             //    dec_to_separated_string(Decimal::from(data.spot_trading_category_count), 0)
             //);
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Withdrawal crypto count",
                 dec_to_separated_string(
                     Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
@@ -841,14 +866,14 @@ pub async fn process_dist_files(
                 )
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Withdrawal crypto USD value",
                 &dec_to_money_string(
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value
                 )
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Deposit crypto count",
                 dec_to_separated_string(
                     Decimal::from(data.deposit_operation_crypto_deposit_count),
@@ -856,18 +881,20 @@ pub async fn process_dist_files(
                 )
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Deposit crypto USD value",
                 &dec_to_money_string(data.deposit_realized_amount_for_primary_asset_in_usd_value)
             );
             println!(
-                "{:>33}: {} ",
+                "{:>38}: {} ",
                 "Total count",
                 dec_to_separated_string(Decimal::from(data.total_count), 0)
             );
 
             // Assertions!
             assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
+
+            assert_eq!(data.total_crypto_deposit_fee_count, 0);
 
             assert_eq!(
                 data.distribution_category_count,
