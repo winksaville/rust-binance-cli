@@ -11,6 +11,7 @@ use std::{
 use crate::{
     binance_klines::get_kline_of_primary_asset_for_value_asset,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
+    common::dec_to_separated_string,
 };
 use crate::{
     common::{dec_to_money_string, get_req_get_response, time_ms_to_utc},
@@ -150,20 +151,20 @@ impl AccountInfo {
 
         let mut total_value = dec!(0);
         println!(
-            "{:<6} {:>12} {:>12} {:>15} {:>15} {:>15}",
+            "{:<6} {:>12} {:>12} {:>20} {:>20} {:>20}",
             "Asset", "USD value", "USD/coin", "Total Coins", "Free", "locked"
         );
         for balance in self.balances_map.values() {
             if balance.value_in_usd > dec!(0) {
                 total_value += balance.value_in_usd;
                 println!(
-                    "{:<6} {:>12} {:>12} {:>15.8} {:>15.8} {:>15.8}",
+                    "{:<6} {:>12} {:>12} {:>20} {:>20} {:>20}",
                     balance.asset,
                     dec_to_money_string(balance.value_in_usd),
                     dec_to_money_string(balance.price_in_usd),
-                    balance.free + balance.locked,
-                    balance.free,
-                    balance.locked
+                    dec_to_separated_string(balance.free + balance.locked, 8),
+                    dec_to_separated_string(balance.free, 8),
+                    dec_to_separated_string(balance.locked, 8),
                 );
             }
         }

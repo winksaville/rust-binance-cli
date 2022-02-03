@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use log::trace;
 use rust_decimal::Decimal;
 use rusty_money::{iso, Money};
-use separator::Separatable;
+use separator::FixedPlaceSeparatable;
 
 use reqwest::{
     self,
@@ -467,7 +467,7 @@ pub fn dec_to_money_string(v: Decimal) -> String {
 pub fn dec_to_separated_string(v: Decimal, dp: u32) -> String {
     let v_string = v.round_dp(dp).to_string();
     let v_f64: f64 = v_string.parse().unwrap();
-    v_f64.separated_string()
+    v_f64.separated_string_with_fixed_place(dp as usize)
 }
 
 #[cfg(test)]
