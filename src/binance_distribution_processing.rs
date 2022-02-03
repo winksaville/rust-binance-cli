@@ -150,11 +150,6 @@ pub struct ProcessedData {
     //pub asset_rec_map: AssetRecMap,
     pub total_distribution_value_usd: Decimal,
     pub total_count: u64,
-    pub total_usd_deposit_fee_count: u64,
-    pub total_usd_deposit_fee: Decimal,
-    pub total_crypto_deposit_fee_count: u64,
-    pub total_crypto_withdrawal_fee_count: u64,
-    pub total_crypto_withdrawal_fee_in_usd_value: Decimal,
     pub distribution_category_count: u64,
     pub distribution_operation_referral_commission_count: u64,
     pub distribution_operation_staking_reward_count: u64,
@@ -174,12 +169,19 @@ pub struct ProcessedData {
     pub spot_trading_base_asset_sell_in_usd_value: Decimal,
     pub withdrawal_category_count: u64,
     pub withdrawal_operation_crypto_withdrawal_count: u64,
+    pub withdrawal_operation_crypto_withdrawal_usd_value: Decimal,
+    pub withdrawal_operation_crypto_withdrawal_fee_count: u64,
+    pub withdrawal_operation_crypto_withdrawal_fee_in_usd_value: Decimal,
     pub withdrawal_operation_unknown_count: u64,
-    pub withdrawal_realized_amount_for_primary_asset_in_usd_value: Decimal,
     pub deposit_category_count: u64,
     pub deposit_operation_crypto_deposit_count: u64,
+    pub deposit_operation_crypto_deposit_usd_value: Decimal,
+    pub deposit_operation_crypto_deposit_fee_count: u64,
+    pub deposit_operation_usd_deposit_count: u64,
+    pub deposit_operation_usd_deposit_usd_value: Decimal,
+    pub deposit_operaiton_usd_deposit_fee_count: u64,
+    pub deposit_operation_usd_deposit_fee_usd_value: Decimal,
     pub deposit_operation_unknown_count: u64,
-    pub deposit_realized_amount_for_primary_asset_in_usd_value: Decimal,
     pub unprocessed_category_count: u64,
 }
 
@@ -189,11 +191,6 @@ impl ProcessedData {
             //asset_rec_map: AssetRecMap::new(),
             total_distribution_value_usd: dec!(0),
             total_count: 0u64,
-            total_usd_deposit_fee_count: 0u64,
-            total_usd_deposit_fee: dec!(0),
-            total_crypto_deposit_fee_count: 0u64,
-            total_crypto_withdrawal_fee_count: 0u64,
-            total_crypto_withdrawal_fee_in_usd_value: dec!(0),
             distribution_category_count: 0u64,
             distribution_operation_referral_commission_count: 0u64,
             distribution_operation_staking_reward_count: 0u64,
@@ -213,12 +210,19 @@ impl ProcessedData {
             spot_trading_base_asset_sell_in_usd_value: dec!(0),
             withdrawal_category_count: 0u64,
             withdrawal_operation_crypto_withdrawal_count: 0u64,
+            withdrawal_operation_crypto_withdrawal_usd_value: dec!(0),
+            withdrawal_operation_crypto_withdrawal_fee_count: 0u64,
+            withdrawal_operation_crypto_withdrawal_fee_in_usd_value: dec!(0),
             withdrawal_operation_unknown_count: 0u64,
-            withdrawal_realized_amount_for_primary_asset_in_usd_value: dec!(0),
             deposit_category_count: 0u64,
             deposit_operation_crypto_deposit_count: 0u64,
+            deposit_operation_crypto_deposit_usd_value: dec!(0),
+            deposit_operation_crypto_deposit_fee_count: 0u64,
+            deposit_operation_usd_deposit_count: 0u64,
+            deposit_operation_usd_deposit_usd_value: dec!(0),
+            deposit_operaiton_usd_deposit_fee_count: 0u64,
+            deposit_operation_usd_deposit_fee_usd_value: dec!(0),
             deposit_operation_unknown_count: 0u64,
-            deposit_realized_amount_for_primary_asset_in_usd_value: dec!(0),
             unprocessed_category_count: 0u64,
         }
     }
@@ -254,9 +258,9 @@ async fn get_asset_in_usd_value_update_if_none(
     let time_utc = time_ms_to_utc(time);
     let usd = match *usd_value {
         Some(v) => {
-            if verbose {
-                println!("{leading_nl}USD value for {asset} is {v} for line_index: {line_index} time: {time_utc}");
-            }
+            //if verbose {
+            //    println!("{leading_nl}USD value for {asset} is {v} for line_index: {line_index} time: {time_utc}");
+            //}
 
             v
         }
@@ -551,15 +555,13 @@ fn process_entry(
                     if !dr.fee_asset.is_empty() {
                         //println!("Crypto Withdrawal fee: {} {} {:?}", dr.fee_asset, dec_to_money_string(dr.realized_amount_for_fee_asset_in_usd_value.unwrap()), dr.realized_amount_for_fee_asset);
                         arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
-                        data.total_crypto_withdrawal_fee_count += 1;
-                        //data.total_crypto_withdrawal_fee_in_usd_value = data.total_crypto_withdrawal_fee_in_usd_value + dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
-                        data.total_crypto_withdrawal_fee_in_usd_value +=
+                        data.withdrawal_operation_crypto_withdrawal_fee_count += 1;
+                        data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value +=
                             dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
                     }
 
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
-                    data.withdrawal_realized_amount_for_primary_asset_in_usd_value +=
-                        asset_value_usd;
+                    data.withdrawal_operation_crypto_withdrawal_usd_value += asset_value_usd;
                 }
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
@@ -583,16 +585,17 @@ fn process_entry(
                             "Crypto Deposit fee: {} {:?}",
                             dr.fee_asset, dr.realized_amount_for_fee_asset
                         );
-                        data.total_crypto_deposit_fee_count += 1;
-                        // If this occurs it needs to be per asset, and
-                        // we'll need to add a new field to the AssetRec or
-                        // keep a separate BTreeMap<AssetRec> with fees!
-                        //data.total_crypto_deposit_fee = data.total_crypto_deposit_fee + dr.realized_amount_for_fee_asset_in_usd_value;
+                        data.deposit_operation_crypto_deposit_fee_count += 1;
+                        // TODO: CryptoDepositFee:
+                        //   If this occurs it needs to be per asset, and
+                        //    we'll need to add a new field to the AssetRec or
+                        //    keep a separate BTreeMap<AssetRec> with fees!
+                        //data.total_crypto_deposit_fee += dr.realized_amount_for_fee_asset_in_usd_value;
                     }
 
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
-                    data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
+                    data.deposit_operation_crypto_deposit_usd_value += asset_value_usd;
                 }
                 "USD Deposit" => {
                     arm.add_quantity(asset, asset_value);
@@ -603,13 +606,13 @@ fn process_entry(
                             "USD Deposit fee: {} {:?}",
                             dr.fee_asset, dr.realized_amount_for_fee_asset
                         );
-                        data.total_usd_deposit_fee_count += 1;
-                        data.total_usd_deposit_fee +=
+                        data.deposit_operaiton_usd_deposit_fee_count += 1;
+                        data.deposit_operation_usd_deposit_fee_usd_value +=
                             dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
                     }
 
-                    data.deposit_operation_crypto_deposit_count += 1;
-                    data.deposit_realized_amount_for_primary_asset_in_usd_value += asset_value_usd;
+                    data.deposit_operation_usd_deposit_count += 1;
+                    data.deposit_operation_usd_deposit_usd_value += asset_value_usd;
                 }
                 _ => {
                     data.deposit_operation_unknown_count += 1;
@@ -714,74 +717,56 @@ pub async fn process_dist_files(
                 println!("\n");
             }
 
-            let mut total_value_usd = dec!(0);
-
-            #[allow(clippy::for_kv_map)]
-            for (_, ar) in &mut asset_rec_map.bt {
-                let mut _usd_value: Option<Decimal> = None;
-                ar.value_usd = match get_asset_in_usd_value_update_if_none(
-                    config,
-                    0,
-                    utc_now_to_time_ms(),
-                    &ar.asset.clone(),
-                    Some(ar.quantity),
-                    &mut _usd_value,
-                    false,
-                )
-                .await
-                {
-                    Ok(v) => v,
-                    Err(_) => dec!(0),
-                };
+            if config.verbose {
+                let mut total_value_usd = dec!(0);
 
                 let col_1_width = 10;
                 let col_2_width = 20;
                 let col_3_width = 10;
                 let col_4_width = 14;
-                total_value_usd += ar.value_usd;
                 println!(
                     "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
-                    ar.asset,
-                    dec_to_separated_string(ar.quantity, 8),
-                    dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
-                    dec_to_money_string(ar.value_usd)
+                    "Asset", "Quantity", "Txs count", "USD value today",
+                );
+
+                #[allow(clippy::for_kv_map)]
+                for (_, ar) in &mut asset_rec_map.bt {
+                    let mut _usd_value: Option<Decimal> = None;
+                    ar.value_usd = match get_asset_in_usd_value_update_if_none(
+                        config,
+                        0,
+                        utc_now_to_time_ms(),
+                        &ar.asset.clone(),
+                        Some(ar.quantity),
+                        &mut _usd_value,
+                        false,
+                    )
+                    .await
+                    {
+                        Ok(v) => v,
+                        Err(_) => dec!(0),
+                    };
+
+                    total_value_usd += ar.value_usd;
+                    println!(
+                        "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
+                        ar.asset,
+                        dec_to_separated_string(ar.quantity, 8),
+                        dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
+                        dec_to_money_string(ar.value_usd)
+                    );
+                }
+
+                println!();
+                println!(
+                    "Total account value: {}",
+                    dec_to_money_string(total_value_usd)
                 );
             }
 
-            println!();
-            println!(
-                "Total account value: {}",
-                dec_to_money_string(total_value_usd)
-            );
-
-            let lbl_width = 40;
+            let lbl_width = 45;
             let num_width = 20;
             println!();
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Total USD Deposit fee count",
-                dec_to_separated_string(Decimal::from(data.total_usd_deposit_fee_count), 0),
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Total USD Deposit fee value",
-                dec_to_money_string(data.total_usd_deposit_fee),
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Total Crypto Deposit fee count",
-                dec_to_separated_string(Decimal::from(data.total_crypto_deposit_fee_count), 0),
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Total Crypto Withdrawal fee count",
-                dec_to_separated_string(Decimal::from(data.total_crypto_withdrawal_fee_count), 0),
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Total Crypto Withdrawal fee usd value",
-                dec_to_money_string(data.total_crypto_withdrawal_fee_in_usd_value),
-            );
             println!(
                 "{:>lbl_width$}: {:>num_width$}",
                 "Distribution referral commissions count",
@@ -805,7 +790,7 @@ pub async fn process_dist_files(
             );
             //println!(
             //    "{:>lbl_width$}: {:>num_width$} ",
-            //    "Distribution count",
+            //    "Total distribution count",
             //    dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
             //);
             println!(
@@ -865,7 +850,7 @@ pub async fn process_dist_files(
             //);
             println!(
                 "{:>lbl_width$}: {:>num_width$} ",
-                "Withdrawal crypto count",
+                "Withdrawal operation crypto count",
                 dec_to_separated_string(
                     Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
                     0
@@ -873,14 +858,25 @@ pub async fn process_dist_files(
             );
             println!(
                 "{:>lbl_width$}: {:>num_width$} ",
-                "Withdrawal crypto USD value",
-                &dec_to_money_string(
-                    data.withdrawal_realized_amount_for_primary_asset_in_usd_value
-                )
+                "Withdrawal operation crypto USD value",
+                &dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_usd_value)
+            );
+            //println!(
+            //    "{:>lbl_width$}: {:>num_width$}",
+            //    "Withdrawal operation crypto fee count",
+            //    dec_to_separated_string(
+            //        Decimal::from(data.withdrawal_operation_crypto_withdrawal_fee_count),
+            //        0
+            //    ),
+            //);
+            println!(
+                "{:>lbl_width$}: {:>num_width$}",
+                "Withdrawal operation crypto fee usd value",
+                dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value),
             );
             println!(
                 "{:>lbl_width$}: {:>num_width$} ",
-                "Deposit crypto count",
+                "Deposit operation crypto count",
                 dec_to_separated_string(
                     Decimal::from(data.deposit_operation_crypto_deposit_count),
                     0
@@ -888,8 +884,39 @@ pub async fn process_dist_files(
             );
             println!(
                 "{:>lbl_width$}: {:>num_width$} ",
-                "Deposit crypto USD value",
-                &dec_to_money_string(data.deposit_realized_amount_for_primary_asset_in_usd_value)
+                "Deposit operation crypto USD value",
+                &dec_to_money_string(data.deposit_operation_crypto_deposit_usd_value)
+            );
+            //println!(
+            //    "{:>lbl_width$}: {:>num_width$}",
+            //    "Deposit operation crypto fee count",
+            //    dec_to_separated_string(
+            //        Decimal::from(data.deposit_operation_crypto_deposit_fee_count),
+            //        0
+            //    ),
+            //);
+            println!(
+                "{:>lbl_width$}: {:>num_width$} ",
+                "Deposit operation USD count",
+                dec_to_separated_string(Decimal::from(data.deposit_operation_usd_deposit_count), 0)
+            );
+            println!(
+                "{:>lbl_width$}: {:>num_width$} ",
+                "Deposit operation USD value",
+                &dec_to_money_string(data.deposit_operation_usd_deposit_usd_value)
+            );
+            //println!(
+            //    "{:>lbl_width$}: {:>num_width$}",
+            //    "Deposit operation USD Deposit fee count",
+            //    dec_to_separated_string(
+            //        Decimal::from(data.deposit_operaiton_usd_deposit_fee_count),
+            //        0
+            //    ),
+            //);
+            println!(
+                "{:>lbl_width$}: {:>num_width$}",
+                "Deposit operation USD Deposit fee USD value",
+                dec_to_money_string(data.deposit_operation_usd_deposit_fee_usd_value),
             );
             println!(
                 "{:>lbl_width$}: {:>num_width$} ",
@@ -900,7 +927,10 @@ pub async fn process_dist_files(
             // Assertions!
             assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
 
-            assert_eq!(data.total_crypto_deposit_fee_count, 0);
+            assert_eq!(
+                data.deposit_operation_crypto_deposit_fee_count, 0,
+                "See TODO: CryptoDepositFee"
+            );
 
             assert_eq!(
                 data.distribution_category_count,
@@ -936,7 +966,9 @@ pub async fn process_dist_files(
 
             assert_eq!(
                 data.deposit_category_count,
-                data.deposit_operation_crypto_deposit_count + data.deposit_operation_unknown_count
+                data.deposit_operation_crypto_deposit_count
+                    + data.deposit_operation_usd_deposit_count
+                    + data.deposit_operation_unknown_count
             );
             assert_eq!(data.deposit_operation_unknown_count, 0);
 
