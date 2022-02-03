@@ -718,14 +718,14 @@ pub async fn process_dist_files(
 
             #[allow(clippy::for_kv_map)]
             for (_, ar) in &mut asset_rec_map.bt {
-                let mut usd_value: Option<Decimal> = None;
-                let usd: Decimal = match get_asset_in_usd_value_update_if_none(
+                let mut _usd_value: Option<Decimal> = None;
+                ar.value_usd = match get_asset_in_usd_value_update_if_none(
                     config,
                     0,
                     utc_now_to_time_ms(),
                     &ar.asset.clone(),
                     Some(ar.quantity),
-                    &mut usd_value,
+                    &mut _usd_value,
                     false,
                 )
                 .await
@@ -733,13 +733,16 @@ pub async fn process_dist_files(
                     Ok(v) => v,
                     Err(_) => dec!(0),
                 };
-                ar.value_usd = usd;
 
+                let col_1_width = 10;
+                let col_2_width = 20;
+                let col_3_width = 10;
+                let col_4_width = 14;
                 total_value_usd += ar.value_usd;
                 println!(
-                    "{:10} {:20.6} {:>10} {:>14}",
+                    "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
                     ar.asset,
-                    ar.quantity,
+                    dec_to_separated_string(ar.quantity, 8),
                     dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
                     dec_to_money_string(ar.value_usd)
                 );
@@ -750,115 +753,118 @@ pub async fn process_dist_files(
                 "Total account value: {}",
                 dec_to_money_string(total_value_usd)
             );
+
+            let lbl_width = 40;
+            let num_width = 20;
             println!();
             println!(
-                "{:>38}: {}",
+                "{:>lbl_width$}: {:>num_width$}",
                 "Total USD Deposit fee count",
                 dec_to_separated_string(Decimal::from(data.total_usd_deposit_fee_count), 0),
             );
             println!(
-                "{:>38}: {}",
-                "Total USD Deposit fee",
+                "{:>lbl_width$}: {:>num_width$}",
+                "Total USD Deposit fee value",
                 dec_to_money_string(data.total_usd_deposit_fee),
             );
             println!(
-                "{:>38}: {}",
+                "{:>lbl_width$}: {:>num_width$}",
                 "Total Crypto Deposit fee count",
                 dec_to_separated_string(Decimal::from(data.total_crypto_deposit_fee_count), 0),
             );
             println!(
-                "{:>38}: {}",
+                "{:>lbl_width$}: {:>num_width$}",
                 "Total Crypto Withdrawal fee count",
                 dec_to_separated_string(Decimal::from(data.total_crypto_withdrawal_fee_count), 0),
             );
             println!(
-                "{:>38}: {}",
+                "{:>lbl_width$}: {:>num_width$}",
                 "Total Crypto Withdrawal fee usd value",
                 dec_to_money_string(data.total_crypto_withdrawal_fee_in_usd_value),
             );
             println!(
-                "{:>38}: {}",
-                "Distribution referral commissions",
+                "{:>lbl_width$}: {:>num_width$}",
+                "Distribution referral commissions count",
                 dec_to_separated_string(
                     Decimal::from(data.distribution_operation_referral_commission_count),
                     0
                 ),
             );
             println!(
-                "{:>38}: {}",
-                "Distribution staking rewards",
+                "{:>lbl_width$}: {:>num_width$}",
+                "Distribution staking rewards count",
                 dec_to_separated_string(
                     Decimal::from(data.distribution_operation_staking_reward_count),
                     0
                 ),
             );
             println!(
-                "{:>38}: {}",
-                "Distribution others",
+                "{:>lbl_width$}: {:>num_width$}",
+                "Distribution others count",
                 dec_to_separated_string(Decimal::from(data.distribution_operation_others_count), 0),
             );
             //println!(
-            //    "{:>38}: {} ",
+            //    "{:>lbl_width$}: {:>num_width$} ",
             //    "Distribution count",
             //    dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
             //);
             println!(
-                "{:>38}: {} ",
-                "Total distribution USD",
+                "{:>lbl_width$}: {:>num_width$} ",
+                "Total distribution USD value",
                 dec_to_money_string(data.total_distribution_value_usd)
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Quick Buy count",
                 dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0)
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Quick Buy USD value",
                 dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Quick Sell count",
                 dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0)
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Quick Sell USD value",
                 dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
             );
             //println!(
-            //    "{:>38}: {} ",
+            //    "{:>lbl_width$}: {:>num_width$} ",
             //    "Quick count",
             //    dec_to_separated_string(Decimal::from(data.quick_category_count), 0)
             //);
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Spot Trading buy count",
                 dec_to_separated_string(Decimal::from(data.spot_trading_operation_buy_count), 0)
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Spot Trading buy USD value",
                 dec_to_money_string(data.spot_trading_base_asset_buy_in_usd_value),
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Spot Trading sell count",
                 dec_to_separated_string(Decimal::from(data.spot_trading_operation_sell_count), 0)
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Spot Trading sell USD value",
                 dec_to_money_string(data.spot_trading_base_asset_sell_in_usd_value),
             );
             //println!(
-            //    "{:>38}: {} ",
+            //    "{:>lbl_width$}: {:>num_width$} ",
             //    "Spot Trading count",
             //    dec_to_separated_string(Decimal::from(data.spot_trading_category_count), 0)
             //);
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Withdrawal crypto count",
                 dec_to_separated_string(
                     Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
@@ -866,14 +872,14 @@ pub async fn process_dist_files(
                 )
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Withdrawal crypto USD value",
                 &dec_to_money_string(
                     data.withdrawal_realized_amount_for_primary_asset_in_usd_value
                 )
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Deposit crypto count",
                 dec_to_separated_string(
                     Decimal::from(data.deposit_operation_crypto_deposit_count),
@@ -881,12 +887,12 @@ pub async fn process_dist_files(
                 )
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Deposit crypto USD value",
                 &dec_to_money_string(data.deposit_realized_amount_for_primary_asset_in_usd_value)
             );
             println!(
-                "{:>38}: {} ",
+                "{:>lbl_width$}: {:>num_width$} ",
                 "Total count",
                 dec_to_separated_string(Decimal::from(data.total_count), 0)
             );

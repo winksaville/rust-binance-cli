@@ -94,7 +94,8 @@ impl AccountInfo {
     ) -> Decimal {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
-            if balance.free > dec!(0) || balance.locked > dec!(0) {
+            // Print all assets with a free or locked balance
+            if balance.free != dec!(0) || balance.locked != dec!(0) {
                 let price_in_usd = if balance.asset != "USD" {
                     let value_assets = ["USD", "USDT", "BUSD"];
                     let r = get_kline_of_primary_asset_for_value_asset(
@@ -149,16 +150,23 @@ impl AccountInfo {
         self.print_header_fields();
         println!();
 
+        let col_1 = 6;
+        let col_2 = 12;
+        let col_3 = 12;
+        let col_4 = 20;
+        let col_5 = 20;
+        let col_6 = 20;
+
         let mut total_value = dec!(0);
         println!(
-            "{:<6} {:>12} {:>12} {:>20} {:>20} {:>20}",
+            "{:<col_1$} {:>col_2$} {:>col_3$} {:>col_4$} {:>col_5$} {:>col_6$}",
             "Asset", "USD value", "USD/coin", "Total Coins", "Free", "locked"
         );
         for balance in self.balances_map.values() {
             if balance.value_in_usd > dec!(0) {
                 total_value += balance.value_in_usd;
                 println!(
-                    "{:<6} {:>12} {:>12} {:>20} {:>20} {:>20}",
+                    "{:<col_1$} {:>col_2$} {:>col_3$} {:>col_4$} {:>col_5$} {:>col_6$}",
                     balance.asset,
                     dec_to_money_string(balance.value_in_usd),
                     dec_to_money_string(balance.price_in_usd),
