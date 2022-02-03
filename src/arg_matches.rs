@@ -107,7 +107,15 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .subcommand(
             App::new("ai")
                 .display_order(1)
-                .about("Display the account info"),
+                .about("Display the account info")
+                // Turns out this isn't the time you'd like for information
+                // but related to the receive window :()
+                //.arg(
+                //    Arg::new("TIME")
+                //        .help("Time in form of YYYY-MM-DD H:M:S")
+                //        .required(false)
+                //        .index(1),
+                //),
         )
         .subcommand(
             App::new("auto-buy")

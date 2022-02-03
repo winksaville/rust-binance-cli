@@ -17,7 +17,7 @@ use crate::{
         adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
         verify_quanity_is_less_than_or_eq_free,
     },
-    common::{InternalErrorRec, Side},
+    common::{utc_now_to_time_ms, InternalErrorRec, Side},
     configuration::Configuration,
     ier_new,
 };
@@ -104,7 +104,7 @@ pub async fn market_order(
         return Ok(tr);
     }
 
-    let ai = get_account_info(config).await?;
+    let ai = get_account_info(config, utc_now_to_time_ms()).await?;
     trace!("market_order: Got AccountInfo");
 
     let open_orders = get_open_orders(config, &symbol.symbol).await?;

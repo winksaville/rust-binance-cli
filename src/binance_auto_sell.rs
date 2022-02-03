@@ -13,7 +13,8 @@ use crate::{
     binance_order_response::TradeResponse,
     binance_trade::{MarketQuantityType, TradeOrderType},
     common::{
-        are_you_sure_stdout_stdin, dec_to_money_string, time_ms_to_utc, InternalErrorRec, Side,
+        are_you_sure_stdout_stdin, dec_to_money_string, time_ms_to_utc, utc_now_to_time_ms,
+        InternalErrorRec, Side,
     },
     configuration::Configuration,
     ier_new,
@@ -27,9 +28,11 @@ pub async fn auto_sell(
     trace!("auto_sell:+ test: {} config: {:?}", test, config);
 
     trace!("auto_sell: call get_account_info");
-    let mut ai = get_account_info(config).await?;
+    let time_ms = utc_now_to_time_ms();
+    let mut ai = get_account_info(config, time_ms).await?;
     trace!("auto_sell: call ai.update_values_in_usd");
-    ai.update_values_in_usd(config, config.verbose).await;
+    ai.update_values_in_usd(config, config.verbose, time_ms)
+        .await;
     trace!("auto_sell: retf ai.update_values_in_usd");
     //ai.print().await;
 

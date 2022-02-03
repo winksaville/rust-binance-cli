@@ -157,8 +157,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 withdraw_cmd(&config, &params).await?;
             }
             "ai" => {
-                let mut ai = get_account_info(&config).await?;
-                ai.update_and_print(&config).await;
+                let time_ms = utc_now_to_time_ms();
+                let mut ai = get_account_info(&config, utc_now_to_time_ms()).await?;
+                ai.update_and_print(&config, time_ms).await;
             }
             "ei" => {
                 let ei = get_exchange_info(&config).await?;

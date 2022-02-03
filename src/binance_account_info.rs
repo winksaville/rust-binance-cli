@@ -13,7 +13,7 @@ use crate::{
     binance_signature::{append_signature, binance_signature, query_vec_u8},
 };
 use crate::{
-    common::{dec_to_money_string, get_req_get_response, time_ms_to_utc, utc_now_to_time_ms},
+    common::{dec_to_money_string, get_req_get_response, time_ms_to_utc},
     de_string_or_number::de_string_or_number_to_i64,
     Configuration,
 };
@@ -85,7 +85,12 @@ pub struct AccountInfo {
 }
 
 impl AccountInfo {
-    pub async fn update_values_in_usd(&mut self, config: &Configuration, verbose: bool) -> Decimal {
+    pub async fn update_values_in_usd(
+        &mut self,
+        config: &Configuration,
+        verbose: bool,
+        time_ms: i64,
+    ) -> Decimal {
         let mut total_value = dec!(0);
         for mut balance in self.balances_map.values_mut() {
             if balance.free > dec!(0) || balance.locked > dec!(0) {
@@ -93,7 +98,7 @@ impl AccountInfo {
                     let value_assets = ["USD", "USDT", "BUSD"];
                     let r = get_kline_of_primary_asset_for_value_asset(
                         config,
-                        utc_now_to_time_ms(),
+                        time_ms,
                         &balance.asset,
                         &value_assets,
                     )
@@ -165,14 +170,16 @@ impl AccountInfo {
         println!("total: {}", dec_to_money_string(total_value));
     }
 
-    pub async fn update_and_print(&mut self, config: &Configuration) {
-        self.update_values_in_usd(config, config.verbose).await;
+    pub async fn update_and_print(&mut self, config: &Configuration, time_ms: i64) {
+        self.update_values_in_usd(config, config.verbose, time_ms)
+            .await;
         self.print().await;
     }
 }
 
 pub async fn get_account_info<'e>(
     config: &Configuration,
+    time_ms: i64,
 ) -> Result<AccountInfo, Box<dyn std::error::Error>> {
     trace!("get_account_info: +");
 
@@ -180,7 +187,7 @@ pub async fn get_account_info<'e>(
     let secret_key = &config.keys.get_sk_vec_u8_or_err()?;
 
     let mut params = vec![];
-    let ts_string: String = format!("{}", utc_now_to_time_ms());
+    let ts_string: String = format!("{}", time_ms);
     params.append(&mut vec![("timestamp", ts_string.as_str())]);
 
     let mut query = query_vec_u8(&params);

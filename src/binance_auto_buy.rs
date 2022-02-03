@@ -8,7 +8,9 @@ use crate::{
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
     binance_trade::{MarketQuantityType, TradeOrderType},
-    common::{are_you_sure_stdout_stdin, time_ms_to_utc, InternalErrorRec, Side},
+    common::{
+        are_you_sure_stdout_stdin, time_ms_to_utc, utc_now_to_time_ms, InternalErrorRec, Side,
+    },
     configuration::Configuration,
     ier_new,
 };
@@ -20,8 +22,10 @@ pub async fn auto_buy(
     let test = config.test;
     trace!("auto_buy:+ test: {} config: {:#?}", test, config);
 
-    let mut ai = get_account_info(config).await?;
-    ai.update_values_in_usd(config, config.verbose).await;
+    let time_ms = utc_now_to_time_ms();
+    let mut ai = get_account_info(config, time_ms).await?;
+    ai.update_values_in_usd(config, config.verbose, time_ms)
+        .await;
     //ai.print().await;
 
     // Verify the default_quote_asset is NOT empty

@@ -326,7 +326,7 @@ pub async fn withdraw(
     ei: &ExchangeInfo,
     params: &WithdrawParams,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let ai = get_account_info(config).await?;
+    let ai = get_account_info(config, utc_now_to_time_ms()).await?;
     trace!("withdraw: Got AccountInfo: {:#?}", ai);
 
     let order_log_path = if let Some(olp) = &config.order_log_path {
