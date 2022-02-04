@@ -230,7 +230,7 @@ impl ProcessedData {
 
 async fn get_asset_in_usd_value_update_if_none(
     config: &Configuration,
-    line_index: usize,
+    line_number: usize,
     time: i64,
     asset: &str,
     asset_value: Option<Decimal>,
@@ -243,14 +243,13 @@ async fn get_asset_in_usd_value_update_if_none(
         return Ok(v);
     }
 
-    let line_index = line_index + 1usize;
     // Error if there is no asset_value
     let leading_nl = if config.verbose { "\n" } else { "" };
     let asset_value = if let Some(value) = asset_value {
         value
     } else {
         return Err(format!(
-            "{leading_nl}No asset_value so unable to convert {asset} at line_index: {line_index} time: {}",
+            "{leading_nl}No asset_value so unable to convert {asset} at line_number: {line_number} time: {}",
             time_ms_to_utc(time)
         )
         .into());
@@ -259,7 +258,7 @@ async fn get_asset_in_usd_value_update_if_none(
     let usd = match *usd_value {
         Some(v) => {
             //if verbose {
-            //    println!("{leading_nl}USD value for {asset} is {v} for line_index: {line_index} time: {time_utc}");
+            //    println!("{leading_nl}USD value for {asset} is {v} for line_number: {line_number} time: {time_utc}");
             //}
 
             v
@@ -277,7 +276,7 @@ async fn get_asset_in_usd_value_update_if_none(
                 Some(r) => r,
                 None => {
                     return Err(
-                        format!("{leading_nl}Unable to convert {asset} to {value_assets:?} at line_index: {line_index} time: {time_utc}").into()
+                        format!("{leading_nl}Unable to convert {asset} to {value_assets:?} at line_number: {line_number} time: {time_utc}").into()
                     );
                 }
             };
@@ -290,7 +289,7 @@ async fn get_asset_in_usd_value_update_if_none(
             *usd_value = Some(value);
 
             if verbose {
-                println!("{leading_nl}Updating {sym_name} value to {value} for line_index: {line_index} time: {time_utc}");
+                println!("{leading_nl}Updating {sym_name} value to {value} for line_number: {line_number} time: {time_utc}");
             }
 
             value
@@ -303,12 +302,13 @@ async fn get_asset_in_usd_value_update_if_none(
 async fn update_all_usd_values(
     config: &Configuration,
     dr: &mut DistRec,
-    line_index: usize,
+    line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    //let line_number = rec_index + 2;
     if !dr.primary_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_index,
+            line_number,
             dr.time,
             &dr.primary_asset,
             dr.realized_amount_for_primary_asset,
@@ -321,7 +321,7 @@ async fn update_all_usd_values(
     if !dr.base_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_index,
+            line_number,
             dr.time,
             &dr.base_asset,
             dr.realized_amount_for_base_asset,
@@ -334,7 +334,7 @@ async fn update_all_usd_values(
     if !dr.quote_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_index,
+            line_number,
             dr.time,
             &dr.quote_asset,
             dr.realized_amount_for_quote_asset,
@@ -347,7 +347,7 @@ async fn update_all_usd_values(
     if !dr.fee_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_index,
+            line_number,
             dr.time,
             &dr.fee_asset,
             dr.realized_amount_for_fee_asset,
@@ -363,7 +363,7 @@ async fn update_all_usd_values(
 #[allow(unused)]
 fn dbg_x(
     x: &str,
-    line_index: usize,
+    line_number: usize,
     asset: &str,
     asset_value: Decimal,
     asset_value_usd: Decimal,
@@ -372,7 +372,7 @@ fn dbg_x(
 ) {
     if x.is_empty() || asset == x {
         println!(
-            "{line_index} {asset} {asset_value} {} {category} {operation}",
+            "{line_number} {asset} {asset_value} {} {category} {operation}",
             dec_to_money_string(asset_value_usd)
         );
     }
@@ -415,7 +415,7 @@ fn process_entry(
     data: &mut ProcessedData,
     arm: &mut AssetRecMap,
     dr: &DistRec,
-    line_index: usize,
+    line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     data.total_count += 1;
 
@@ -485,7 +485,7 @@ fn process_entry(
                     data.distribution_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Distribution unknown operation: {}",
-                        line_index + 1,
+                        line_number,
                         dr.primary_asset,
                         dr.operation
                     );
@@ -512,7 +512,7 @@ fn process_entry(
                     data.quick_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Quick unknown operation: {}",
-                        line_index + 1,
+                        line_number,
                         dr.base_asset,
                         dr.operation
                     );
@@ -539,13 +539,13 @@ fn process_entry(
                     data.spot_trading_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Spot trading unknown operation: {}",
-                        line_index + 1,
+                        line_number,
                         dr.base_asset,
                         dr.operation
                     );
                 }
             }
-            //println!("{} Spot Trading: {} {entry:?}", line_index + 1, dr.operation);
+            //println!("{} Spot Trading: {} {entry:?}", line_number, dr.operation);
         }
         "Withdrawal" => {
             data.withdrawal_category_count += 1;
@@ -567,7 +567,7 @@ fn process_entry(
                     data.withdrawal_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Withdrawal unknown operation: {}",
-                        line_index + 1,
+                        line_number,
                         dr.primary_asset,
                         dr.operation
                     );
@@ -575,7 +575,7 @@ fn process_entry(
             }
         }
         "Deposit" => {
-            // println!("{} Deposit entry: {entry:?}", line_index + 1);
+            // println!("{} Deposit entry: {entry:?}", line_number);
             data.deposit_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Deposit" => {
@@ -618,7 +618,7 @@ fn process_entry(
                     data.deposit_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Deposit unknown operation: {}",
-                        line_index + 1,
+                        line_number,
                         dr.primary_asset,
                         dr.operation
                     );
@@ -629,7 +629,7 @@ fn process_entry(
             data.unprocessed_category_count += 1;
             println!(
                 "{leading_nl}{} Unknown category: {}",
-                line_index + 1,
+                line_number,
                 dr.category
             );
         }
@@ -683,7 +683,8 @@ pub async fn process_dist_files(
 
     let mut asset_rec_map = AssetRecMap::new();
 
-    for (line_index, result) in rdr.deserialize().enumerate() {
+    for (rec_index, result) in rdr.deserialize().enumerate() {
+        let line_number = rec_index + 2;
         let mut dr: DistRec = result?;
 
         if config.verbose {
@@ -693,15 +694,14 @@ pub async fn process_dist_files(
                 &dr.base_asset
             };
             print!(
-                "Processing {} {asset}                        \r",
-                line_index + 1,
+                "Processing {line_number} {asset}                        \r",
             );
         }
 
         match process_type {
-            ProcessType::Update => update_all_usd_values(config, &mut dr, line_index).await?,
+            ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
             ProcessType::Process => {
-                process_entry(config, &mut data, &mut asset_rec_map, &dr, line_index)?;
+                process_entry(config, &mut data, &mut asset_rec_map, &dr, line_number)?;
             }
         }
 
@@ -871,7 +871,7 @@ pub async fn process_dist_files(
             //);
             println!(
                 "{:>lbl_width$}: {:>num_width$}",
-                "Withdrawal operation crypto fee usd value",
+                "Withdrawal operation crypto fee USD value",
                 dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value),
             );
             println!(
