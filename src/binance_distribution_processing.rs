@@ -112,7 +112,8 @@ impl AssetRec {
     }
 }
 
-struct AssetRecMap {
+#[derive(Debug)]
+pub struct AssetRecMap {
     bt: BTreeMap<String, AssetRec>,
 }
 
@@ -121,6 +122,16 @@ impl AssetRecMap {
         AssetRecMap {
             bt: BTreeMap::<String, AssetRec>::new(),
         }
+    }
+
+    fn add_or_update(&mut self, asset: &str, quantity: Decimal, value_usd: Decimal) {
+        let entry = self
+            .bt
+            .entry(asset.to_owned())
+            .or_insert_with(|| AssetRec::new(asset));
+        entry.quantity += quantity;
+        entry.value_usd += value_usd;
+        entry.transaction_count += 1;
     }
 
     fn inc_transaction_count(&mut self, asset: &str) {
@@ -133,23 +144,24 @@ impl AssetRecMap {
         entry.quantity += val;
     }
 
-    #[allow(unused)]
     fn sub_quantity(&mut self, asset: &str, val: Decimal) {
         self.add_quantity(asset, -val)
     }
 
     #[allow(unused)]
-    fn set_value_usd(&mut self, asset: &str, val: Decimal) {
+    fn add_value_usd(&mut self, asset: &str, val: Decimal) {
         let entry = self.bt.get_mut(asset).unwrap();
-        entry.value_usd = val;
+        entry.value_usd += val;
     }
 }
 
 #[derive(Debug)]
 pub struct ProcessedData {
-    //pub asset_rec_map: AssetRecMap,
-    pub total_distribution_value_usd: Decimal,
+    pub others_rec_map: AssetRecMap,
     pub total_count: u64,
+    pub distribution_operation_referral_commission_value_usd: Decimal,
+    pub distribution_operation_staking_rewards_value_usd: Decimal,
+    pub distribution_operation_others_value_usd: Decimal,
     pub distribution_category_count: u64,
     pub distribution_operation_referral_commission_count: u64,
     pub distribution_operation_staking_reward_count: u64,
@@ -158,15 +170,19 @@ pub struct ProcessedData {
     pub quick_category_count: u64,
     pub quick_buy_operation_buy_count: u64,
     pub quick_buy_base_asset_in_usd_value: Decimal,
+    pub quick_buy_operation_buy_fee_in_usd_value: Decimal,
     pub quick_sell_operation_sell_count: u64,
     pub quick_sell_base_asset_in_usd_value: Decimal,
+    pub quick_sell_operation_sell_fee_in_usd_value: Decimal,
     pub quick_operation_unknown_count: u64,
     pub spot_trading_category_count: u64,
     pub spot_trading_operation_unknown_count: u64,
     pub spot_trading_operation_buy_count: u64,
-    pub spot_trading_base_asset_buy_in_usd_value: Decimal,
+    pub spot_trading_operation_buy_base_asset_in_usd_value: Decimal,
+    pub spot_trading_operation_buy_fee_in_usd_value: Decimal,
     pub spot_trading_operation_sell_count: u64,
-    pub spot_trading_base_asset_sell_in_usd_value: Decimal,
+    pub spot_trading_operation_sell_base_asset_in_usd_value: Decimal,
+    pub spot_trading_operation_sell_fee_in_usd_value: Decimal,
     pub withdrawal_category_count: u64,
     pub withdrawal_operation_crypto_withdrawal_count: u64,
     pub withdrawal_operation_crypto_withdrawal_usd_value: Decimal,
@@ -188,9 +204,11 @@ pub struct ProcessedData {
 impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
-            //asset_rec_map: AssetRecMap::new(),
-            total_distribution_value_usd: dec!(0),
+            others_rec_map: AssetRecMap::new(),
             total_count: 0u64,
+            distribution_operation_referral_commission_value_usd: dec!(0),
+            distribution_operation_staking_rewards_value_usd: dec!(0),
+            distribution_operation_others_value_usd: dec!(0),
             distribution_category_count: 0u64,
             distribution_operation_referral_commission_count: 0u64,
             distribution_operation_staking_reward_count: 0u64,
@@ -199,15 +217,19 @@ impl ProcessedData {
             quick_category_count: 0u64,
             quick_buy_operation_buy_count: 0u64,
             quick_buy_base_asset_in_usd_value: dec!(0),
+            quick_buy_operation_buy_fee_in_usd_value: dec!(0),
             quick_sell_operation_sell_count: 0u64,
             quick_sell_base_asset_in_usd_value: dec!(0),
+            quick_sell_operation_sell_fee_in_usd_value: dec!(0),
             quick_operation_unknown_count: 0u64,
             spot_trading_category_count: 0u64,
             spot_trading_operation_unknown_count: 0u64,
             spot_trading_operation_buy_count: 0u64,
-            spot_trading_base_asset_buy_in_usd_value: dec!(0),
+            spot_trading_operation_buy_base_asset_in_usd_value: dec!(0),
+            spot_trading_operation_buy_fee_in_usd_value: dec!(0),
             spot_trading_operation_sell_count: 0u64,
-            spot_trading_base_asset_sell_in_usd_value: dec!(0),
+            spot_trading_operation_sell_base_asset_in_usd_value: dec!(0),
+            spot_trading_operation_sell_fee_in_usd_value: dec!(0),
             withdrawal_category_count: 0u64,
             withdrawal_operation_crypto_withdrawal_count: 0u64,
             withdrawal_operation_crypto_withdrawal_usd_value: dec!(0),
@@ -424,19 +446,40 @@ fn process_entry(
     let asset_value_usd: Decimal;
     let asset = if !dr.primary_asset.is_empty() {
         assert!(dr.base_asset.is_empty());
-        asset_value = dr.realized_amount_for_primary_asset.unwrap();
-        asset_value_usd = dr.realized_amount_for_primary_asset_in_usd_value.unwrap();
+        asset_value = dr.realized_amount_for_primary_asset.unwrap_or_else(|| {
+            panic!(
+                "{} has no realized_amount_for_primary_asset at line {line_number}",
+                dr.primary_asset
+            )
+        });
+        asset_value_usd = dr.realized_amount_for_primary_asset_in_usd_value
+                        .unwrap_or_else(|| {
+                            panic!("{} has no realized_amount_for_primary_asset_in_usd_value at line {line_number}", dr.primary_asset)
+                        });
         &dr.primary_asset
-    } else {
-        asset_value = dr.realized_amount_for_base_asset.unwrap();
-        asset_value_usd = dr.realized_amount_for_base_asset_in_usd_value.unwrap();
+    } else if !dr.base_asset.is_empty() {
+        asset_value = dr.realized_amount_for_base_asset.unwrap_or_else(|| {
+            panic!(
+                "{} has no realized_amount_for_base_asset_in_usd_value at line {line_number}",
+                dr.primary_asset
+            )
+        });
+        asset_value_usd = dr
+            .realized_amount_for_base_asset_in_usd_value
+            .unwrap_or_else(|| {
+                panic!(
+                    "{} has no realized_amount_for_base_asset_in_usd_value at line {line_number}",
+                    dr.primary_asset
+                )
+            });
         &dr.base_asset
+    } else {
+        panic!("No primary_asset or base_asset at line {line_number}");
     };
 
     // Add possibly missing AssetRecMap entries
     {
         let _ = arm.bt.entry(asset.to_owned()).or_insert_with(|| {
-            // This is "normal" if it's a buy or deposit
             //println!("Adding missing asset: {}", asset);
             AssetRec::new(asset)
         });
@@ -474,20 +517,26 @@ fn process_entry(
                 arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
             }
 
-            data.total_distribution_value_usd += asset_value_usd;
             match dr.operation.as_ref() {
                 "Referral Commission" => {
                     data.distribution_operation_referral_commission_count += 1;
+                    data.distribution_operation_referral_commission_value_usd += asset_value_usd;
                 }
-                "Staking Rewards" => data.distribution_operation_staking_reward_count += 1,
-                "Others" => data.distribution_operation_others_count += 1,
+                "Staking Rewards" => {
+                    data.distribution_operation_staking_reward_count += 1;
+                    data.distribution_operation_staking_rewards_value_usd += asset_value_usd;
+                }
+                "Others" => {
+                    data.distribution_operation_others_count += 1;
+                    data.distribution_operation_others_value_usd += asset_value_usd;
+                    data.others_rec_map
+                        .add_or_update(asset, asset_value, asset_value_usd);
+                }
                 _ => {
                     data.distribution_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Distribution unknown operation: {}",
-                        line_number,
-                        dr.primary_asset,
-                        dr.operation
+                        line_number, dr.primary_asset, dr.operation
                     );
                 }
             }
@@ -495,26 +544,33 @@ fn process_entry(
         "Quick Buy" | "Quick Sell" => {
             data.quick_category_count += 1;
             match dr.operation.as_ref() {
-                "Buy" | "Sell" => {
-                    if dr.operation == "Buy" {
-                        trade_asset(TradeType::Buy, dr, arm)?;
+                "Buy" => {
+                    trade_asset(TradeType::Buy, dr, arm)?;
 
-                        data.quick_buy_operation_buy_count += 1;
-                        data.quick_buy_base_asset_in_usd_value += asset_value_usd;
-                    } else {
-                        trade_asset(TradeType::Sell, dr, arm)?;
+                    data.quick_buy_operation_buy_count += 1;
+                    data.quick_buy_base_asset_in_usd_value += asset_value_usd;
+                    data.quick_buy_operation_buy_fee_in_usd_value += dr
+                        .realized_amount_for_fee_asset_in_usd_value
+                        .unwrap_or_else(|| {
+                            panic!("Quick Buy of {asset} has no fee at line {line_number}")
+                        });
+                }
+                "Sell" => {
+                    trade_asset(TradeType::Sell, dr, arm)?;
 
-                        data.quick_sell_operation_sell_count += 1;
-                        data.quick_sell_base_asset_in_usd_value += asset_value_usd;
-                    }
+                    data.quick_sell_operation_sell_count += 1;
+                    data.quick_sell_base_asset_in_usd_value += asset_value_usd;
+                    data.quick_sell_operation_sell_fee_in_usd_value += dr
+                        .realized_amount_for_fee_asset_in_usd_value
+                        .unwrap_or_else(|| {
+                            panic!("Quick Sell of {asset} has no fee at line {line_number}")
+                        });
                 }
                 _ => {
                     data.quick_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Quick unknown operation: {}",
-                        line_number,
-                        dr.base_asset,
-                        dr.operation
+                        line_number, dr.base_asset, dr.operation
                     );
                 }
             }
@@ -522,26 +578,33 @@ fn process_entry(
         "Spot Trading" => {
             data.spot_trading_category_count += 1;
             match dr.operation.as_ref() {
-                "Buy" | "Sell" => {
-                    if dr.operation == "Buy" {
-                        trade_asset(TradeType::Buy, dr, arm)?;
+                "Buy" => {
+                    trade_asset(TradeType::Buy, dr, arm)?;
 
-                        data.spot_trading_operation_buy_count += 1;
-                        data.spot_trading_base_asset_buy_in_usd_value += asset_value_usd;
-                    } else {
-                        trade_asset(TradeType::Sell, dr, arm)?;
+                    data.spot_trading_operation_buy_count += 1;
+                    data.spot_trading_operation_buy_base_asset_in_usd_value += asset_value_usd;
+                    data.spot_trading_operation_buy_fee_in_usd_value += dr
+                        .realized_amount_for_fee_asset_in_usd_value
+                        .unwrap_or_else(|| {
+                            panic!("Spot Trading Buy of {asset} has no fee at line {line_number}")
+                        });
+                }
+                "Sell" => {
+                    trade_asset(TradeType::Sell, dr, arm)?;
 
-                        data.spot_trading_operation_sell_count += 1;
-                        data.spot_trading_base_asset_sell_in_usd_value += asset_value_usd;
-                    }
+                    data.spot_trading_operation_sell_count += 1;
+                    data.spot_trading_operation_sell_base_asset_in_usd_value += asset_value_usd;
+                    data.spot_trading_operation_sell_fee_in_usd_value += dr
+                        .realized_amount_for_fee_asset_in_usd_value
+                        .unwrap_or_else(|| {
+                            panic!("Spot Trading Sell of {asset} has no fee at line {line_number}")
+                        });
                 }
                 _ => {
                     data.spot_trading_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Spot trading unknown operation: {}",
-                        line_number,
-                        dr.base_asset,
-                        dr.operation
+                        line_number, dr.base_asset, dr.operation
                     );
                 }
             }
@@ -567,9 +630,7 @@ fn process_entry(
                     data.withdrawal_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Withdrawal unknown operation: {}",
-                        line_number,
-                        dr.primary_asset,
-                        dr.operation
+                        line_number, dr.primary_asset, dr.operation
                     );
                 }
             }
@@ -618,9 +679,7 @@ fn process_entry(
                     data.deposit_operation_unknown_count += 1;
                     println!(
                         "{leading_nl}{} {} Deposit unknown operation: {}",
-                        line_number,
-                        dr.primary_asset,
-                        dr.operation
+                        line_number, dr.primary_asset, dr.operation
                     );
                 }
             }
@@ -629,8 +688,7 @@ fn process_entry(
             data.unprocessed_category_count += 1;
             println!(
                 "{leading_nl}{} Unknown category: {}",
-                line_number,
-                dr.category
+                line_number, dr.category
             );
         }
     }
@@ -652,6 +710,7 @@ pub async fn process_dist_files(
     //println!("process_dist_files:+ config: {config:?} sc_matches: {sc_matches:?}");
 
     let mut data = ProcessedData::new();
+    let mut asset_rec_map = AssetRecMap::new();
 
     let in_dist_file_path = sc_matches.value_of("IN_FILE").expect("IN_FILE is missing");
     let out_dist_file_path = sc_matches.value_of("OUT_FILE");
@@ -681,8 +740,6 @@ pub async fn process_dist_files(
     // To this:
     let mut wdr = writer.map(csv::Writer::from_writer);
 
-    let mut asset_rec_map = AssetRecMap::new();
-
     for (rec_index, result) in rdr.deserialize().enumerate() {
         let line_number = rec_index + 2;
         let mut dr: DistRec = result?;
@@ -693,9 +750,7 @@ pub async fn process_dist_files(
             } else {
                 &dr.base_asset
             };
-            print!(
-                "Processing {line_number} {asset}                        \r",
-            );
+            print!("Processing {line_number} {asset}                        \r",);
         }
 
         match process_type {
@@ -765,164 +820,138 @@ pub async fn process_dist_files(
             }
 
             let lbl_width = 45;
-            let num_width = 20;
-            println!();
+            let cnt_width = 10;
+            let val_width = 14;
+            let fee_width = 14;
             println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Distribution referral commissions count",
+                "{:>lbl_width$}  {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Operation", "Count", "USD Value", "Fee USD Value",
+            );
+            println!(
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Distribution Referral Commission USD value",
                 dec_to_separated_string(
                     Decimal::from(data.distribution_operation_referral_commission_count),
                     0
                 ),
+                dec_to_money_string(data.distribution_operation_referral_commission_value_usd),
+                "",
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Distribution staking rewards count",
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Distribution Staking Reward USD value",
                 dec_to_separated_string(
                     Decimal::from(data.distribution_operation_staking_reward_count),
                     0
                 ),
+                dec_to_money_string(data.distribution_operation_staking_rewards_value_usd),
+                "",
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Distribution others count",
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "* Distribution Others USD value",
                 dec_to_separated_string(Decimal::from(data.distribution_operation_others_count), 0),
-            );
-            //println!(
-            //    "{:>lbl_width$}: {:>num_width$} ",
-            //    "Total distribution count",
-            //    dec_to_separated_string(Decimal::from(data.distribution_category_count), 0)
-            //);
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Total distribution USD value",
-                dec_to_money_string(data.total_distribution_value_usd)
+                dec_to_money_string(data.distribution_operation_others_value_usd),
+                "",
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Quick Buy count",
-                dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0)
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Quick Buy USD value",
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Quick Buy",
+                dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0),
                 dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
+                dec_to_money_string(data.quick_buy_operation_buy_fee_in_usd_value)
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Quick Sell count",
-                dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0)
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Quick Sell USD value",
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Quick Sell",
+                dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0),
                 dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
-            );
-            //println!(
-            //    "{:>lbl_width$}: {:>num_width$} ",
-            //    "Quick count",
-            //    dec_to_separated_string(Decimal::from(data.quick_category_count), 0)
-            //);
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Spot Trading buy count",
-                dec_to_separated_string(Decimal::from(data.spot_trading_operation_buy_count), 0)
+                dec_to_money_string(data.quick_sell_operation_sell_fee_in_usd_value)
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Spot Trading buy USD value",
-                dec_to_money_string(data.spot_trading_base_asset_buy_in_usd_value),
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Spot Trading Buy",
+                dec_to_separated_string(Decimal::from(data.spot_trading_operation_buy_count), 0),
+                dec_to_money_string(data.spot_trading_operation_buy_base_asset_in_usd_value),
+                dec_to_money_string(data.spot_trading_operation_buy_fee_in_usd_value)
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Spot Trading sell count",
-                dec_to_separated_string(Decimal::from(data.spot_trading_operation_sell_count), 0)
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Spot Trading Sell",
+                dec_to_separated_string(Decimal::from(data.spot_trading_operation_sell_count), 0),
+                dec_to_money_string(data.spot_trading_operation_sell_base_asset_in_usd_value),
+                dec_to_money_string(data.spot_trading_operation_sell_fee_in_usd_value)
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Spot Trading sell USD value",
-                dec_to_money_string(data.spot_trading_base_asset_sell_in_usd_value),
-            );
-            //println!(
-            //    "{:>lbl_width$}: {:>num_width$} ",
-            //    "Spot Trading count",
-            //    dec_to_separated_string(Decimal::from(data.spot_trading_category_count), 0)
-            //);
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Withdrawal operation crypto count",
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Withdrawal crypto",
                 dec_to_separated_string(
                     Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
                     0
-                )
+                ),
+                dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_usd_value),
+                dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value)
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Withdrawal operation crypto USD value",
-                &dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_usd_value)
-            );
-            //println!(
-            //    "{:>lbl_width$}: {:>num_width$}",
-            //    "Withdrawal operation crypto fee count",
-            //    dec_to_separated_string(
-            //        Decimal::from(data.withdrawal_operation_crypto_withdrawal_fee_count),
-            //        0
-            //    ),
-            //);
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Withdrawal operation crypto fee USD value",
-                dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value),
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Deposit operation crypto count",
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Deposit crypto",
                 dec_to_separated_string(
                     Decimal::from(data.deposit_operation_crypto_deposit_count),
                     0
-                )
+                ),
+                dec_to_money_string(data.deposit_operation_crypto_deposit_usd_value),
+                "",
             );
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Deposit operation crypto USD value",
-                &dec_to_money_string(data.deposit_operation_crypto_deposit_usd_value)
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Deposit USD",
+                dec_to_separated_string(
+                    Decimal::from(data.deposit_operation_crypto_deposit_count),
+                    0
+                ),
+                dec_to_money_string(data.deposit_operation_usd_deposit_usd_value),
+                dec_to_money_string(data.deposit_operation_usd_deposit_fee_usd_value)
             );
-            //println!(
-            //    "{:>lbl_width$}: {:>num_width$}",
-            //    "Deposit operation crypto fee count",
-            //    dec_to_separated_string(
-            //        Decimal::from(data.deposit_operation_crypto_deposit_fee_count),
-            //        0
-            //    ),
-            //);
+            let fees_usd_value = data.quick_buy_operation_buy_fee_in_usd_value
+                + data.quick_sell_operation_sell_fee_in_usd_value
+                + data.spot_trading_operation_buy_fee_in_usd_value
+                + data.spot_trading_operation_sell_fee_in_usd_value
+                + data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value
+                + data.deposit_operation_usd_deposit_fee_usd_value;
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Deposit operation USD count",
-                dec_to_separated_string(Decimal::from(data.deposit_operation_usd_deposit_count), 0)
+                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                "Totals",
+                dec_to_separated_string(Decimal::from(data.total_count), 0),
+                "",
+                dec_to_money_string(fees_usd_value),
             );
+
+            println!();
+            println!("* Distribution Others:");
+            // Output others
+            let col_1_width = 10;
+            let col_2_width = 20;
+            let col_3_width = 10;
+            let col_4_width = 14;
             println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Deposit operation USD value",
-                &dec_to_money_string(data.deposit_operation_usd_deposit_usd_value)
+                "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
+                "Asset", "Quantity", "Txs count", "USD value",
             );
-            //println!(
-            //    "{:>lbl_width$}: {:>num_width$}",
-            //    "Deposit operation USD Deposit fee count",
-            //    dec_to_separated_string(
-            //        Decimal::from(data.deposit_operaiton_usd_deposit_fee_count),
-            //        0
-            //    ),
-            //);
-            println!(
-                "{:>lbl_width$}: {:>num_width$}",
-                "Deposit operation USD Deposit fee USD value",
-                dec_to_money_string(data.deposit_operation_usd_deposit_fee_usd_value),
-            );
-            println!(
-                "{:>lbl_width$}: {:>num_width$} ",
-                "Total count",
-                dec_to_separated_string(Decimal::from(data.total_count), 0)
-            );
+
+            let mut others_value = dec!(0);
+
+            #[allow(clippy::for_kv_map)]
+            for (_, entry) in &data.others_rec_map.bt {
+                others_value += entry.value_usd;
+                println!(
+                    "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
+                    entry.asset,
+                    entry.quantity,
+                    entry.transaction_count,
+                    dec_to_money_string(entry.value_usd),
+                );
+            }
+            assert_eq!(others_value, data.distribution_operation_others_value_usd);
 
             // Assertions!
             assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
