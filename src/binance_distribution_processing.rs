@@ -28,7 +28,7 @@
 //!
 
 //!
-use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter};
+use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter, path::Path};
 
 use clap::ArgMatches;
 
@@ -702,25 +702,43 @@ pub enum ProcessType {
     Process,
 }
 
+#[derive(PartialEq)]
+pub enum ProcessDistSubCommand {
+    Udf,
+    Pdf,
+}
+
 pub async fn process_dist_files(
     config: &Configuration,
+    subcmd: ProcessDistSubCommand,
     sc_matches: &ArgMatches,
     process_type: ProcessType,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    //println!("process_dist_files:+ config: {config:?} sc_matches: {sc_matches:?}");
+    //println!("process_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let mut data = ProcessedData::new();
     let mut asset_rec_map = AssetRecMap::new();
 
-    let in_dist_file_path = sc_matches.value_of("IN_FILE").expect("IN_FILE is missing");
-    let out_dist_file_path = sc_matches.value_of("OUT_FILE");
-
-    let in_file = if let Ok(in_f) = File::open(in_dist_file_path) {
-        in_f
+    let in_dist_file_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+    let out_dist_file_path = if subcmd == ProcessDistSubCommand::Udf {
+        sc_matches.value_of("OUT_FILE")
     } else {
-        return Err(format!("Unable to open {in_dist_file_path}").into());
+        None
     };
-    let reader = BufReader::new(in_file);
+
+    //println!("in_dist_file_path: {in_dist_file_paths:?}");
+    //println!("out_dist_file_path: {out_dist_file_path:?}");
+
+    // Verify all input files exist
+    for f in &in_dist_file_paths {
+        if !Path::new(f).exists() {
+            return Err(format!("{} does not exist", *f).into());
+        };
+    }
+
     let writer = if let Some(out_f_path) = out_dist_file_path {
         let out_file = if let Ok(out_f) = File::create(out_f_path) {
             out_f
@@ -732,36 +750,45 @@ pub async fn process_dist_files(
         None
     };
 
-    // Create reader and writer
-    let mut rdr = csv::Reader::from_reader(reader);
-
     // Clippy suggested changing this:
     //   let mut wdr = if let Some(wtr) = writer { Some(csv::Writer::from_writer(wtr)) } else { None };
     // To this:
     let mut wdr = writer.map(csv::Writer::from_writer);
 
-    for (rec_index, result) in rdr.deserialize().enumerate() {
-        let line_number = rec_index + 2;
-        let mut dr: DistRec = result?;
+    for f in &in_dist_file_paths {
+        let in_file = if let Ok(in_f) = File::open(*f) {
+            in_f
+        } else {
+            return Err(format!("Unable to open {f}").into());
+        };
+        let reader = BufReader::new(in_file);
 
-        if config.verbose {
-            let asset = if !dr.primary_asset.is_empty() {
-                &dr.primary_asset
-            } else {
-                &dr.base_asset
-            };
-            print!("Processing {line_number} {asset}                        \r",);
-        }
+        // Create reader
+        let mut rdr = csv::Reader::from_reader(reader);
 
-        match process_type {
-            ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
-            ProcessType::Process => {
-                process_entry(config, &mut data, &mut asset_rec_map, &dr, line_number)?;
+        for (rec_index, result) in rdr.deserialize().enumerate() {
+            let line_number = rec_index + 2;
+            let mut dr: DistRec = result?;
+
+            if config.verbose {
+                let asset = if !dr.primary_asset.is_empty() {
+                    &dr.primary_asset
+                } else {
+                    &dr.base_asset
+                };
+                print!("Processing {line_number} {asset}                        \r",);
             }
-        }
 
-        if let Some(w) = &mut wdr {
-            w.serialize(&dr)?;
+            match process_type {
+                ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
+                ProcessType::Process => {
+                    process_entry(config, &mut data, &mut asset_rec_map, &dr, line_number)?;
+                }
+            }
+
+            if let Some(w) = &mut wdr {
+                w.serialize(&dr)?;
+            }
         }
     }
 

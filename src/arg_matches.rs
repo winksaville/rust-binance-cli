@@ -431,28 +431,36 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .display_order(9)
                 .about("update distribution files")
                 .arg(
-                    Arg::new("IN_FILE")
-                    .help("File to process")
-                    .required(true)
-                    .index(1),
+                    Arg::new("IN_FILES")
+                        .global(false)
+                        .long("files")
+                        .short('f')
+                        .multiple_values(true)
+                        .help("List of input files")
+                        .takes_value(true),
                 )
                 .arg(
                     Arg::new("OUT_FILE")
-                    .help("Output File, optional")
-                    .required(true)
-                    .index(2),
-                ),
+                        .global(false)
+                        .long("out-file")
+                        .short('o')
+                        .help("The output file")
+                        .takes_value(true),
+                )
         )
         .subcommand(
             App::new("pdf")
                 .display_order(9)
                 .about("process distribution files")
                 .arg(
-                    Arg::new("IN_FILE")
-                    .help("File to process")
-                    .required(true)
-                    .index(1),
-                )
+                    Arg::new("IN_FILES")
+                        .global(false)
+                        .long("files")
+                        .short('f')
+                        .multiple_values(true)
+                        .help("List of input files")
+                        .takes_value(true),
+                ),
         )
         .subcommand(
             App::new("version")
