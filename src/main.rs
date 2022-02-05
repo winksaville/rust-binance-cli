@@ -414,6 +414,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await?
             }
+            "cdf" => {
+                process_dist_files(
+                    &config,
+                    ProcessDistSubCommand::Udf,
+                    sc_matches,
+                    ProcessType::Consolidate,
+                )
+                .await?
+            }
             "pdf" => {
                 process_dist_files(
                     &config,

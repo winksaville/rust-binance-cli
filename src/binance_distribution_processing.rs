@@ -382,6 +382,14 @@ async fn update_all_usd_values(
     Ok(())
 }
 
+async fn consolidate(
+    _config: &Configuration,
+    _dr: &mut DistRec,
+    _line_number: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+}
+
 #[allow(unused)]
 fn dbg_x(
     x: &str,
@@ -699,12 +707,14 @@ fn process_entry(
 #[derive(PartialEq)]
 pub enum ProcessType {
     Update,
+    Consolidate,
     Process,
 }
 
 #[derive(PartialEq)]
 pub enum ProcessDistSubCommand {
     Udf,
+    Cdf,
     Pdf,
 }
 
@@ -723,11 +733,16 @@ pub async fn process_dist_files(
         .values_of("IN_FILES")
         .expect("files option is missing")
         .collect();
-    let out_dist_file_path = if subcmd == ProcessDistSubCommand::Udf {
-        sc_matches.value_of("OUT_FILE")
-    } else {
-        None
-    };
+    let out_dist_file_path =
+        if subcmd == ProcessDistSubCommand::Udf || subcmd == ProcessDistSubCommand::Cdf {
+            if let Some(r) = sc_matches.value_of("OUT_FILE") {
+                Some(r)
+            } else {
+                return Err("Expected --out-file parameter".into());
+            }
+        } else {
+            None
+        };
 
     //println!("in_dist_file_path: {in_dist_file_paths:?}");
     //println!("out_dist_file_path: {out_dist_file_path:?}");
@@ -781,6 +796,7 @@ pub async fn process_dist_files(
 
             match process_type {
                 ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
+                ProcessType::Consolidate => consolidate(config, &mut dr, line_number).await?,
                 ProcessType::Process => {
                     process_entry(config, &mut data, &mut asset_rec_map, &dr, line_number)?;
                 }
@@ -793,7 +809,7 @@ pub async fn process_dist_files(
     }
 
     match process_type {
-        ProcessType::Update => println!("\nDone"),
+        ProcessType::Update | ProcessType::Consolidate => println!("\nDone"),
         ProcessType::Process => {
             if config.verbose {
                 println!("\n");
