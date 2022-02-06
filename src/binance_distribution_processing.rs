@@ -98,6 +98,7 @@ pub struct AssetRec {
     pub quantity: Decimal,
     pub value_usd: Decimal,
     pub transaction_count: u64,
+    pub dist_rec_vec: Vec<DistRec>,
 }
 
 #[allow(unused)]
@@ -108,6 +109,7 @@ impl AssetRec {
             quantity: dec!(0),
             value_usd: dec!(0),
             transaction_count: 0,
+            dist_rec_vec: Vec::new(),
         }
     }
 }
@@ -122,6 +124,24 @@ impl AssetRecMap {
         AssetRecMap {
             bt: BTreeMap::<String, AssetRec>::new(),
         }
+    }
+
+    fn add_dr(&mut self, dr: DistRec, line_number: usize) {
+        // The asset is always either primary_asset or base_asset
+        let asset = if !dr.primary_asset.is_empty() {
+            assert!(dr.base_asset.is_empty());
+            &dr.primary_asset
+        } else if !dr.base_asset.is_empty() {
+            &dr.base_asset
+        } else {
+            panic!("No primary_asset or base_asset at line {line_number}");
+        };
+
+        let entry = self
+            .bt
+            .entry(asset.to_owned())
+            .or_insert_with(|| AssetRec::new(asset));
+        entry.dist_rec_vec.push(dr);
     }
 
     fn add_or_update(&mut self, asset: &str, quantity: Decimal, value_usd: Decimal) {
@@ -157,7 +177,8 @@ impl AssetRecMap {
 
 #[derive(Debug)]
 pub struct ProcessedData {
-    pub dra: Vec<DistRec>,
+    pub dist_rec_vec: Vec<DistRec>,
+    pub asset_rec_map: AssetRecMap,
     pub others_rec_map: AssetRecMap,
     pub total_count: u64,
     pub distribution_operation_referral_commission_value_usd: Decimal,
@@ -205,7 +226,8 @@ pub struct ProcessedData {
 impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
-            dra: Vec::with_capacity(1),
+            dist_rec_vec: Vec::new(),
+            asset_rec_map: AssetRecMap::new(),
             others_rec_map: AssetRecMap::new(),
             total_count: 0u64,
             distribution_operation_referral_commission_value_usd: dec!(0),
@@ -380,17 +402,6 @@ async fn update_all_usd_values(
         )
         .await?;
     }
-
-    Ok(())
-}
-
-fn add_to_dra(
-    _config: &Configuration,
-    data: &mut ProcessedData,
-    dr: &DistRec,
-    _line_number: usize,
-) -> Result<(), Box<dyn std::error::Error>> {
-    data.dra.push(dr.clone());
 
     Ok(())
 }
@@ -1069,7 +1080,6 @@ pub async fn consolidate_dist_files(
     //println!("consoldiate_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let mut data = ProcessedData::new();
-    //let mut asset_rec_map = AssetRecMap::new();
 
     let in_dist_file_paths: Vec<&str> = sc_matches
         .values_of("IN_FILES")
@@ -1079,8 +1089,8 @@ pub async fn consolidate_dist_files(
         .value_of("OUT_FILE")
         .unwrap_or_else(|| panic!("out-file option is missing"));
 
-    println!("in_dist_file_path: {in_dist_file_paths:?}");
-    println!("out_dist_file_path: {out_dist_file_path:?}");
+    //println!("in_dist_file_path: {in_dist_file_paths:?}");
+    //println!("out_dist_file_path: {out_dist_file_path:?}");
 
     // Verify all input files exist
     for f in &in_dist_file_paths {
@@ -1099,6 +1109,7 @@ pub async fn consolidate_dist_files(
     // Create a data record writer
     let mut data_rec_writer = csv::Writer::from_writer(writer);
 
+    println!("Read files");
     for f in &in_dist_file_paths {
         let in_file = if let Ok(in_f) = File::open(*f) {
             in_f
@@ -1111,7 +1122,7 @@ pub async fn consolidate_dist_files(
         let mut data_rec_reader = csv::Reader::from_reader(reader);
 
         for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
-            println!("{rec_index}: {result:?}");
+            //println!("{rec_index}: {result:?}");
             let line_number = rec_index + 2;
             let dr: DistRec = result?;
 
@@ -1124,17 +1135,36 @@ pub async fn consolidate_dist_files(
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
-            add_to_dra(config, &mut data, &dr, line_number)?;
+            data.dist_rec_vec.push(dr.clone());
+            data.asset_rec_map.add_dr(dr, line_number);
         }
     }
 
     // Output the data
-    println!("Output data: data.dra.len={}", data.dra.len());
-    for dr in data.dra {
-        data_rec_writer.serialize(&dr)?;
+    println!("Output data: data.dra.len={}", data.dist_rec_vec.len());
+    for dr in &data.dist_rec_vec {
+        data_rec_writer.serialize(dr)?;
     }
 
+    println!();
+    println!();
+    let col_1 = 7;
+    let col_2 = 10;
+
+    println!("{:<col_1$} {:>col_2$}", "Asset", "Transactions");
+    for (asset, ar) in data.asset_rec_map.bt {
+        assert_eq!(asset, ar.asset);
+        let len = ar.dist_rec_vec.len() as f64;
+        println!(
+            "{:<col_1$} {:>col_2$}",
+            asset,
+            dec_to_separated_string(Decimal::from_f64(len).unwrap(), 0)
+        );
+    }
+
+    println!();
     println!("Done");
+
     Ok(())
 }
 
