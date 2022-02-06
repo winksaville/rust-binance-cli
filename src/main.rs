@@ -37,7 +37,9 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
-    binance_distribution_processing::{process_dist_files, ProcessDistSubCommand, ProcessType},
+    binance_distribution_processing::{
+        consolidate_dist_files, process_dist_files, ProcessDistSubCommand, ProcessType,
+    },
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
     binance_history::{
@@ -414,15 +416,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await?
             }
-            "cdf" => {
-                process_dist_files(
-                    &config,
-                    ProcessDistSubCommand::Udf,
-                    sc_matches,
-                    ProcessType::Consolidate,
-                )
-                .await?
-            }
+            "cdf" => consolidate_dist_files(&config, sc_matches).await?,
             "pdf" => {
                 process_dist_files(
                     &config,

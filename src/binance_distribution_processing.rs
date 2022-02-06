@@ -43,7 +43,7 @@ use crate::{
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DistRec {
     #[serde(rename = "User_Id")]
@@ -157,6 +157,7 @@ impl AssetRecMap {
 
 #[derive(Debug)]
 pub struct ProcessedData {
+    pub dra: Vec<DistRec>,
     pub others_rec_map: AssetRecMap,
     pub total_count: u64,
     pub distribution_operation_referral_commission_value_usd: Decimal,
@@ -204,6 +205,7 @@ pub struct ProcessedData {
 impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
+            dra: Vec::with_capacity(1),
             others_rec_map: AssetRecMap::new(),
             total_count: 0u64,
             distribution_operation_referral_commission_value_usd: dec!(0),
@@ -382,11 +384,14 @@ async fn update_all_usd_values(
     Ok(())
 }
 
-async fn consolidate(
+fn add_to_dra(
     _config: &Configuration,
-    _dr: &mut DistRec,
+    data: &mut ProcessedData,
+    dr: &DistRec,
     _line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    data.dra.push(dr.clone());
+
     Ok(())
 }
 
@@ -707,14 +712,12 @@ fn process_entry(
 #[derive(PartialEq)]
 pub enum ProcessType {
     Update,
-    Consolidate,
     Process,
 }
 
 #[derive(PartialEq)]
 pub enum ProcessDistSubCommand {
     Udf,
-    Cdf,
     Pdf,
 }
 
@@ -733,16 +736,15 @@ pub async fn process_dist_files(
         .values_of("IN_FILES")
         .expect("files option is missing")
         .collect();
-    let out_dist_file_path =
-        if subcmd == ProcessDistSubCommand::Udf || subcmd == ProcessDistSubCommand::Cdf {
-            if let Some(r) = sc_matches.value_of("OUT_FILE") {
-                Some(r)
-            } else {
-                return Err("Expected --out-file parameter".into());
-            }
+    let out_dist_file_path = if subcmd == ProcessDistSubCommand::Udf {
+        if let Some(r) = sc_matches.value_of("OUT_FILE") {
+            Some(r)
         } else {
-            None
-        };
+            return Err("Expected --out-file parameter".into());
+        }
+    } else {
+        None
+    };
 
     //println!("in_dist_file_path: {in_dist_file_paths:?}");
     //println!("out_dist_file_path: {out_dist_file_path:?}");
@@ -796,7 +798,6 @@ pub async fn process_dist_files(
 
             match process_type {
                 ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
-                ProcessType::Consolidate => consolidate(config, &mut dr, line_number).await?,
                 ProcessType::Process => {
                     process_entry(config, &mut data, &mut asset_rec_map, &dr, line_number)?;
                 }
@@ -809,7 +810,7 @@ pub async fn process_dist_files(
     }
 
     match process_type {
-        ProcessType::Update | ProcessType::Consolidate => println!("\nDone"),
+        ProcessType::Update => println!("\nDone"),
         ProcessType::Process => {
             if config.verbose {
                 println!("\n");
@@ -1058,6 +1059,82 @@ pub async fn process_dist_files(
     }
 
     //println!("process_dist_files:-");
+    Ok(())
+}
+
+pub async fn consolidate_dist_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //println!("consoldiate_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let mut data = ProcessedData::new();
+    //let mut asset_rec_map = AssetRecMap::new();
+
+    let in_dist_file_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+    let out_dist_file_path = sc_matches
+        .value_of("OUT_FILE")
+        .unwrap_or_else(|| panic!("out-file option is missing"));
+
+    println!("in_dist_file_path: {in_dist_file_paths:?}");
+    println!("out_dist_file_path: {out_dist_file_path:?}");
+
+    // Verify all input files exist
+    for f in &in_dist_file_paths {
+        if !Path::new(f).exists() {
+            return Err(format!("{} does not exist", *f).into());
+        };
+    }
+
+    let out_file = if let Ok(o_f) = File::create(out_dist_file_path) {
+        o_f
+    } else {
+        return Err(format!("Unable to open {out_dist_file_path}").into());
+    };
+    let writer = BufWriter::new(out_file);
+
+    // Create a data record writer
+    let mut data_rec_writer = csv::Writer::from_writer(writer);
+
+    for f in &in_dist_file_paths {
+        let in_file = if let Ok(in_f) = File::open(*f) {
+            in_f
+        } else {
+            return Err(format!("Unable to open {f}").into());
+        };
+        let reader = BufReader::new(in_file);
+
+        // DataRec reader
+        let mut data_rec_reader = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+            println!("{rec_index}: {result:?}");
+            let line_number = rec_index + 2;
+            let dr: DistRec = result?;
+
+            if config.verbose {
+                let asset = if !dr.primary_asset.is_empty() {
+                    &dr.primary_asset
+                } else {
+                    &dr.base_asset
+                };
+                print!("Processing {line_number} {asset}                        \r",);
+            }
+
+            add_to_dra(config, &mut data, &dr, line_number)?;
+        }
+    }
+
+    // Output the data
+    println!("Output data: data.dra.len={}", data.dra.len());
+    for dr in data.dra {
+        data_rec_writer.serialize(&dr)?;
+    }
+
+    println!("Done");
     Ok(())
 }
 
