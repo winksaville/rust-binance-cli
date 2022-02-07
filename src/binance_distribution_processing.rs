@@ -43,7 +43,7 @@ use crate::{
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 #[serde(rename_all = "camelCase")]
 pub struct DistRec {
     #[serde(rename = "User_Id")]
@@ -145,6 +145,47 @@ impl AssetRec {
         }
     }
 
+    // This invoking this causes a compile error, maybe make a process macro?
+    //    error[E0499]: cannot borrow `*self` as mutable more than once at a time
+    //#[allow(unused)]
+    //fn consolidate(&mut self, cdr: &mut DistRec, dr: &DistRec) {
+    //    //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+    //    assert_eq!(cdr.primary_asset, dr.primary_asset);
+
+    //    let a = dr.realized_amount_for_primary_asset.expect("WTF");
+    //    let b = cdr.realized_amount_for_primary_asset.expect("WTF");
+    //    cdr.realized_amount_for_primary_asset = Some(a + b);
+
+    //    let a = dr
+    //        .realized_amount_for_primary_asset_in_usd_value
+    //        .expect("WTF");
+    //    let b = cdr
+    //        .realized_amount_for_primary_asset_in_usd_value
+    //        .expect("WTF");
+    //    cdr.realized_amount_for_primary_asset_in_usd_value = Some(a + b);
+    //}
+
+    // This invoking this causes a compile error, maybe make a process macro?
+    #[allow(unused)]
+    fn consolidate_x(&self, cdr: &DistRec, dr: &DistRec) -> (Decimal, Decimal) {
+        //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+        assert_eq!(cdr.primary_asset, dr.primary_asset);
+
+        let a = dr.realized_amount_for_primary_asset.expect("WTF");
+        let b = cdr.realized_amount_for_primary_asset.expect("WTF");
+        let value = a + b;
+
+        let a = dr
+            .realized_amount_for_primary_asset_in_usd_value
+            .expect("WTF");
+        let b = cdr
+            .realized_amount_for_primary_asset_in_usd_value
+            .expect("WTF");
+        let value_usd = a + b;
+
+        (value, value_usd)
+    }
+
     fn consolidate_distributions(
         &mut self,
         config: &Configuration,
@@ -154,7 +195,9 @@ impl AssetRec {
         #[derive(Debug)]
         enum State {
             LookingForDistribution,
-            UpdatingDistribution,
+            UpdatingDistributionReferral,
+            UpdatingDistributionStaking,
+            UpdatingDistributionOthers,
         };
 
         let mut state = State::LookingForDistribution;
@@ -166,8 +209,12 @@ impl AssetRec {
                 State::LookingForDistribution => {
                     self.consolidated_dist_rec_vec.push(dr.clone());
                     if dr.category == "Distribution" {
-                        //println!("consolidate_distributions: move to UpdatingDistribution");
-                        state = State::UpdatingDistribution;
+                        match dr.operation.as_str() {
+                            "Referral Commission" => state = State::UpdatingDistributionReferral,
+                            "Staking Rewards" => state = State::UpdatingDistributionStaking,
+                            "Others" => state = State::UpdatingDistributionOthers,
+                            _ => panic!("Unknown operation: {}", &dr.operation),
+                        }
                     } else {
                         //println!(
                         //    "consolidate_distributions: LookingForDistribution found {}",
@@ -175,25 +222,51 @@ impl AssetRec {
                         //);
                     }
                 }
-                State::UpdatingDistribution => {
-                    if dr.category == "Distribution" {
+                State::UpdatingDistributionReferral => {
+                    if dr.category == "Distribution" && dr.operation == "Referral Commission" {
+                        //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                        //self.consolidate(cdr, dr); // error[E0499]: cannot borrow `*self` as mutable more than once at a time
+                        let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
+                        let (value, value_usd) = self.consolidate_x(cdr, dr);
+
                         let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
-                        assert_eq!(cdr.primary_asset, dr.primary_asset);
-
-                        let a = dr.realized_amount_for_primary_asset.expect("WTF");
-                        let b = cdr.realized_amount_for_primary_asset.expect("WTF");
-                        cdr.realized_amount_for_primary_asset = Some(a + b);
-
-                        let a = dr
-                            .realized_amount_for_primary_asset_in_usd_value
-                            .expect("WTF");
-                        let b = cdr
-                            .realized_amount_for_primary_asset_in_usd_value
-                            .expect("WTF");
-                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(a + b);
+                        cdr.realized_amount_for_primary_asset = Some(value);
+                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
                     } else {
                         //println!(
-                        //    "consolidate_distributions: Not Distribution back to looking {asset}"
+                        //    "consolidate_distributions {asset}: Not Distribution Referral Comission, back to looking"
+                        //);
+                        self.consolidated_dist_rec_vec.push(dr.clone());
+                        state = State::LookingForDistribution;
+                    }
+                }
+                State::UpdatingDistributionStaking => {
+                    if dr.category == "Distribution" && dr.operation == "Staking Rewards" {
+                        let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
+                        let (value, value_usd) = self.consolidate_x(cdr, dr);
+
+                        let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                        cdr.realized_amount_for_primary_asset = Some(value);
+                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                    } else {
+                        //println!(
+                        //    "consolidate_distributions {asset}: Not Distribution Staking Rewards, back to looking"
+                        //);
+                        self.consolidated_dist_rec_vec.push(dr.clone());
+                        state = State::LookingForDistribution;
+                    }
+                }
+                State::UpdatingDistributionOthers => {
+                    if dr.category == "Distribution" && dr.operation == "Others" {
+                        let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
+                        let (value, value_usd) = self.consolidate_x(cdr, dr);
+
+                        let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                        cdr.realized_amount_for_primary_asset = Some(value);
+                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                    } else {
+                        //println!(
+                        //    "consolidate_distributions {asset}: Not Distribution Others, back to looking"
                         //);
                         self.consolidated_dist_rec_vec.push(dr.clone());
                         state = State::LookingForDistribution;
@@ -271,6 +344,7 @@ impl AssetRecMap {
 #[derive(Debug)]
 pub struct ProcessedData {
     pub dist_rec_vec: Vec<DistRec>,
+    pub consolidated_dist_rec_vec: Vec<DistRec>,
     pub asset_rec_map: AssetRecMap,
     pub others_rec_map: AssetRecMap,
     pub total_count: u64,
@@ -320,6 +394,7 @@ impl ProcessedData {
     fn new() -> ProcessedData {
         ProcessedData {
             dist_rec_vec: Vec::new(),
+            consolidated_dist_rec_vec: Vec::new(),
             asset_rec_map: AssetRecMap::new(),
             others_rec_map: AssetRecMap::new(),
             total_count: 0u64,
@@ -1213,14 +1288,6 @@ pub async fn consolidate_dist_files(
         }
     }
 
-    // Output the data
-    write_dist_rec_vec(writer, &data.dist_rec_vec)?;
-
-    //println!("Output data: data.dra.len={}", data.dist_rec_vec.len());
-    //for dr in &data.dist_rec_vec {
-    //    data_rec_writer.serialize(dr)?;
-    //}
-
     println!();
     println!();
     let col_1 = 7;
@@ -1245,6 +1312,11 @@ pub async fn consolidate_dist_files(
         let post_len = ar.consolidated_dist_rec_vec.len();
         total_post_len += post_len;
 
+        // Append the ar.consolidated_dis_rec_vec to end of data.consolidated_dist_rec_vec
+        for x in &ar.consolidated_dist_rec_vec {
+            data.consolidated_dist_rec_vec.push(x.clone());
+        }
+
         println!(
             "{:<col_1$} {:>col_2$} {:>col_3$}",
             asset,
@@ -1254,15 +1326,20 @@ pub async fn consolidate_dist_files(
     }
     println!("Consolidated from {} to {}", total_pre_len, total_post_len);
 
-    let ar = if let Some(v) = data.asset_rec_map.bt.get("USD") {
-        v
-    } else {
-        panic!("No USD asset record");
-    };
-    let usd_wtr = create_buf_writer("usd_dr.full.csv")?;
-    write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
-    let usd_wtr = create_buf_writer("usd_dr.consolidated.csv")?;
-    write_dist_rec_vec(usd_wtr, &ar.consolidated_dist_rec_vec)?;
+    data.consolidated_dist_rec_vec.sort();
+
+    // Output the consolidated data
+    write_dist_rec_vec(writer, &data.consolidated_dist_rec_vec)?;
+
+    //let ar = if let Some(v) = data.asset_rec_map.bt.get("USD") {
+    //    v
+    //} else {
+    //    panic!("No USD asset record");
+    //};
+    //let usd_wtr = create_buf_writer("usd_dr.full.csv")?;
+    //write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
+    //let usd_wtr = create_buf_writer("usd_dr.consolidated.csv")?;
+    //write_dist_rec_vec(usd_wtr, &ar.consolidated_dist_rec_vec)?;
 
     //println!("{:<col_1$} {:>col_2$}", "Asset", "Transactions");
     //for (asset, ar) in &data.asset_rec_map.bt {
