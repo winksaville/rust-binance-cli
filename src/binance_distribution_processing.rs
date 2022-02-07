@@ -1254,6 +1254,16 @@ pub async fn consolidate_dist_files(
     }
     println!("Consolidated from {} to {}", total_pre_len, total_post_len);
 
+    let ar = if let Some(v) = data.asset_rec_map.bt.get("USD") {
+        v
+    } else {
+        panic!("No USD asset record");
+    };
+    let usd_wtr = create_buf_writer("usd_dr.full.csv")?;
+    write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
+    let usd_wtr = create_buf_writer("usd_dr.consolidated.csv")?;
+    write_dist_rec_vec(usd_wtr, &ar.consolidated_dist_rec_vec)?;
+
     //println!("{:<col_1$} {:>col_2$}", "Asset", "Transactions");
     //for (asset, ar) in &data.asset_rec_map.bt {
     //    let len = ar.consolidated_dist_rec_vec.len() as f64;
