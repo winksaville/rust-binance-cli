@@ -1132,6 +1132,38 @@ pub async fn process_dist_files(
     Ok(())
 }
 
+fn verify_input_file_exist(in_file_paths: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+    for f in &*in_file_paths {
+        if !Path::new(*f).exists() {
+            return Err(format!("{} does not exist", *f).into());
+        }
+    }
+
+    Ok(())
+}
+
+fn create_buf_writer(out_file_path: &str) -> Result<BufWriter<File>, Box<dyn std::error::Error>> {
+    let out_file = File::create(out_file_path)?;
+    Ok(BufWriter::new(out_file))
+}
+
+fn write_dist_rec_vec(
+    writer: BufWriter<File>,
+    dist_rec_vec: &[DistRec],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a data record writer
+    let mut data_rec_writer = csv::Writer::from_writer(writer);
+
+    // Output the data
+    println!("Output data: drv.len={}", dist_rec_vec.len());
+    for dr in dist_rec_vec {
+        data_rec_writer.serialize(dr)?;
+    }
+    println!("Output data: Done drv.len={}", dist_rec_vec.len());
+
+    Ok(())
+}
+
 pub async fn consolidate_dist_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
@@ -1144,29 +1176,15 @@ pub async fn consolidate_dist_files(
         .values_of("IN_FILES")
         .expect("files option is missing")
         .collect();
+    //println!("in_dist_file_path: {in_dist_file_paths:?}");
+
     let out_dist_file_path = sc_matches
         .value_of("OUT_FILE")
         .unwrap_or_else(|| panic!("out-file option is missing"));
-
-    //println!("in_dist_file_path: {in_dist_file_paths:?}");
     //println!("out_dist_file_path: {out_dist_file_path:?}");
 
-    // Verify all input files exist
-    for f in &in_dist_file_paths {
-        if !Path::new(f).exists() {
-            return Err(format!("{} does not exist", *f).into());
-        };
-    }
-
-    let out_file = if let Ok(o_f) = File::create(out_dist_file_path) {
-        o_f
-    } else {
-        return Err(format!("Unable to open {out_dist_file_path}").into());
-    };
-    let writer = BufWriter::new(out_file);
-
-    // Create a data record writer
-    let mut data_rec_writer = csv::Writer::from_writer(writer);
+    verify_input_file_exist(&in_dist_file_paths)?;
+    let writer = create_buf_writer(out_dist_file_path)?;
 
     println!("Read files");
     for f in &in_dist_file_paths {
@@ -1196,10 +1214,12 @@ pub async fn consolidate_dist_files(
     }
 
     // Output the data
-    println!("Output data: data.dra.len={}", data.dist_rec_vec.len());
-    for dr in &data.dist_rec_vec {
-        data_rec_writer.serialize(dr)?;
-    }
+    write_dist_rec_vec(writer, &data.dist_rec_vec)?;
+
+    //println!("Output data: data.dra.len={}", data.dist_rec_vec.len());
+    //for dr in &data.dist_rec_vec {
+    //    data_rec_writer.serialize(dr)?;
+    //}
 
     println!();
     println!();
