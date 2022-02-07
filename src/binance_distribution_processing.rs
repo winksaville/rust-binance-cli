@@ -43,7 +43,7 @@ use crate::{
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DistRec {
     #[serde(rename = "User_Id")]
@@ -92,6 +92,35 @@ pub struct DistRec {
     pub additional_note: String,
 }
 
+#[allow(unused)]
+impl DistRec {
+    fn get_asset(&self) -> &str {
+        if self.primary_asset.is_empty() {
+            &self.base_asset
+        } else {
+            &self.primary_asset
+        }
+    }
+
+    fn get_value(&self) -> Decimal {
+        if self.primary_asset.is_empty() {
+            self.realized_amount_for_base_asset.expect("WTF")
+        } else {
+            self.realized_amount_for_primary_asset.expect("WTF")
+        }
+    }
+
+    fn get_usd_value(&self) -> Decimal {
+        if self.primary_asset.is_empty() {
+            self.realized_amount_for_base_asset_in_usd_value
+                .expect("WTF")
+        } else {
+            self.realized_amount_for_primary_asset_in_usd_value
+                .expect("WTF")
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct AssetRec {
     pub asset: String,
@@ -99,6 +128,7 @@ pub struct AssetRec {
     pub value_usd: Decimal,
     pub transaction_count: u64,
     pub dist_rec_vec: Vec<DistRec>,
+    pub consolidated_dist_rec_vec: Vec<DistRec>,
 }
 
 #[allow(unused)]
@@ -110,7 +140,69 @@ impl AssetRec {
             value_usd: dec!(0),
             transaction_count: 0,
             dist_rec_vec: Vec::new(),
+            consolidated_dist_rec_vec: Vec::new(),
         }
+    }
+
+    fn consolidate_distributions(
+        &mut self,
+        config: &Configuration,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        //println!("consolidate_distributions:+");
+
+        #[derive(Debug)]
+        enum State {
+            LookingForDistribution,
+            UpdatingDistribution,
+        };
+
+        let mut state = State::LookingForDistribution;
+
+        for dr in &self.dist_rec_vec {
+            let asset = dr.get_asset();
+            //println!("{state:?} asset: {asset} category: {}", dr.category);
+            match state {
+                State::LookingForDistribution => {
+                    self.consolidated_dist_rec_vec.push(dr.clone());
+                    if dr.category == "Distribution" {
+                        //println!("consolidate_distributions: move to UpdatingDistribution");
+                        state = State::UpdatingDistribution;
+                    } else {
+                        //println!(
+                        //    "consolidate_distributions: LookingForDistribution found {}",
+                        //    dr.category
+                        //);
+                    }
+                }
+                State::UpdatingDistribution => {
+                    if dr.category == "Distribution" {
+                        let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                        assert_eq!(cdr.primary_asset, dr.primary_asset);
+
+                        let a = dr.realized_amount_for_primary_asset.expect("WTF");
+                        let b = cdr.realized_amount_for_primary_asset.expect("WTF");
+                        cdr.realized_amount_for_primary_asset = Some(a + b);
+
+                        let a = dr
+                            .realized_amount_for_primary_asset_in_usd_value
+                            .expect("WTF");
+                        let b = cdr
+                            .realized_amount_for_primary_asset_in_usd_value
+                            .expect("WTF");
+                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(a + b);
+                    } else {
+                        //println!(
+                        //    "consolidate_distributions: Not Distribution back to looking {asset}"
+                        //);
+                        self.consolidated_dist_rec_vec.push(dr.clone());
+                        state = State::LookingForDistribution;
+                    }
+                }
+            }
+        }
+
+        //println!("consolidate_distributions:-");
+        Ok(())
     }
 }
 
@@ -1149,18 +1241,66 @@ pub async fn consolidate_dist_files(
     println!();
     println!();
     let col_1 = 7;
-    let col_2 = 10;
+    let col_2 = 15;
+    let col_3 = 15;
 
-    println!("{:<col_1$} {:>col_2$}", "Asset", "Transactions");
-    for (asset, ar) in data.asset_rec_map.bt {
-        assert_eq!(asset, ar.asset);
-        let len = ar.dist_rec_vec.len() as f64;
+    let mut total_pre_len = 0usize;
+    let mut total_post_len = 0usize;
+    println!("Consolidate");
+    println!(
+        "{:<col_1$} {:>col_2$} {:>col_3$}",
+        "Asset", "pre count", "post count"
+    );
+
+    //let mut state = ConsolidateState { prev_dr: Default::default() };
+    for (asset, ar) in &mut data.asset_rec_map.bt {
+        let pre_len = ar.dist_rec_vec.len();
+        total_pre_len += pre_len;
+
+        ar.consolidate_distributions(config)?;
+
+        let post_len = ar.consolidated_dist_rec_vec.len();
+        total_post_len += post_len;
+
         println!(
-            "{:<col_1$} {:>col_2$}",
+            "{:<col_1$} {:>col_2$} {:>col_3$}",
             asset,
-            dec_to_separated_string(Decimal::from_f64(len).unwrap(), 0)
+            dec_to_separated_string(Decimal::from_f64(pre_len as f64).unwrap(), 0),
+            dec_to_separated_string(Decimal::from_f64(post_len as f64).unwrap(), 0),
         );
     }
+    println!("Consolidated from {} to {}", total_pre_len, total_post_len);
+
+    //println!("{:<col_1$} {:>col_2$}", "Asset", "Transactions");
+    //for (asset, ar) in &data.asset_rec_map.bt {
+    //    let len = ar.consolidated_dist_rec_vec.len() as f64;
+    //    println!(
+    //        "{:<col_1$} {:>col_2$}",
+    //        asset,
+    //        dec_to_separated_string(Decimal::from_f64(len).unwrap(), 0)
+    //    );
+
+    //    assert_eq!(asset, &ar.asset);
+    //    println!("  dr {}", ar.dist_rec_vec.len());
+    //    for dr in &ar.dist_rec_vec {
+    //        assert_eq!(asset, dr.get_asset());
+    //        println!(
+    //            "    {} {} {}",
+    //            dr.category,
+    //            dr.get_value(),
+    //            dr.get_usd_value()
+    //        );
+    //    }
+    //    println!("  cdr {}", ar.consolidated_dist_rec_vec.len());
+    //    for dr in &ar.consolidated_dist_rec_vec {
+    //        println!(
+    //            "    {} {} {}",
+    //            dr.category,
+    //            dr.get_value(),
+    //            dr.get_usd_value()
+    //        );
+    //    }
+    //}
 
     println!();
     println!("Done");
