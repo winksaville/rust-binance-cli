@@ -96,6 +96,7 @@ pub struct DistRec {
 impl DistRec {
     fn get_asset(&self) -> &str {
         if self.primary_asset.is_empty() {
+            assert!(!self.base_asset.is_empty());
             &self.base_asset
         } else {
             &self.primary_asset
@@ -110,7 +111,7 @@ impl DistRec {
         }
     }
 
-    fn get_usd_value(&self) -> Decimal {
+    fn get_value_usd(&self) -> Decimal {
         if self.primary_asset.is_empty() {
             self.realized_amount_for_base_asset_in_usd_value
                 .expect("WTF")
@@ -558,59 +559,29 @@ fn process_entry(
     data.total_count += 1;
 
     // The asset is always either primary_asset or base_asset
-    let asset_value: Decimal;
-    let asset_value_usd: Decimal;
-    let asset = if !dr.primary_asset.is_empty() {
-        assert!(dr.base_asset.is_empty());
-        asset_value = dr.realized_amount_for_primary_asset.unwrap_or_else(|| {
-            panic!(
-                "{} has no realized_amount_for_primary_asset at line {line_number}",
-                dr.primary_asset
-            )
-        });
-        asset_value_usd = dr.realized_amount_for_primary_asset_in_usd_value
-                        .unwrap_or_else(|| {
-                            panic!("{} has no realized_amount_for_primary_asset_in_usd_value at line {line_number}", dr.primary_asset)
-                        });
-        &dr.primary_asset
-    } else if !dr.base_asset.is_empty() {
-        asset_value = dr.realized_amount_for_base_asset.unwrap_or_else(|| {
-            panic!(
-                "{} has no realized_amount_for_base_asset_in_usd_value at line {line_number}",
-                dr.primary_asset
-            )
-        });
-        asset_value_usd = dr
-            .realized_amount_for_base_asset_in_usd_value
-            .unwrap_or_else(|| {
-                panic!(
-                    "{} has no realized_amount_for_base_asset_in_usd_value at line {line_number}",
-                    dr.primary_asset
-                )
-            });
-        &dr.base_asset
-    } else {
-        panic!("No primary_asset or base_asset at line {line_number}");
-    };
+    let asset = dr.get_asset();
+    let asset_value = dr.get_value();
+    let asset_value_usd = dr.get_value_usd();
 
-    // Add possibly missing AssetRecMap entries
-    {
-        let _ = arm.bt.entry(asset.to_owned()).or_insert_with(|| {
-            //println!("Adding missing asset: {}", asset);
-            AssetRec::new(asset)
+    // Add missing AssetRecMap entries that might be needed
+    // Adding them here means less surprises later and we can
+    // use "unwarp()".
+    let _ = arm.bt.entry(asset.to_owned()).or_insert_with(|| {
+        // This happens the first time an asset is seen and is not unusual
+        //println!("Adding missing asset: {}", asset);
+        AssetRec::new(asset)
+    });
+    if !dr.quote_asset.is_empty() {
+        let _ = arm.bt.entry(dr.quote_asset.to_owned()).or_insert_with(|| {
+            println!("WARNING adding missing quote_asset: {}", dr.quote_asset);
+            AssetRec::new(&dr.quote_asset)
         });
-        if !dr.quote_asset.is_empty() {
-            let _ = arm.bt.entry(dr.quote_asset.to_owned()).or_insert_with(|| {
-                println!("WARNING adding missing quote_asset: {}", dr.quote_asset);
-                AssetRec::new(&dr.quote_asset)
-            });
-        }
-        if !dr.fee_asset.is_empty() {
-            let _ = arm.bt.entry(dr.fee_asset.to_owned()).or_insert_with(|| {
-                println!("WARNING adding missing fee_asset: {}", dr.fee_asset);
-                AssetRec::new(&dr.fee_asset)
-            });
-        }
+    }
+    if !dr.fee_asset.is_empty() {
+        let _ = arm.bt.entry(dr.fee_asset.to_owned()).or_insert_with(|| {
+            println!("WARNING adding missing fee_asset: {}", dr.fee_asset);
+            AssetRec::new(&dr.fee_asset)
+        });
     }
 
     arm.inc_transaction_count(asset);
@@ -891,11 +862,7 @@ pub async fn process_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = if !dr.primary_asset.is_empty() {
-                    &dr.primary_asset
-                } else {
-                    &dr.base_asset
-                };
+                let asset = dr.get_asset();
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
@@ -1219,11 +1186,7 @@ pub async fn consolidate_dist_files(
             let dr: DistRec = result?;
 
             if config.verbose {
-                let asset = if !dr.primary_asset.is_empty() {
-                    &dr.primary_asset
-                } else {
-                    &dr.base_asset
-                };
+                let asset = dr.get_asset();
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
