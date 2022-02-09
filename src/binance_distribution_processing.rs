@@ -202,6 +202,9 @@ impl AssetRec {
 
         let mut state = State::LookingForDistribution;
 
+        let mut time_of_next_consolidation_window = 0i64;
+        const MS_PER_DAY: i64 = (60 * 60 * 24) * 1000;
+
         for dr in &self.dist_rec_vec {
             let asset = dr.get_asset();
             //println!("{state:?} asset: {asset} category: {}", dr.category);
@@ -215,6 +218,10 @@ impl AssetRec {
                             "Others" => state = State::UpdatingDistributionOthers,
                             _ => panic!("Unknown operation: {}", &dr.operation),
                         }
+
+                        // Time in ms of next consolidation window
+                        time_of_next_consolidation_window =
+                            ((dr.time + MS_PER_DAY) / MS_PER_DAY) * MS_PER_DAY;
                     } else {
                         //println!(
                         //    "consolidate_distributions: LookingForDistribution found {}",
@@ -223,15 +230,29 @@ impl AssetRec {
                     }
                 }
                 State::UpdatingDistributionReferral => {
-                    if dr.category == "Distribution" && dr.operation == "Referral Commission" {
-                        //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
-                        //self.consolidate(cdr, dr); // error[E0499]: cannot borrow `*self` as mutable more than once at a time
-                        let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
-                        let (value, value_usd) = self.consolidate_x(cdr, dr);
+                    if (dr.category == "Distribution") && (dr.operation == "Referral Commission") {
+                        if (dr.time < time_of_next_consolidation_window) {
+                            // Same the Current Time Window
 
-                        let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
-                        cdr.realized_amount_for_primary_asset = Some(value);
-                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                            //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                            //self.consolidate(cdr, dr); // error[E0499]: cannot borrow `*self` as mutable more than once at a time
+                            let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
+                            let (value, value_usd) = self.consolidate_x(cdr, dr);
+
+                            let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                            cdr.realized_amount_for_primary_asset = Some(value);
+                            cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                            cdr.time = dr.time; // Last entry will be used as the time for the consolidated record
+                            cdr.order_id = dr.order_id.clone();
+                            cdr.transaction_id = dr.transaction_id;
+                        } else {
+                            // Add this record as we're Starting a new time window
+                            self.consolidated_dist_rec_vec.push(dr.clone());
+
+                            // Calculate New Time Window
+                            time_of_next_consolidation_window =
+                                ((dr.time + MS_PER_DAY) / MS_PER_DAY) * MS_PER_DAY;
+                        }
                     } else {
                         //println!(
                         //    "consolidate_distributions {asset}: Not Distribution Referral Comission, back to looking"
@@ -241,13 +262,29 @@ impl AssetRec {
                     }
                 }
                 State::UpdatingDistributionStaking => {
-                    if dr.category == "Distribution" && dr.operation == "Staking Rewards" {
-                        let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
-                        let (value, value_usd) = self.consolidate_x(cdr, dr);
+                    if (dr.category == "Distribution") && (dr.operation == "Staking Rewards") {
+                        if (dr.time < time_of_next_consolidation_window) {
+                            // Same the Current Time Window
 
-                        let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
-                        cdr.realized_amount_for_primary_asset = Some(value);
-                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                            //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                            //self.consolidate(cdr, dr); // error[E0499]: cannot borrow `*self` as mutable more than once at a time
+                            let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
+                            let (value, value_usd) = self.consolidate_x(cdr, dr);
+
+                            let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                            cdr.realized_amount_for_primary_asset = Some(value);
+                            cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                            cdr.time = dr.time; // Last entry will be used as the time for the consolidated record
+                            cdr.order_id = dr.order_id.clone();
+                            cdr.transaction_id = dr.transaction_id;
+                        } else {
+                            // Add this record as we're Starting a new time window
+                            self.consolidated_dist_rec_vec.push(dr.clone());
+
+                            // Calculate New Time Window
+                            time_of_next_consolidation_window =
+                                ((dr.time + MS_PER_DAY) / MS_PER_DAY) * MS_PER_DAY;
+                        }
                     } else {
                         //println!(
                         //    "consolidate_distributions {asset}: Not Distribution Staking Rewards, back to looking"
@@ -257,13 +294,29 @@ impl AssetRec {
                     }
                 }
                 State::UpdatingDistributionOthers => {
-                    if dr.category == "Distribution" && dr.operation == "Others" {
-                        let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
-                        let (value, value_usd) = self.consolidate_x(cdr, dr);
+                    if (dr.category == "Distribution") && (dr.operation == "Others") {
+                        if (dr.time < time_of_next_consolidation_window) {
+                            // Same the Current Time Window
 
-                        let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
-                        cdr.realized_amount_for_primary_asset = Some(value);
-                        cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                            //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                            //self.consolidate(cdr, dr); // error[E0499]: cannot borrow `*self` as mutable more than once at a time
+                            let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
+                            let (value, value_usd) = self.consolidate_x(cdr, dr);
+
+                            let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
+                            cdr.realized_amount_for_primary_asset = Some(value);
+                            cdr.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
+                            cdr.time = dr.time; // Last entry will be used as the time for the consolidated record
+                            cdr.order_id = dr.order_id.clone();
+                            cdr.transaction_id = dr.transaction_id;
+                        } else {
+                            // Add this record as we're Starting a new time window
+                            self.consolidated_dist_rec_vec.push(dr.clone());
+
+                            // Calculate New Time Window
+                            time_of_next_consolidation_window =
+                                ((dr.time + MS_PER_DAY) / MS_PER_DAY) * MS_PER_DAY;
+                        }
                     } else {
                         //println!(
                         //    "consolidate_distributions {asset}: Not Distribution Others, back to looking"
