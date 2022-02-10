@@ -41,6 +41,7 @@ use crate::{
     common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms},
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
+    token_tax::TokenTaxRec,
 };
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
@@ -1275,6 +1276,7 @@ fn create_buf_writer(out_file_path: &str) -> Result<BufWriter<File>, Box<dyn std
     Ok(BufWriter::new(out_file))
 }
 
+#[allow(unused)]
 fn write_dist_rec_vec(
     writer: BufWriter<File>,
     dist_rec_vec: &[DistRec],
@@ -1288,6 +1290,44 @@ fn write_dist_rec_vec(
         data_rec_writer.serialize(dr)?;
     }
     println!("Output data: Done drv.len={}", dist_rec_vec.len());
+
+    Ok(())
+}
+
+#[allow(unused)]
+fn write_dist_rec_vec_as_token_tax(
+    writer: BufWriter<File>,
+    dist_rec_vec: &[DistRec],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a data record writer
+    let mut token_tax_writer = csv::Writer::from_writer(writer);
+
+    // Output the data
+    println!("Output data: drv.len={}", dist_rec_vec.len());
+    for (idx, dr) in dist_rec_vec.iter().enumerate() {
+        let line_number = idx + 2;
+        let dr: &DistRec = dr;
+        let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(line_number, dr);
+        token_tax_writer.serialize(ttr)?;
+    }
+    println!("Output data: Done drv.len={}", dist_rec_vec.len());
+
+    Ok(())
+}
+
+// Write the dist_rec's for an asset, used for debugging
+#[allow(unused)]
+fn write_dist_rec_vec_for_asset(
+    data: &ProcessedData,
+    asset: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let ar = if let Some(v) = data.asset_rec_map.bt.get(asset) {
+        v
+    } else {
+        panic!("No USD asset record");
+    };
+    let usd_wtr = create_buf_writer(format!("{asset}_dr.csv").as_str())?;
+    write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
 
     Ok(())
 }
@@ -1382,48 +1422,11 @@ pub async fn consolidate_dist_files(
     data.consolidated_dist_rec_vec.sort();
 
     // Output the consolidated data
-    write_dist_rec_vec(writer, &data.consolidated_dist_rec_vec)?;
+    //write_dist_rec_vec(writer, &data.consolidated_dist_rec_vec)?;
+    write_dist_rec_vec_as_token_tax(writer, &data.consolidated_dist_rec_vec)?;
 
-    //let ar = if let Some(v) = data.asset_rec_map.bt.get("USD") {
-    //    v
-    //} else {
-    //    panic!("No USD asset record");
-    //};
-    //let usd_wtr = create_buf_writer("usd_dr.full.csv")?;
-    //write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
-    //let usd_wtr = create_buf_writer("usd_dr.consolidated.csv")?;
-    //write_dist_rec_vec(usd_wtr, &ar.consolidated_dist_rec_vec)?;
-
-    //println!("{:<col_1$} {:>col_2$}", "Asset", "Transactions");
-    //for (asset, ar) in &data.asset_rec_map.bt {
-    //    let len = ar.consolidated_dist_rec_vec.len() as f64;
-    //    println!(
-    //        "{:<col_1$} {:>col_2$}",
-    //        asset,
-    //        dec_to_separated_string(Decimal::from_f64(len).unwrap(), 0)
-    //    );
-
-    //    assert_eq!(asset, &ar.asset);
-    //    println!("  dr {}", ar.dist_rec_vec.len());
-    //    for dr in &ar.dist_rec_vec {
-    //        assert_eq!(asset, dr.get_asset());
-    //        println!(
-    //            "    {} {} {}",
-    //            dr.category,
-    //            dr.get_value(),
-    //            dr.get_usd_value()
-    //        );
-    //    }
-    //    println!("  cdr {}", ar.consolidated_dist_rec_vec.len());
-    //    for dr in &ar.consolidated_dist_rec_vec {
-    //        println!(
-    //            "    {} {} {}",
-    //            dr.category,
-    //            dr.get_value(),
-    //            dr.get_usd_value()
-    //        );
-    //    }
-    //}
+    // For debug
+    //write_dist_rec_vec_for_asset(&data, "USD")?;
 
     println!();
     println!("Done");
