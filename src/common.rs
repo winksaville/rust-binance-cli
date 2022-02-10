@@ -389,6 +389,7 @@ pub fn dt_str_to_utc_time_ms(
         fmt_str: &str,
         tz_massaging: TzMassaging,
     ) -> Result<i64, Box<dyn std::error::Error>> {
+        let dt_str = dt_str.trim();
         match tz_massaging {
             TzMassaging::HasTz => {
                 let fs = format!("{fmt_str}%#z");
@@ -663,6 +664,32 @@ mod test {
         assert_eq!(ts, 0);
 
         let str_time_with_ms = "1970-01-01 00:00:00.123";
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::CondAddTzUtc)
+            .expect("Bad time format with milliseconds");
+        dbg!(tms);
+        assert_eq!(tms, 123);
+    }
+
+    #[test]
+    fn test_dt_str_with_leading_trailing_spaces_to_utc_time_ms() {
+        let str_time_no_ms = " 1970-01-01 00:00:00";
+        let ts = dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::CondAddTzUtc)
+            .expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
+        let str_time_with_ms = "1970-01-01 00:00:00.123 ";
+        let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::CondAddTzUtc)
+            .expect("Bad time format with milliseconds");
+        dbg!(tms);
+        assert_eq!(tms, 123);
+        let str_time_no_ms = " 1970-01-01T00:00:00  ";
+        let ts = dt_str_to_utc_time_ms(str_time_no_ms, TzMassaging::CondAddTzUtc)
+            .expect("Bad time format");
+        dbg!(ts);
+        assert_eq!(ts, 0);
+
+        let str_time_with_ms = "  1970-01-01T00:00:00.123  ";
         let tms = dt_str_to_utc_time_ms(str_time_with_ms, TzMassaging::CondAddTzUtc)
             .expect("Bad time format with milliseconds");
         dbg!(tms);
