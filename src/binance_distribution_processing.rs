@@ -23,7 +23,7 @@
 //!  * Some Category == Distribution records have an empty
 //!    Realized_Amount_For_Primary_Asset_In_USD_Value field that is empty.
 //!    Such as:
-//!      35002704,2021-12-31 00:07:03.819,Distribution,Referral Commission,88367941,880499527,SUSHI,0.00224,"","","","","","","","","","",Wallet,"",""
+//!      12345678,2021-12-31 00:07:03.819,Distribution,Referral Commission,88367941,880499527,SUSHI,0.00224,"","","","","","","","","","",Wallet,"",""
 //!    So for these I need to "lookup and calcuate" the Realized_Amount_For_Primary_Asset_In_USD_Value.
 //!
 
@@ -1489,5 +1489,103 @@ Time
             data,
             "1970-01-01T00:00:00.000+00:00\n1970-01-01T00:00:00.123+00:00\n"
         );
+    }
+
+    #[test]
+    fn test_deserialize_dist_rec_from_csv() {
+        let csv = "User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
+12345678,2019-08-01T00:00:00.000+00:00,Deposit,USD Deposit,1,1,USD,5125,5125,,,,,,,,,,Debit,,
+12345678,2019-09-28T15:35:02.000+00:00,Spot Trading,Buy,367670,125143,,,,BTC,0.00558,46.012234,USD,44.959176,44.959176,BTC,0,0,Wallet,,
+12345678,2020-03-02T07:32:05.000+00:00,Distribution,Referral Commission,5442858,17929593,BTC,0.0000003,0.002661,,,,,,,,,,Wallet,,
+12345678,2020-03-23T04:08:20.000+00:00,Deposit,Crypto Deposit,17916393,17916393,ETH,45.25785064909286,6105.809587,,,,,,,,,,Wallet,,
+12345678,2020-03-23T04:10:29.000+00:00,Spot Trading,Sell,5988456,17916714,,,,ETH,20.374,2748.689183,BTC,0.427854,2745.245935,BNB,0.16893668,2.047513,Wallet,,
+12345678,2020-07-26T15:50:02.000+00:00,Spot Trading,Buy,26988333,32890969,,,,BNB,0.61,11.907825,USD,11.90903,11.90903,BNB,0.0004575,0.008931,Wallet,,
+12345678,2020-08-16T23:54:01.000+00:00,Withdrawal,Crypto Withdrawal,38078398,38078398,ETH,23.99180186,10407.403729,,,,,,,ETH,0.005,2.16895,Wallet,Wallet,
+12345678,2021-03-18T03:49:18.000+00:00,Quick Buy,Buy,cf9257c74ea243da9f3e64847ad0233b,171875688,,,,USD,27.4684,27.4684,BNB,0.1,26.170481,USD,0.14,0.14,Wallet,,
+12345678,2021-03-22T22:33:06.147+00:00,Quick Sell,Sell,87d5c693897c4a0a8a35534782f6c471,179163493,,,,BTC,0.010946,596.876028,USD,590.5686,590.5686,USD,2.97,2.97,Wallet,,
+";
+
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+        //let mut reader = csv::Reader::from_reader(csv.as_bytes());
+        for (idx, entry) in reader.deserialize().enumerate() {
+            println!("{idx}: entry: {:?}", entry);
+            match entry {
+                Ok(dr) => {
+                    let dr: DistRec = dr;
+                    println!("tr: {:?}", dr);
+                    match idx {
+                        0 => {
+                            assert_eq!(dr.category, "Deposit");
+                            assert_eq!(dr.operation, "USD Deposit");
+                        }
+                        1 => {
+                            assert_eq!(dr.category, "Spot Trading");
+                            assert_eq!(dr.operation, "Buy");
+                        }
+                        2 => {
+                            assert_eq!(dr.category, "Distribution");
+                            assert_eq!(dr.operation, "Referral Commission");
+                        }
+                        3 => {
+                            assert_eq!(dr.category, "Deposit");
+                            assert_eq!(dr.operation, "Crypto Deposit");
+                        }
+                        4 => {
+                            assert_eq!(dr.category, "Spot Trading");
+                            assert_eq!(dr.operation, "Sell");
+                        }
+                        5 => {
+                            assert_eq!(dr.category, "Spot Trading");
+                            assert_eq!(dr.operation, "Buy");
+                        }
+                        6 => {
+                            assert_eq!(dr.category, "Withdrawal");
+                            assert_eq!(dr.operation, "Crypto Withdrawal");
+                        }
+                        7 => {
+                            assert_eq!(dr.category, "Quick Buy");
+                            assert_eq!(dr.operation, "Buy");
+                        }
+                        8 => {
+                            assert_eq!(dr.category, "Quick Sell");
+                            assert_eq!(dr.operation, "Sell");
+                        }
+                        _ => panic!("Unexpected idx"),
+                    }
+                }
+                Err(e) => panic!("Error: {e}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_serialize_dist_rec_to_csv() {
+        let csv = "User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
+12345678,2019-08-01T00:00:00.000+00:00,Deposit,USD Deposit,1,1,USD,5125,5125,,,,,,,,,,Debit,,
+12345678,2019-09-28T15:35:02.000+00:00,Spot Trading,Buy,367670,125143,,,,BTC,0.00558,46.012234,USD,44.959176,44.959176,BTC,0,0,Wallet,,
+12345678,2020-03-02T07:32:05.000+00:00,Distribution,Referral Commission,5442858,17929593,BTC,0.0000003,0.002661,,,,,,,,,,Wallet,,
+12345678,2020-03-23T04:08:20.000+00:00,Deposit,Crypto Deposit,17916393,17916393,ETH,45.25785064909286,6105.809587,,,,,,,,,,Wallet,,
+12345678,2020-03-23T04:10:29.000+00:00,Spot Trading,Sell,5988456,17916714,,,,ETH,20.374,2748.689183,BTC,0.427854,2745.245935,BNB,0.16893668,2.047513,Wallet,,
+12345678,2020-07-26T15:50:02.000+00:00,Spot Trading,Buy,26988333,32890969,,,,BNB,0.61,11.907825,USD,11.90903,11.90903,BNB,0.0004575,0.008931,Wallet,,
+12345678,2020-08-16T23:54:01.000+00:00,Withdrawal,Crypto Withdrawal,38078398,38078398,ETH,23.99180186,10407.403729,,,,,,,ETH,0.005,2.16895,Wallet,Wallet,
+12345678,2021-03-18T03:49:18.000+00:00,Quick Buy,Buy,cf9257c74ea243da9f3e64847ad0233b,171875688,,,,USD,27.4684,27.4684,BNB,0.1,26.170481,USD,0.14,0.14,Wallet,,
+12345678,2021-03-22T22:33:06.147+00:00,Quick Sell,Sell,87d5c693897c4a0a8a35534782f6c471,179163493,,,,BTC,0.010946,596.876028,USD,590.5686,590.5686,USD,2.97,2.97,Wallet,,
+";
+
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        for (_idx, entry) in reader.deserialize().enumerate() {
+            //println!("{_idx}: entry: {:?}", entry);
+            let record: DistRec = entry.unwrap();
+            wtr.serialize(record).expect("Error serializing");
+        }
+
+        let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
+        //dbg!(&data);
+
+        assert_eq!(data, csv);
     }
 }
