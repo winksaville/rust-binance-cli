@@ -28,6 +28,12 @@ mod test {
     use super::*;
     use serde::Serialize;
 
+    use crate::de_string_to_utc_time_ms::{
+        de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string,
+    };
+
+    const MS_PER_MIN: i64 = 1000 * 60;
+
     #[derive(Debug, Serialize, Deserialize)]
     struct TimeRec {
         #[serde(rename = "Time")]
@@ -51,17 +57,64 @@ mod test {
         let csv = "
 Time
 1970-01-01 00:00:00
-1970-01-01 00:00:00.123";
+1970-01-01 00:00:00+00:00
+1970-01-01 00:00:00-00:00
+1970-01-01T00:00:00
+1970-01-01T00:00:00+00:00
+1970-01-01T00:00:00-00:00
+1970-01-01 00:00:00+00:01
+1970-01-01T00:01:00+00:00
+1970-01-01 00:00:00-00:01
+1970-01-01 00:00:00.123+00:00
+1970-01-01T00:00:00.123+00:01
+1970-01-01 00:00:00.123-00:01
+";
 
-        let mut reader = csv::Reader::from_reader(csv.as_bytes());
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
         for (idx, entry) in reader.deserialize().enumerate() {
+            println!("{idx}: entry: {:?}", entry);
             match entry {
                 Ok(tr) => {
                     let tr: TimeRec = tr;
                     println!("tr: {:?}", tr);
                     match idx {
-                        0 => assert_eq!(tr.time, 0),
-                        1 => assert_eq!(tr.time, 123),
+                        0 => {
+                            assert_eq!(tr.time, 0);
+                        }
+                        1 => {
+                            assert_eq!(tr.time, 0);
+                        }
+                        2 => {
+                            assert_eq!(tr.time, 0);
+                        }
+                        3 => {
+                            assert_eq!(tr.time, 0);
+                        }
+                        4 => {
+                            assert_eq!(tr.time, 0);
+                        }
+                        5 => {
+                            assert_eq!(tr.time, 0);
+                        }
+                        6 => {
+                            assert_eq!(tr.time, -MS_PER_MIN + 1);
+                        }
+                        7 => {
+                            assert_eq!(tr.time, MS_PER_MIN);
+                        }
+                        8 => {
+                            assert_eq!(tr.time, MS_PER_MIN);
+                        }
+                        9 => {
+                            assert_eq!(tr.time, 123);
+                        }
+                        10 => {
+                            assert_eq!(tr.time, -(MS_PER_MIN - 123) + 1);
+                        }
+                        11 => {
+                            assert_eq!(tr.time, MS_PER_MIN + 123);
+                        }
                         _ => panic!("Unexpected idx"),
                     }
                 }
@@ -72,7 +125,23 @@ Time
 
     #[test]
     fn test_se_time_ms_to_utc_string() {
-        let trs = vec![TimeRec { time: 0 }, TimeRec { time: 123 }];
+        let trs = vec![
+            TimeRec { time: 0 },
+            TimeRec {
+                time: -MS_PER_MIN + 1,
+            },
+            TimeRec { time: MS_PER_MIN },
+            TimeRec { time: 123 },
+            TimeRec {
+                time: -(MS_PER_MIN - 123),
+            },
+            TimeRec {
+                time: -(MS_PER_MIN - 124),
+            },
+            TimeRec {
+                time: MS_PER_MIN + 123,
+            },
+        ];
 
         let mut wtr = csv::Writer::from_writer(vec![]);
         for tr in trs.iter() {
@@ -83,9 +152,16 @@ Time
         let data = String::from_utf8(vec).expect("Unexpected convert vec to String");
         dbg!(&data);
 
-        assert_eq!(
-            data,
-            "Time\n1970-01-01T00:00:00.000+00:00\n1970-01-01T00:00:00.123+00:00\n"
-        );
+        let csv = "Time
+1970-01-01T00:00:00.000+00:00
+1969-12-31T23:59:00.001+00:00
+1970-01-01T00:01:00.000+00:00
+1970-01-01T00:00:00.123+00:00
+1969-12-31T23:59:00.123+00:00
+1969-12-31T23:59:00.124+00:00
+1970-01-01T00:01:00.123+00:00
+";
+
+        assert_eq!(data, csv,);
     }
 }

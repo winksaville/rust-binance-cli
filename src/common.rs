@@ -397,9 +397,28 @@ pub fn dt_str_to_utc_time_ms(
             }
             TzMassaging::CondAddTzUtc => {
                 let fs = format!("{fmt_str}%#z");
-                let s = if dt_str.matches('+').count() == 0 {
+
+                // If there is a '+' then there "must be" a time zone
+                let has_pos_tz = dt_str.matches('+').count() > 0;
+
+                // If there is a '-' after the "year" then there must be a time zone
+                let mut rmtchr = dt_str.rmatch_indices('-');
+                let first_rmatch = rmtchr.next();
+                let has_neg_tz = if let Some((idx, _s)) = first_rmatch {
+                    // If there is a '-' after index 7 then assume there is a negative time zone
+                    //     2020-01-01T...
+                    //     01234567
+                    idx > 7
+                } else {
+                    // No numeric timezone
+                    false
+                };
+
+                let s = if !has_pos_tz && !has_neg_tz {
+                    // Add numeric timezone for UTC
                     format!("{dt_str}+0000")
                 } else {
+                    // Else there is one so just convert dt_str to String
                     dt_str.to_string()
                 };
                 let dtfo = DateTime::parse_from_str(&s, &fs)?;
