@@ -64,7 +64,7 @@ impl TokenTaxRec {
             sell_currency: "".to_owned(),
             fee_amount: None,
             fee_currency: "".to_owned(),
-            exchange: "".to_owned(),
+            exchange: "binance.us".to_owned(),
             group: None,
             comment: format!(
                 "{ver},{line_number},{},{},{},{}",
@@ -125,8 +125,8 @@ impl TokenTaxRec {
             }
             "Deposit" => {
                 ttr.type_txs = TypeTxs::Deposit;
-                ttr.sell_amount = dr.realized_amount_for_primary_asset;
-                ttr.sell_currency = dr.primary_asset.clone();
+                ttr.buy_amount = dr.realized_amount_for_primary_asset;
+                ttr.buy_currency = dr.primary_asset.clone();
                 ttr.fee_amount = dr.realized_amount_for_fee_asset;
                 ttr.fee_currency = dr.fee_asset.clone();
 
@@ -333,18 +333,18 @@ Gift,,,100,USD,,,,,\"Gift to friend\",1970-01-01 00:00:00
 12345678,2021-03-18T03:49:18.000+00:00,Quick Buy,Buy,cf9257c74ea243da9f3e64847ad0233b,171875688,,,,USD,27.4684,27.4684,BNB,0.1,26.170481,USD,0.14,0.14,Wallet,,
 12345678,2021-03-22T22:33:06.147+00:00,Quick Sell,Sell,87d5c693897c4a0a8a35534782f6c471,179163493,,,,BTC,0.010946,596.876028,USD,590.5686,590.5686,USD,2.97,2.97,Wallet,,
 ";
-
         let result_ttr_csv = "Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
-Deposit,,,5125,USD,,,,,\"v0,2,1,1,Deposit,USD Deposit\",2019-08-01T00:00:00.000+00:00
-Trade,0.00558,BTC,44.959176,USD,0,BTC,,,\"v0,3,367670,125143,Spot Trading,Buy\",2019-09-28T15:35:02.000+00:00
-Income,0.0000003,BTC,,,,,,,\"v0,4,5442858,17929593,Distribution,Referral Commission\",2020-03-02T07:32:05.000+00:00
-Deposit,,,45.25785064909286,ETH,,,,,\"v0,5,17916393,17916393,Deposit,Crypto Deposit\",2020-03-23T04:08:20.000+00:00
-Trade,0.427854,BTC,20.374,ETH,0.16893668,BNB,,,\"v0,6,5988456,17916714,Spot Trading,Sell\",2020-03-23T04:10:29.000+00:00
-Trade,0.61,BNB,11.90903,USD,0.0004575,BNB,,,\"v0,7,26988333,32890969,Spot Trading,Buy\",2020-07-26T15:50:02.000+00:00
-Withdrawal,,,23.99180186,ETH,0.005,ETH,,,\"v0,8,38078398,38078398,Withdrawal,Crypto Withdrawal\",2020-08-16T23:54:01.000+00:00
-Trade,27.4684,USD,0.1,BNB,0.14,USD,,,\"v0,9,cf9257c74ea243da9f3e64847ad0233b,171875688,Quick Buy,Buy\",2021-03-18T03:49:18.000+00:00
-Trade,590.5686,USD,0.010946,BTC,2.97,USD,,,\"v0,10,87d5c693897c4a0a8a35534782f6c471,179163493,Quick Sell,Sell\",2021-03-22T22:33:06.147+00:00
+Deposit,5125,USD,,,,,binance.us,,\"v0,2,1,1,Deposit,USD Deposit\",2019-08-01T00:00:00.000+00:00
+Trade,0.00558,BTC,44.959176,USD,0,BTC,binance.us,,\"v0,3,367670,125143,Spot Trading,Buy\",2019-09-28T15:35:02.000+00:00
+Income,0.0000003,BTC,,,,,binance.us,,\"v0,4,5442858,17929593,Distribution,Referral Commission\",2020-03-02T07:32:05.000+00:00
+Deposit,45.25785064909286,ETH,,,,,binance.us,,\"v0,5,17916393,17916393,Deposit,Crypto Deposit\",2020-03-23T04:08:20.000+00:00
+Trade,0.427854,BTC,20.374,ETH,0.16893668,BNB,binance.us,,\"v0,6,5988456,17916714,Spot Trading,Sell\",2020-03-23T04:10:29.000+00:00
+Trade,0.61,BNB,11.90903,USD,0.0004575,BNB,binance.us,,\"v0,7,26988333,32890969,Spot Trading,Buy\",2020-07-26T15:50:02.000+00:00
+Withdrawal,,,23.99180186,ETH,0.005,ETH,binance.us,,\"v0,8,38078398,38078398,Withdrawal,Crypto Withdrawal\",2020-08-16T23:54:01.000+00:00
+Trade,27.4684,USD,0.1,BNB,0.14,USD,binance.us,,\"v0,9,cf9257c74ea243da9f3e64847ad0233b,171875688,Quick Buy,Buy\",2021-03-18T03:49:18.000+00:00
+Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,\"v0,10,87d5c693897c4a0a8a35534782f6c471,179163493,Quick Sell,Sell\",2021-03-22T22:33:06.147+00:00
 ";
+
         let rdr = csv.as_bytes();
         let mut reader = csv::Reader::from_reader(rdr);
 
