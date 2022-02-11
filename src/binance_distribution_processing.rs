@@ -28,7 +28,14 @@
 //!
 
 //!
-use std::{collections::BTreeMap, fs::File, io::BufReader, io::BufWriter, path::Path};
+use std::{
+    collections::BTreeMap,
+    ffi::OsString,
+    fs::File,
+    io::BufReader,
+    io::BufWriter,
+    path::{Path, PathBuf},
+};
 
 use clap::ArgMatches;
 
@@ -1261,7 +1268,7 @@ pub async fn process_dist_files(
     Ok(())
 }
 
-fn verify_input_file_exist(in_file_paths: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+fn verify_input_files_exist(in_file_paths: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
     for f in &*in_file_paths {
         if !Path::new(*f).exists() {
             return Err(format!("{} does not exist", *f).into());
@@ -1282,14 +1289,14 @@ fn write_dist_rec_vec(
     dist_rec_vec: &[DistRec],
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Create a data record writer
-    let mut data_rec_writer = csv::Writer::from_writer(writer);
+    let mut dist_rec_writer = csv::Writer::from_writer(writer);
 
     // Output the data
-    println!("Output data: drv.len={}", dist_rec_vec.len());
+    println!("Output dist recs: len={}", dist_rec_vec.len());
     for dr in dist_rec_vec {
-        data_rec_writer.serialize(dr)?;
+        dist_rec_writer.serialize(dr)?;
     }
-    println!("Output data: Done drv.len={}", dist_rec_vec.len());
+    println!("Output dist recs: Done");
 
     Ok(())
 }
@@ -1299,18 +1306,18 @@ fn write_dist_rec_vec_as_token_tax(
     writer: BufWriter<File>,
     dist_rec_vec: &[DistRec],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Create a data record writer
+    // Create a token tax writer
     let mut token_tax_writer = csv::Writer::from_writer(writer);
 
     // Output the data
-    println!("Output data: drv.len={}", dist_rec_vec.len());
+    println!("Output token tax recs: len={}", dist_rec_vec.len());
     for (idx, dr) in dist_rec_vec.iter().enumerate() {
         let line_number = idx + 2;
         let dr: &DistRec = dr;
         let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(line_number, dr);
         token_tax_writer.serialize(ttr)?;
     }
-    println!("Output data: Done drv.len={}", dist_rec_vec.len());
+    println!("Output token tax recs: Done");
 
     Ok(())
 }
@@ -1340,22 +1347,62 @@ pub async fn consolidate_dist_files(
 
     let mut data = ProcessedData::new();
 
-    let in_dist_file_paths: Vec<&str> = sc_matches
+    let in_dist_paths: Vec<&str> = sc_matches
         .values_of("IN_FILES")
         .expect("files option is missing")
         .collect();
-    //println!("in_dist_file_path: {in_dist_file_paths:?}");
+    verify_input_files_exist(&in_dist_paths)?;
 
-    let out_dist_file_path = sc_matches
+    // Create out_dist_path
+    let out_dist_path = sc_matches
         .value_of("OUT_FILE")
         .unwrap_or_else(|| panic!("out-file option is missing"));
-    //println!("out_dist_file_path: {out_dist_file_path:?}");
+    let out_dist_path = Path::new(out_dist_path);
 
-    verify_input_file_exist(&in_dist_file_paths)?;
-    let writer = create_buf_writer(out_dist_file_path)?;
+    // Determine parent path, file_stem and extension so we can construct out_token_tax_path
+    let out_parent_path = if let Some(pp) = out_dist_path.parent() {
+        pp
+    } else {
+        Path::new(".")
+    };
+
+    let out_path_file_stem = if let Some(stem) = out_dist_path.file_stem() {
+        stem
+    } else {
+        return Err(format!("There was no file in: '{out_dist_path:?}").into());
+    };
+
+    let out_path_extension = if let Some(csv_extension) = out_dist_path.extension() {
+        let csv_extension = csv_extension.to_string_lossy().to_string();
+        if csv_extension != "csv" {
+            return Err(
+                format!("Expecting file extension to be 'csv' found '{csv_extension}").into(),
+            );
+        }
+
+        csv_extension
+    } else {
+        "csv".to_string()
+    };
+
+    // Construct the out_token_tax_path with adding "tt" before extension
+    let out_token_tax_path = PathBuf::from(out_parent_path);
+    let mut filename = out_path_file_stem.to_os_string();
+    let ttx = OsString::from_str(".tt.").unwrap();
+    let extx = OsString::from_str(out_path_extension.as_str()).unwrap();
+    filename.push(ttx);
+    filename.push(extx);
+
+    let out_token_tax_path = out_token_tax_path.join(filename);
+
+    let f = File::create(out_dist_path)?;
+    let dist_rec_writer = BufWriter::new(f);
+
+    let f = File::create(out_token_tax_path)?;
+    let token_tax_rec_writer = BufWriter::new(f);
 
     println!("Read files");
-    for f in &in_dist_file_paths {
+    for f in &in_dist_paths {
         let in_file = if let Ok(in_f) = File::open(*f) {
             in_f
         } else {
@@ -1421,9 +1468,11 @@ pub async fn consolidate_dist_files(
 
     data.consolidated_dist_rec_vec.sort();
 
-    // Output the consolidated data
-    //write_dist_rec_vec(writer, &data.consolidated_dist_rec_vec)?;
-    write_dist_rec_vec_as_token_tax(writer, &data.consolidated_dist_rec_vec)?;
+    // Output consolidated data as dist records and token_tax records
+    println!("Writing disttribution records");
+    write_dist_rec_vec(dist_rec_writer, &data.consolidated_dist_rec_vec)?;
+    println!("Writing token tax records");
+    write_dist_rec_vec_as_token_tax(token_tax_rec_writer, &data.consolidated_dist_rec_vec)?;
 
     // For debug
     //write_dist_rec_vec_for_asset(&data, "USD")?;
