@@ -3,7 +3,6 @@ mod binance_account_info;
 mod binance_auto_buy;
 mod binance_auto_sell;
 mod binance_avg_price;
-mod binance_distribution_processing;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
 mod binance_history;
@@ -14,6 +13,7 @@ mod binance_order_response;
 mod binance_orders;
 mod binance_signature;
 mod binance_trade;
+mod binance_us_processing;
 mod binance_verify_order;
 mod binance_withdraw_cmd;
 mod common;
@@ -38,9 +38,6 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
-    binance_distribution_processing::{
-        consolidate_dist_files, process_dist_files, ProcessDistSubCommand, ProcessType,
-    },
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
     binance_history::{
@@ -53,6 +50,9 @@ use crate::{
     binance_order_response::{display_order_log, process_order_log},
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
+    binance_us_processing::{
+        consolidate_dist_files, process_dist_files, ProcessDistSubCommand, ProcessType,
+    },
     binance_withdraw_cmd::{withdraw_cmd, WithdrawParams},
     common::{
         dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
