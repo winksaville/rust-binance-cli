@@ -48,12 +48,12 @@ use crate::{
     common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms},
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
-    token_tax::TokenTaxRec,
+    token_tax::{TokenTaxRec, VER, TypeTxs},
 };
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 #[serde(rename_all = "camelCase")]
-pub struct DistRec {
+struct DistRec {
     #[serde(rename = "User_Id")]
     pub user_id: String,
     #[serde(rename = "Time")]
@@ -131,13 +131,13 @@ impl DistRec {
 }
 
 #[derive(Debug)]
-pub struct AssetRec {
-    pub asset: String,
-    pub quantity: Decimal,
-    pub value_usd: Decimal,
-    pub transaction_count: u64,
-    pub dist_rec_vec: Vec<DistRec>,
-    pub consolidated_dist_rec_vec: Vec<DistRec>,
+struct AssetRec {
+    asset: String,
+    quantity: Decimal,
+    value_usd: Decimal,
+    transaction_count: u64,
+    dist_rec_vec: Vec<DistRec>,
+    consolidated_dist_rec_vec: Vec<DistRec>,
 }
 
 #[allow(unused)]
@@ -403,52 +403,52 @@ impl AssetRecMap {
 }
 
 #[derive(Debug)]
-pub struct ProcessedData {
-    pub dist_rec_vec: Vec<DistRec>,
-    pub consolidated_dist_rec_vec: Vec<DistRec>,
-    pub asset_rec_map: AssetRecMap,
-    pub others_rec_map: AssetRecMap,
-    pub total_count: u64,
-    pub distribution_operation_referral_commission_value_usd: Decimal,
-    pub distribution_operation_staking_rewards_value_usd: Decimal,
-    pub distribution_operation_others_value_usd: Decimal,
-    pub distribution_category_count: u64,
-    pub distribution_operation_referral_commission_count: u64,
-    pub distribution_operation_staking_reward_count: u64,
-    pub distribution_operation_others_count: u64,
-    pub distribution_operation_unknown_count: u64,
-    pub quick_category_count: u64,
-    pub quick_buy_operation_buy_count: u64,
-    pub quick_buy_base_asset_in_usd_value: Decimal,
-    pub quick_buy_operation_buy_fee_in_usd_value: Decimal,
-    pub quick_sell_operation_sell_count: u64,
-    pub quick_sell_base_asset_in_usd_value: Decimal,
-    pub quick_sell_operation_sell_fee_in_usd_value: Decimal,
-    pub quick_operation_unknown_count: u64,
-    pub spot_trading_category_count: u64,
-    pub spot_trading_operation_unknown_count: u64,
-    pub spot_trading_operation_buy_count: u64,
-    pub spot_trading_operation_buy_base_asset_in_usd_value: Decimal,
-    pub spot_trading_operation_buy_fee_in_usd_value: Decimal,
-    pub spot_trading_operation_sell_count: u64,
-    pub spot_trading_operation_sell_base_asset_in_usd_value: Decimal,
-    pub spot_trading_operation_sell_fee_in_usd_value: Decimal,
-    pub withdrawal_category_count: u64,
-    pub withdrawal_operation_crypto_withdrawal_count: u64,
-    pub withdrawal_operation_crypto_withdrawal_usd_value: Decimal,
-    pub withdrawal_operation_crypto_withdrawal_fee_count: u64,
-    pub withdrawal_operation_crypto_withdrawal_fee_in_usd_value: Decimal,
-    pub withdrawal_operation_unknown_count: u64,
-    pub deposit_category_count: u64,
-    pub deposit_operation_crypto_deposit_count: u64,
-    pub deposit_operation_crypto_deposit_usd_value: Decimal,
-    pub deposit_operation_crypto_deposit_fee_count: u64,
-    pub deposit_operation_usd_deposit_count: u64,
-    pub deposit_operation_usd_deposit_usd_value: Decimal,
-    pub deposit_operaiton_usd_deposit_fee_count: u64,
-    pub deposit_operation_usd_deposit_fee_usd_value: Decimal,
-    pub deposit_operation_unknown_count: u64,
-    pub unprocessed_category_count: u64,
+struct ProcessedData {
+    dist_rec_vec: Vec<DistRec>,
+    consolidated_dist_rec_vec: Vec<DistRec>,
+    asset_rec_map: AssetRecMap,
+    others_rec_map: AssetRecMap,
+    total_count: u64,
+    distribution_operation_referral_commission_value_usd: Decimal,
+    distribution_operation_staking_rewards_value_usd: Decimal,
+    distribution_operation_others_value_usd: Decimal,
+    distribution_category_count: u64,
+    distribution_operation_referral_commission_count: u64,
+    distribution_operation_staking_reward_count: u64,
+    distribution_operation_others_count: u64,
+    distribution_operation_unknown_count: u64,
+    quick_category_count: u64,
+    quick_buy_operation_buy_count: u64,
+    quick_buy_base_asset_in_usd_value: Decimal,
+    quick_buy_operation_buy_fee_in_usd_value: Decimal,
+    quick_sell_operation_sell_count: u64,
+    quick_sell_base_asset_in_usd_value: Decimal,
+    quick_sell_operation_sell_fee_in_usd_value: Decimal,
+    quick_operation_unknown_count: u64,
+    spot_trading_category_count: u64,
+    spot_trading_operation_unknown_count: u64,
+    spot_trading_operation_buy_count: u64,
+    spot_trading_operation_buy_base_asset_in_usd_value: Decimal,
+    spot_trading_operation_buy_fee_in_usd_value: Decimal,
+    spot_trading_operation_sell_count: u64,
+    spot_trading_operation_sell_base_asset_in_usd_value: Decimal,
+    spot_trading_operation_sell_fee_in_usd_value: Decimal,
+    withdrawal_category_count: u64,
+    withdrawal_operation_crypto_withdrawal_count: u64,
+    withdrawal_operation_crypto_withdrawal_usd_value: Decimal,
+    withdrawal_operation_crypto_withdrawal_fee_count: u64,
+    withdrawal_operation_crypto_withdrawal_fee_in_usd_value: Decimal,
+    withdrawal_operation_unknown_count: u64,
+    deposit_category_count: u64,
+    deposit_operation_crypto_deposit_count: u64,
+    deposit_operation_crypto_deposit_usd_value: Decimal,
+    deposit_operation_crypto_deposit_fee_count: u64,
+    deposit_operation_usd_deposit_count: u64,
+    deposit_operation_usd_deposit_usd_value: Decimal,
+    deposit_operaiton_usd_deposit_fee_count: u64,
+    deposit_operation_usd_deposit_fee_usd_value: Decimal,
+    deposit_operation_unknown_count: u64,
+    unprocessed_category_count: u64,
 }
 
 impl ProcessedData {
@@ -499,6 +499,92 @@ impl ProcessedData {
             deposit_operation_usd_deposit_fee_usd_value: dec!(0),
             deposit_operation_unknown_count: 0u64,
             unprocessed_category_count: 0u64,
+        }
+    }
+}
+
+impl TokenTaxRec {
+    fn from_dist_rec(line_number: usize, dr: &DistRec) -> TokenTaxRec {
+        let ver = VER.as_str();
+        let mut ttr = TokenTaxRec {
+            type_txs: TypeTxs::Trade,
+            buy_amount: None,
+            buy_currency: "".to_owned(),
+            sell_amount: None,
+            sell_currency: "".to_owned(),
+            fee_amount: None,
+            fee_currency: "".to_owned(),
+            exchange: "binance.us".to_owned(),
+            group: None,
+            comment: format!(
+                "{ver},{line_number},{},{},{},{}",
+                dr.order_id, dr.transaction_id, dr.category, dr.operation
+            ),
+            time: dr.time,
+        };
+        //dbg!(&dr.operation);
+        //dbg!(&ttr);
+
+        match dr.category.as_ref() {
+            "Distribution" => {
+                ttr.type_txs = TypeTxs::Income;
+                ttr.buy_amount = dr.realized_amount_for_primary_asset;
+                ttr.buy_currency = dr.primary_asset.clone();
+                ttr.fee_amount = dr.realized_amount_for_fee_asset;
+                ttr.fee_currency = dr.fee_asset.clone();
+
+                ttr
+            }
+            "Quick Buy" | "Quick Sell" | "Spot Trading" => {
+                ttr.type_txs = TypeTxs::Trade;
+                ttr.fee_amount = dr.realized_amount_for_fee_asset;
+                ttr.fee_currency = dr.fee_asset.clone();
+                match dr.operation.as_ref() {
+                    "Buy" => {
+                        ttr.buy_amount = dr.realized_amount_for_base_asset;
+                        ttr.buy_currency = dr.base_asset.clone();
+                        ttr.sell_amount = dr.realized_amount_for_quote_asset;
+                        ttr.sell_currency = dr.quote_asset.clone();
+
+                        ttr
+                    }
+                    "Sell" => {
+                        ttr.buy_amount = dr.realized_amount_for_quote_asset;
+                        ttr.buy_currency = dr.quote_asset.clone();
+                        ttr.sell_amount = dr.realized_amount_for_base_asset;
+                        ttr.sell_currency = dr.base_asset.clone();
+
+                        ttr
+                    }
+                    _ => {
+                        panic!(
+                            "{} {} {} unknown operation: {}",
+                            line_number, dr.base_asset, dr.category, dr.operation
+                        );
+                    }
+                }
+            }
+            "Withdrawal" => {
+                ttr.type_txs = TypeTxs::Withdrawal;
+                ttr.sell_amount = dr.realized_amount_for_primary_asset;
+                ttr.sell_currency = dr.primary_asset.clone();
+                ttr.fee_amount = dr.realized_amount_for_fee_asset;
+                ttr.fee_currency = dr.fee_asset.clone();
+
+                ttr
+            }
+            "Deposit" => {
+                ttr.type_txs = TypeTxs::Deposit;
+                ttr.buy_amount = dr.realized_amount_for_primary_asset;
+                ttr.buy_currency = dr.primary_asset.clone();
+                ttr.fee_amount = dr.realized_amount_for_fee_asset;
+                ttr.fee_currency = dr.fee_asset.clone();
+
+                ttr
+            }
+            _ => {
+                panic!("{} Unknown category: {}", line_number, dr.category);
+            }
         }
     }
 }
@@ -1612,7 +1698,7 @@ Time
     }
 
     #[test]
-    fn test_serialize_dist_rec_to_csv() {
+    fn test_serialize_binance_us_dist_rec_to_csv() {
         let csv = "User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
 12345678,2019-08-01T00:00:00.000+00:00,Deposit,USD Deposit,1,1,USD,5125,5125,,,,,,,,,,Debit,,
 12345678,2019-09-28T15:35:02.000+00:00,Spot Trading,Buy,367670,125143,,,,BTC,0.00558,46.012234,USD,44.959176,44.959176,BTC,0,0,Wallet,,
@@ -1639,5 +1725,51 @@ Time
         //dbg!(&data);
 
         assert_eq!(data, csv);
+    }
+
+    #[test]
+    fn test_deserialize_binance_us_dist_rec_to_serialized_token_tax_rec() {
+        let csv = "User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
+12345678,2019-08-01T00:00:00.000+00:00,Deposit,USD Deposit,1,1,USD,5125,5125,,,,,,,,,,Debit,,
+12345678,2019-09-28T15:35:02.000+00:00,Spot Trading,Buy,367670,125143,,,,BTC,0.00558,46.012234,USD,44.959176,44.959176,BTC,0,0,Wallet,,
+12345678,2020-03-02T07:32:05.000+00:00,Distribution,Referral Commission,5442858,17929593,BTC,0.0000003,0.002661,,,,,,,,,,Wallet,,
+12345678,2020-03-23T04:08:20.000+00:00,Deposit,Crypto Deposit,17916393,17916393,ETH,45.25785064909286,6105.809587,,,,,,,,,,Wallet,,
+12345678,2020-03-23T04:10:29.000+00:00,Spot Trading,Sell,5988456,17916714,,,,ETH,20.374,2748.689183,BTC,0.427854,2745.245935,BNB,0.16893668,2.047513,Wallet,,
+12345678,2020-07-26T15:50:02.000+00:00,Spot Trading,Buy,26988333,32890969,,,,BNB,0.61,11.907825,USD,11.90903,11.90903,BNB,0.0004575,0.008931,Wallet,,
+12345678,2020-08-16T23:54:01.000+00:00,Withdrawal,Crypto Withdrawal,38078398,38078398,ETH,23.99180186,10407.403729,,,,,,,ETH,0.005,2.16895,Wallet,Wallet,
+12345678,2021-03-18T03:49:18.000+00:00,Quick Buy,Buy,cf9257c74ea243da9f3e64847ad0233b,171875688,,,,USD,27.4684,27.4684,BNB,0.1,26.170481,USD,0.14,0.14,Wallet,,
+12345678,2021-03-22T22:33:06.147+00:00,Quick Sell,Sell,87d5c693897c4a0a8a35534782f6c471,179163493,,,,BTC,0.010946,596.876028,USD,590.5686,590.5686,USD,2.97,2.97,Wallet,,
+";
+        let result_ttr_csv = "Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
+Deposit,5125,USD,,,,,binance.us,,\"v0,2,1,1,Deposit,USD Deposit\",2019-08-01T00:00:00.000+00:00
+Trade,0.00558,BTC,44.959176,USD,0,BTC,binance.us,,\"v0,3,367670,125143,Spot Trading,Buy\",2019-09-28T15:35:02.000+00:00
+Income,0.0000003,BTC,,,,,binance.us,,\"v0,4,5442858,17929593,Distribution,Referral Commission\",2020-03-02T07:32:05.000+00:00
+Deposit,45.25785064909286,ETH,,,,,binance.us,,\"v0,5,17916393,17916393,Deposit,Crypto Deposit\",2020-03-23T04:08:20.000+00:00
+Trade,0.427854,BTC,20.374,ETH,0.16893668,BNB,binance.us,,\"v0,6,5988456,17916714,Spot Trading,Sell\",2020-03-23T04:10:29.000+00:00
+Trade,0.61,BNB,11.90903,USD,0.0004575,BNB,binance.us,,\"v0,7,26988333,32890969,Spot Trading,Buy\",2020-07-26T15:50:02.000+00:00
+Withdrawal,,,23.99180186,ETH,0.005,ETH,binance.us,,\"v0,8,38078398,38078398,Withdrawal,Crypto Withdrawal\",2020-08-16T23:54:01.000+00:00
+Trade,27.4684,USD,0.1,BNB,0.14,USD,binance.us,,\"v0,9,cf9257c74ea243da9f3e64847ad0233b,171875688,Quick Buy,Buy\",2021-03-18T03:49:18.000+00:00
+Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,\"v0,10,87d5c693897c4a0a8a35534782f6c471,179163493,Quick Sell,Sell\",2021-03-22T22:33:06.147+00:00
+";
+
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        for (idx, entry) in reader.deserialize().enumerate() {
+            let line_number = idx + 2;
+            println!("{idx}: entry: {:?}", entry);
+            let dr: DistRec = entry.unwrap();
+            //dbg!(dr);
+
+            let ttr = TokenTaxRec::from_dist_rec(line_number, &dr);
+            //dbg!(&ttr);
+            wtr.serialize(&ttr).expect("Error serializing");
+        }
+
+        let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
+        dbg!(&data);
+
+        assert_eq!(data, result_ttr_csv);
     }
 }
