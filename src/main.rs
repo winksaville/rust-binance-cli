@@ -22,6 +22,7 @@ mod de_string_or_number;
 mod de_string_to_utc_time_ms;
 mod serde_header_map;
 mod token_tax;
+mod token_tax_comment_vers;
 
 use clap::ArgMatches;
 use log::trace;

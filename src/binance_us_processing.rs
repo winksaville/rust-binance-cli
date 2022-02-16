@@ -48,7 +48,8 @@ use crate::{
     common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms},
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
-    token_tax::{TokenTaxRec, VER, TypeTxs},
+    token_tax::{TokenTaxRec, TypeTxs},
+    token_tax_comment_vers::TT_CMT_VER0,
 };
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
@@ -504,8 +505,15 @@ impl ProcessedData {
 }
 
 impl TokenTaxRec {
+    fn format_tt_cmt_ver0(line_number: usize, dr: &DistRec) -> String {
+        let ver = TT_CMT_VER0.as_str();
+        format!(
+            "{ver},{line_number},{},{},{},{}",
+            dr.order_id, dr.transaction_id, dr.category, dr.operation
+        )
+    }
+
     fn from_dist_rec(line_number: usize, dr: &DistRec) -> TokenTaxRec {
-        let ver = VER.as_str();
         let mut ttr = TokenTaxRec {
             type_txs: TypeTxs::Trade,
             buy_amount: None,
@@ -516,10 +524,7 @@ impl TokenTaxRec {
             fee_currency: "".to_owned(),
             exchange: "binance.us".to_owned(),
             group: None,
-            comment: format!(
-                "{ver},{line_number},{},{},{},{}",
-                dr.order_id, dr.transaction_id, dr.category, dr.operation
-            ),
+            comment: TokenTaxRec::format_tt_cmt_ver0(line_number, dr),
             time: dr.time,
         };
         //dbg!(&dr.operation);
