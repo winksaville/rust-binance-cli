@@ -45,7 +45,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     binance_klines::get_kline_of_primary_asset_for_value_asset,
-    common::{dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms},
+    common::{
+        create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_money_string,
+        dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms, verify_input_files_exist,
+    },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     token_tax::{TokenTaxRec, TypeTxs},
@@ -1051,19 +1054,10 @@ pub async fn process_dist_files(
     //println!("out_dist_file_path: {out_dist_file_path:?}");
 
     // Verify all input files exist
-    for f in &in_dist_file_paths {
-        if !Path::new(f).exists() {
-            return Err(format!("{} does not exist", *f).into());
-        };
-    }
+    verify_input_files_exist(&in_dist_file_paths)?;
 
-    let writer = if let Some(out_f_path) = out_dist_file_path {
-        let out_file = if let Ok(out_f) = File::create(out_f_path) {
-            out_f
-        } else {
-            return Err(format!("Unable to create {out_f_path}").into());
-        };
-        Some(BufWriter::new(out_file))
+    let writer = if let Some(out_file_path) = out_dist_file_path {
+        Some(create_buf_writer(out_file_path)?)
     } else {
         None
     };
@@ -1074,12 +1068,7 @@ pub async fn process_dist_files(
     let mut wdr = writer.map(csv::Writer::from_writer);
 
     for f in &in_dist_file_paths {
-        let in_file = if let Ok(in_f) = File::open(*f) {
-            in_f
-        } else {
-            return Err(format!("Unable to open {f}").into());
-        };
-        let reader = BufReader::new(in_file);
+        let reader = create_buf_reader(f)?;
 
         // Create reader
         let mut rdr = csv::Reader::from_reader(reader);
@@ -1359,21 +1348,6 @@ pub async fn process_dist_files(
     Ok(())
 }
 
-fn verify_input_files_exist(in_file_paths: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-    for f in &*in_file_paths {
-        if !Path::new(*f).exists() {
-            return Err(format!("{} does not exist", *f).into());
-        }
-    }
-
-    Ok(())
-}
-
-fn create_buf_writer(out_file_path: &str) -> Result<BufWriter<File>, Box<dyn std::error::Error>> {
-    let out_file = File::create(out_file_path)?;
-    Ok(BufWriter::new(out_file))
-}
-
 #[allow(unused)]
 fn write_dist_rec_vec(
     writer: BufWriter<File>,
@@ -1484,13 +1458,12 @@ pub async fn consolidate_dist_files(
     filename.push(ttx);
     filename.push(extx);
 
-    let out_token_tax_path = out_token_tax_path.join(filename);
+    let out_token_tax_path = &(*out_token_tax_path.join(filename));
 
-    let f = File::create(out_dist_path)?;
-    let dist_rec_writer = BufWriter::new(f);
+    let dist_rec_writer = create_buf_writer_from_path(out_dist_path)?;
 
-    let f = File::create(out_token_tax_path)?;
-    let token_tax_rec_writer = BufWriter::new(f);
+    //let f = File::create(out_token_tax_path)?;
+    let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
     println!("Read files");
     for f in &in_dist_paths {

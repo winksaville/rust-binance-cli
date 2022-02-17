@@ -10,11 +10,13 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
     Response,
 };
-use std::fmt::{self, Debug, Display};
 use std::{
-    error::Error,
+    fmt::{self, Debug, Display},
+    fs::File,
     io::stdout,
     io::{stdin, Write},
+    io::{BufReader, BufWriter},
+    path::Path,
 };
 use strum_macros::IntoStaticStr;
 
@@ -87,7 +89,7 @@ impl Display for InternalErrorRec {
     }
 }
 
-impl Error for InternalErrorRec {}
+impl std::error::Error for InternalErrorRec {}
 
 #[macro_export]
 macro_rules! ier_new {
@@ -488,6 +490,65 @@ pub fn dec_to_separated_string(v: Decimal, dp: u32) -> String {
     let v_string = v.round_dp(dp).to_string();
     let v_f64: f64 = v_string.parse().unwrap();
     v_f64.separated_string_with_fixed_place(dp as usize)
+}
+
+pub fn verify_input_files_exist(in_file_paths: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+    for f in &*in_file_paths {
+        if !Path::new(*f).exists() {
+            return Err(format!("{} does not exist", *f).into());
+        }
+    }
+
+    Ok(())
+}
+
+pub fn create_buf_writer(
+    out_file_path: &str,
+) -> Result<BufWriter<File>, Box<dyn std::error::Error>> {
+    let out_file = if let Ok(out_f) = File::create(out_file_path) {
+        out_f
+    } else {
+        return Err(format!("Unable to create {out_file_path}").into());
+    };
+
+    Ok(BufWriter::new(out_file))
+}
+
+pub fn create_buf_writer_from_path(
+    out_file_path: &Path,
+) -> Result<BufWriter<File>, Box<dyn std::error::Error>> {
+    let out_file = if let Ok(out_f) = File::create(out_file_path) {
+        out_f
+    } else {
+        let fname = out_file_path.as_os_str().to_string_lossy();
+        return Err(format!("Unable to create {fname}").into());
+    };
+
+    Ok(BufWriter::new(out_file))
+}
+
+pub fn create_buf_reader(
+    in_file_path: &str,
+) -> Result<BufReader<File>, Box<dyn std::error::Error>> {
+    let in_file = if let Ok(in_f) = File::open(in_file_path) {
+        in_f
+    } else {
+        return Err(format!("Unable to open {in_file_path}").into());
+    };
+    Ok(BufReader::new(in_file))
+}
+
+#[allow(unused)]
+pub fn create_buf_reader_from_path(
+    in_file_path: &Path,
+) -> Result<BufReader<File>, Box<dyn std::error::Error>> {
+    let in_file = if let Ok(in_f) = File::open(in_file_path) {
+        in_f
+    } else {
+        let fname = in_file_path.as_os_str().to_string_lossy();
+        return Err(format!("Unable to open {fname}").into());
+    };
+    Ok(BufReader::new(in_file))
 }
 
 #[cfg(test)]
