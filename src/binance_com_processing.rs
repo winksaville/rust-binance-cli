@@ -1,16 +1,26 @@
 //! This file processes binance.com commission files.
 //!
-use std::{collections::BTreeMap, fmt::Display};
+use std::{
+    collections::BTreeMap,
+    ffi::OsString,
+    fmt::Display,
+    fs::File,
+    io::BufWriter,
+    path::{Path, PathBuf},
+};
 
 use crate::{
-    common::{create_buf_reader, dec_to_separated_string, verify_input_files_exist},
+    common::{
+        create_buf_reader, create_buf_writer_from_path, dec_to_separated_string,
+        verify_input_files_exist,
+    },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER2},
 };
 use clap::ArgMatches;
-use rust_decimal::Decimal;
+use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +60,7 @@ struct CommissionRec {
     referral_id: String,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
 struct TradeRec {
@@ -84,6 +94,7 @@ struct BcAssetRec {
     quantity: Decimal,
     transaction_count: usize,
     tr_vec: Vec<TradeRec>,
+    consolidated_tr_vec: Vec<TradeRec>,
 }
 
 #[allow(unused)]
@@ -94,6 +105,7 @@ impl BcAssetRec {
             quantity: dec!(0),
             transaction_count: 0,
             tr_vec: Vec::new(),
+            consolidated_tr_vec: Vec::new(),
         }
     }
 }
@@ -107,6 +119,21 @@ impl Display for BcAssetRec {
             dec_to_separated_string(self.quantity, 4),
             dec_to_separated_string(Decimal::from(self.transaction_count), 0)
         )
+    }
+}
+
+impl BcAssetRec {
+    fn consolidate_trade_recs(
+        &mut self,
+        _config: &Configuration,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        //println!("consolidate_distributions:+");
+
+        for tr in &self.tr_vec {
+            self.consolidated_tr_vec.push(tr.to_owned());
+        }
+
+        Ok(())
     }
 }
 
@@ -570,6 +597,7 @@ async fn to_tt_trade_rec(
 struct BcData {
     tr_vec: Vec<TradeRec>,
     bc_asset_rec_map: BcAssetRecMap,
+    bc_consolidated_tr_vec: Vec<TradeRec>,
     total_count: u64,
 }
 
@@ -578,6 +606,7 @@ impl BcData {
         BcData {
             tr_vec: Vec::new(),
             bc_asset_rec_map: BcAssetRecMap::new(),
+            bc_consolidated_tr_vec: Vec::new(),
             total_count: 0u64,
         }
     }
@@ -589,17 +618,17 @@ pub async fn process_binance_com_trade_history_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("process_trade_history_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
-    let in_dist_file_paths: Vec<&str> = sc_matches
+    let in_th_file_paths: Vec<&str> = sc_matches
         .values_of("IN_FILES")
         .expect("files option is missing")
         .collect();
 
     // Verify all input files exist
-    verify_input_files_exist(&in_dist_file_paths)?;
+    verify_input_files_exist(&in_th_file_paths)?;
 
     let mut data = BcData::new();
 
-    for f in in_dist_file_paths {
+    for f in in_th_file_paths {
         let reader = create_buf_reader(f)?;
 
         // Create csv reader
@@ -638,6 +667,160 @@ pub async fn process_binance_com_trade_history_files(
         dec_to_separated_string(total_quantity, 4),
         dec_to_separated_string(Decimal::from(total_transaction_count), 0)
     );
+    Ok(())
+}
+
+pub async fn consolidate_binance_com_trade_history_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //println!("consoldiate_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let mut data = BcData::new();
+
+    let in_th_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+    verify_input_files_exist(&in_th_paths)?;
+
+    // Create out_dist_path
+    let out_dist_path = sc_matches
+        .value_of("OUT_FILE")
+        .unwrap_or_else(|| panic!("out-file option is missing"));
+    let out_dist_path = Path::new(out_dist_path);
+
+    // Determine parent path, file_stem and extension so we can construct out_token_tax_path
+    let out_parent_path = if let Some(pp) = out_dist_path.parent() {
+        pp
+    } else {
+        Path::new(".")
+    };
+
+    let out_path_file_stem = if let Some(stem) = out_dist_path.file_stem() {
+        stem
+    } else {
+        return Err(format!("There was no file in: '{out_dist_path:?}").into());
+    };
+
+    let out_path_extension = if let Some(csv_extension) = out_dist_path.extension() {
+        let csv_extension = csv_extension.to_string_lossy().to_string();
+        if csv_extension != "csv" {
+            return Err(
+                format!("Expecting file extension to be 'csv' found '{csv_extension}").into(),
+            );
+        }
+
+        csv_extension
+    } else {
+        "csv".to_string()
+    };
+
+    // Construct the out_token_tax_path with adding "tt" before extension
+    let out_token_tax_path = PathBuf::from(out_parent_path);
+    let mut filename = out_path_file_stem.to_os_string();
+    let ttx: OsString = OsString::from_str(".tt.").unwrap();
+    let extx: OsString = OsString::from_str(out_path_extension.as_str()).unwrap();
+    filename.push(ttx);
+    filename.push(extx);
+    let _out_token_tax_path = &(*out_token_tax_path.join(filename));
+
+    let tr_writer = create_buf_writer_from_path(out_dist_path)?;
+
+    //let f = File::create(out_token_tax_path)?;
+    //let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
+
+    println!("Read files");
+    for f in in_th_paths {
+        let reader = create_buf_reader(f)?;
+
+        // DataRec reader
+        let mut data_rec_reader = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+            //println!("{rec_index}: {result:?}");
+            let line_number = rec_index + 2;
+            let tr: TradeRec = result?;
+
+            if config.verbose {
+                let asset = &tr.coin;
+                print!("Processing {line_number} {asset}                        \r",);
+            }
+
+            data.tr_vec.push(tr.clone());
+            data.bc_asset_rec_map.add_tr(tr);
+        }
+    }
+
+    println!();
+    println!();
+    let col_1 = 7;
+    let col_2 = 15;
+    let col_3 = 15;
+
+    let mut total_pre_len = 0usize;
+    let mut total_post_len = 0usize;
+    println!("Consolidate");
+    println!(
+        "{:<col_1$} {:>col_2$} {:>col_3$}",
+        "Asset", "pre count", "post count"
+    );
+
+    //let mut state = ConsolidateState { prev_dr: Default::default() };
+    for (asset, ar) in &mut data.bc_asset_rec_map.bt {
+        let pre_len = ar.tr_vec.len();
+        total_pre_len += pre_len;
+
+        ar.consolidate_trade_recs(config)?;
+
+        let post_len = ar.consolidated_tr_vec.len();
+        total_post_len += post_len;
+
+        // Append the ar.consolidated_dis_rec_vec to end of data.consolidated_dist_rec_vec
+        for tr in &ar.consolidated_tr_vec {
+            data.bc_consolidated_tr_vec.push(tr.clone());
+        }
+
+        println!(
+            "{:<col_1$} {:>col_2$} {:>col_3$}",
+            asset,
+            dec_to_separated_string(Decimal::from_f64(pre_len as f64).unwrap(), 0),
+            dec_to_separated_string(Decimal::from_f64(post_len as f64).unwrap(), 0),
+        );
+    }
+    println!("Consolidated from {} to {}", total_pre_len, total_post_len);
+
+    data.bc_consolidated_tr_vec.sort();
+
+    // Output consolidated data as dist records and token_tax records
+    println!("Writing trade records");
+    write_tr_vec(tr_writer, &data.bc_consolidated_tr_vec)?;
+    //println!("Writing token tax records");
+    //write_dist_rec_vec_as_token_tax(token_tax_rec_writer, &data.consolidated_dist_rec_vec)?;
+
+    // For debug
+    //write_dist_rec_vec_for_asset(&data, "USD")?;
+
+    println!();
+    println!("Done");
+
+    Ok(())
+}
+
+fn write_tr_vec(
+    writer: BufWriter<File>,
+    tr_vec: &[TradeRec],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a data record writer
+    let mut tr_writer = csv::Writer::from_writer(writer);
+
+    // Output the data
+    println!("Output trade recs: len={}", tr_vec.len());
+    for dr in tr_vec {
+        tr_writer.serialize(dr)?;
+    }
+    println!("Output trade recs: Done");
+
     Ok(())
 }
 

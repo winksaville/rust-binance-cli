@@ -40,7 +40,9 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
-    binance_com_processing::process_binance_com_trade_history_files,
+    binance_com_processing::{
+        consolidate_binance_com_trade_history_files, process_binance_com_trade_history_files,
+    },
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
     binance_history::{
@@ -430,6 +432,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ProcessType::Process,
                 )
                 .await?;
+            }
+            "cbcthf" => {
+                consolidate_binance_com_trade_history_files(&config, sc_matches).await?;
             }
             "pbcthf" => {
                 process_binance_com_trade_history_files(&config, sc_matches).await?;
