@@ -1,7 +1,6 @@
 //! This file processes binance.com commission files.
 //!
 use std::{
-    cmp::Ordering::{Equal, Greater, Less},
     collections::BTreeMap,
     ffi::OsString,
     fmt::Display,
@@ -61,8 +60,7 @@ struct CommissionRec {
     referral_id: String,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone, Eq)]
-//#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
 struct TradeRec {
@@ -97,84 +95,33 @@ impl TradeRec {
     }
 }
 
-// Manually implement PartialEq as we are ignore change and remark
-impl PartialEq for TradeRec {
-    fn eq(&self, other: &Self) -> bool {
-        //println!("PartialEq::eq:+\n self: {self:?}\n other: {other:?}");
-        //let r = self.user_id == other.user_id
-        self.user_id == other.user_id
-            && self.time == other.time
-            && self.account == other.account
-            && self.operation == other.operation
-            && self.coin == other.coin
-        //println!("PartialEq::eq:+ {r}");
-        //r
-    }
-}
-
-// Manually implement PartialOrd as we are ignore change and remark
-impl PartialOrd for TradeRec {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        #[inline(always)]
-        fn done(ord: Option<std::cmp::Ordering>) -> Option<std::cmp::Ordering> {
-            //println!("PartialOrd::partial_cmp:- {ord:?}");
-            ord
+fn ttr_cmp_no_change_no_remark(lhs: &TradeRec, rhs: &TradeRec) -> std::cmp::Ordering {
+    #[inline(always)]
+    fn done(ord: Option<std::cmp::Ordering>) -> std::cmp::Ordering {
+        //println!("PartialOrd::partial_cmp:- {ord:?}");
+        match ord {
+            Some(o) => o,
+            None => panic!("WTF"),
         }
-        //println!("PartialOrd::partial_cmp:+\n self: {self:?}\n other: {other:?}");
-        match self.user_id.partial_cmp(&other.user_id) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return done(ord),
-        }
-        match self.time.partial_cmp(&other.time) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return done(ord),
-        }
-        match self.account.partial_cmp(&other.account) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return done(ord),
-        }
-        match self.operation.partial_cmp(&other.operation) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return done(ord),
-        }
-        done(self.coin.partial_cmp(&other.coin))
     }
-
-    fn lt(&self, other: &Self) -> bool {
-        matches!(self.partial_cmp(other), Some(Less))
+    //println!("PartialOrd::partial_cmp:+\n lhs: {lhs:?}\n rhs: {rhs:?}");
+    match lhs.user_id.partial_cmp(&rhs.user_id) {
+        Some(core::cmp::Ordering::Equal) => {}
+        ord => return done(ord),
     }
-
-    fn le(&self, other: &Self) -> bool {
-        matches!(self.partial_cmp(other), Some(Less | Equal))
+    match lhs.time.partial_cmp(&rhs.time) {
+        Some(core::cmp::Ordering::Equal) => {}
+        ord => return done(ord),
     }
-
-    fn gt(&self, other: &Self) -> bool {
-        matches!(self.partial_cmp(other), Some(Greater))
+    match lhs.account.partial_cmp(&rhs.account) {
+        Some(core::cmp::Ordering::Equal) => {}
+        ord => return done(ord),
     }
-
-    fn ge(&self, other: &Self) -> bool {
-        matches!(self.partial_cmp(other), Some(Greater | Equal))
+    match lhs.operation.partial_cmp(&rhs.operation) {
+        Some(core::cmp::Ordering::Equal) => {}
+        ord => return done(ord),
     }
-}
-
-// Manually implement Ord as we are ignore change and remark
-impl Ord for TradeRec {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (
-            &self.user_id,
-            self.time,
-            &self.account,
-            &self.operation,
-            &self.coin,
-        )
-            .cmp(&(
-                &other.user_id,
-                other.time,
-                &other.account,
-                &other.operation,
-                &other.coin,
-            ))
-    }
+    done(lhs.coin.partial_cmp(&rhs.coin))
 }
 
 #[derive(Debug)]
@@ -879,7 +826,8 @@ pub async fn consolidate_binance_com_trade_history_files(
     }
     println!("Consolidated from {} to {}", total_pre_len, total_post_len);
 
-    data.bc_consolidated_tr_vec.sort();
+    data.bc_consolidated_tr_vec
+        .sort_by(ttr_cmp_no_change_no_remark);
 
     // Output consolidated data as dist records and token_tax records
     println!("Writing trade records");
@@ -1093,25 +1041,28 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
     fn test_tr_le() {
         let mut ttr1 = TradeRec::new();
         ttr1.user_id = "1".to_owned();
-        ttr1.change = dec!(0); // Ignored
+        ttr1.change = dec!(0);
         let mut ttr2 = TradeRec::new();
         ttr2.user_id = "1".to_owned();
-        ttr2.change = dec!(1); // Ignored
+        ttr2.change = dec!(1);
 
         assert!(ttr1 <= ttr2);
+        println!("{:?}",ttr_cmp_no_change_no_remark(&ttr1, &ttr2));
+        assert_eq!(ttr_cmp_no_change_no_remark(&ttr1, &ttr2), core::cmp::Ordering::Equal);
     }
 
     #[test]
     fn test_tr_eq() {
         let mut ttr1 = TradeRec::new();
         ttr1.user_id = "1".to_owned();
-        ttr1.remark = "2".to_owned(); // Ignored
+        ttr1.remark = "2".to_owned();
         let mut ttr2 = TradeRec::new();
         ttr2.user_id = "1".to_owned();
-        ttr1.change = dec!(1); // Ignored
+        ttr1.change = dec!(1);
         ttr1.remark = "3".to_owned();
 
-        assert!(ttr1 == ttr2);
+        assert!(ttr1 != ttr2);
+        assert_eq!(ttr_cmp_no_change_no_remark(&ttr1, &ttr2), core::cmp::Ordering::Equal);
     }
 
     #[test]
