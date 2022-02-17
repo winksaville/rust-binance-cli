@@ -427,9 +427,9 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .about("process order log"),
         )
         .subcommand(
-            App::new("udf")
+            App::new("ubudf")
                 .display_order(9)
-                .about("update distribution files")
+                .about("update binance.us distribution files")
                 .arg(
                     Arg::new("IN_FILES")
                         .global(false)
@@ -449,9 +449,9 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("cdf")
+            App::new("cbudf")
                 .display_order(9)
-                .about("consolidate distribution files")
+                .about("consolidate binance.us distribution files")
                 .arg(
                     Arg::new("IN_FILES")
                         .global(false)
@@ -471,9 +471,23 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("pdf")
+            App::new("pbudf")
                 .display_order(9)
-                .about("process distribution files")
+                .about("process binance.us distribution files")
+                .arg(
+                    Arg::new("IN_FILES")
+                        .global(false)
+                        .long("files")
+                        .short('f')
+                        .multiple_values(true)
+                        .help("List of input files")
+                        .takes_value(true),
+                ),
+        )
+        .subcommand(
+            App::new("pbcthf")
+                .display_order(9)
+                .about("process binance.com trade history files")
                 .arg(
                     Arg::new("IN_FILES")
                         .global(false)

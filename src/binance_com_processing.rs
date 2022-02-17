@@ -6,6 +6,7 @@ use crate::{
     token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER2},
 };
+use clap::ArgMatches;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -479,6 +480,15 @@ async fn to_tt_trade_rec(
     }
 
     Ok(ttr)
+}
+
+pub async fn process_binance_com_trade_history_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("process_trade_history_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    Ok(())
 }
 
 #[cfg(test)]

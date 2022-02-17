@@ -40,6 +40,7 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
+    binance_com_processing::process_binance_com_trade_history_files,
     binance_exchange_info::get_exchange_info,
     binance_get_klines_cmd::{get_klines_cmd, GetKlinesCmdRec},
     binance_history::{
@@ -53,7 +54,8 @@ use crate::{
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
     binance_us_processing::{
-        consolidate_dist_files, process_dist_files, ProcessDistSubCommand, ProcessType,
+        consolidate_binance_us_dist_files, process_binance_us_dist_files, ProcessDistSubCommand,
+        ProcessType,
     },
     binance_withdraw_cmd::{withdraw_cmd, WithdrawParams},
     common::{
@@ -410,24 +412,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "ol" => display_order_log(&config).await?,
             "pol" => process_order_log(&config, sc_matches).await?,
-            "udf" => {
-                process_dist_files(
+            "ubudf" => {
+                process_binance_us_dist_files(
                     &config,
                     ProcessDistSubCommand::Udf,
                     sc_matches,
                     ProcessType::Update,
                 )
-                .await?
+                .await?;
             }
-            "cdf" => consolidate_dist_files(&config, sc_matches).await?,
-            "pdf" => {
-                process_dist_files(
+            "cbudf" => consolidate_binance_us_dist_files(&config, sc_matches).await?,
+            "pbudf" => {
+                process_binance_us_dist_files(
                     &config,
                     ProcessDistSubCommand::Pdf,
                     sc_matches,
                     ProcessType::Process,
                 )
-                .await?
+                .await?;
+            }
+            "pbcthf" => {
+                process_binance_com_trade_history_files(&config, sc_matches).await?;
             }
             _ => println!("Unknown subcommand: {}", sc_name),
         }

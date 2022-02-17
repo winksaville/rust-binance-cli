@@ -1025,13 +1025,13 @@ pub enum ProcessDistSubCommand {
     Pdf,
 }
 
-pub async fn process_dist_files(
+pub async fn process_binance_us_dist_files(
     config: &Configuration,
     subcmd: ProcessDistSubCommand,
     sc_matches: &ArgMatches,
     process_type: ProcessType,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    //println!("process_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+    //println!("process_binance_us_dist_filesg:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let mut data = ProcessedData::new();
     let mut asset_rec_map = AssetRecMap::new();
@@ -1344,7 +1344,7 @@ pub async fn process_dist_files(
         }
     }
 
-    //println!("process_dist_files:-");
+    //println!("process_binance_us_dist_filesg:-");
     Ok(())
 }
 
@@ -1404,7 +1404,7 @@ fn write_dist_rec_vec_for_asset(
     Ok(())
 }
 
-pub async fn consolidate_dist_files(
+pub async fn consolidate_binance_us_dist_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
