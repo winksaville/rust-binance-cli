@@ -407,7 +407,7 @@ impl AssetRecMap {
 }
 
 #[derive(Debug)]
-struct ProcessedData {
+struct BuData {
     dist_rec_vec: Vec<DistRec>,
     consolidated_dist_rec_vec: Vec<DistRec>,
     asset_rec_map: AssetRecMap,
@@ -455,9 +455,9 @@ struct ProcessedData {
     unprocessed_category_count: u64,
 }
 
-impl ProcessedData {
-    fn new() -> ProcessedData {
-        ProcessedData {
+impl BuData {
+    fn new() -> BuData {
+        BuData {
             dist_rec_vec: Vec::new(),
             consolidated_dist_rec_vec: Vec::new(),
             asset_rec_map: AssetRecMap::new(),
@@ -781,7 +781,7 @@ fn trade_asset(
 // the Option<Decimal> fields.
 fn process_entry(
     config: &Configuration,
-    data: &mut ProcessedData,
+    data: &mut BuData,
     arm: &mut AssetRecMap,
     dr: &DistRec,
     line_number: usize,
@@ -1033,7 +1033,7 @@ pub async fn process_binance_us_dist_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("process_binance_us_dist_filesg:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
-    let mut data = ProcessedData::new();
+    let mut data = BuData::new();
     let mut asset_rec_map = AssetRecMap::new();
 
     let in_dist_file_paths: Vec<&str> = sc_matches
@@ -1390,7 +1390,7 @@ fn write_dist_rec_vec_as_token_tax(
 // Write the dist_rec's for an asset, used for debugging
 #[allow(unused)]
 fn write_dist_rec_vec_for_asset(
-    data: &ProcessedData,
+    data: &BuData,
     asset: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let ar = if let Some(v) = data.asset_rec_map.bt.get(asset) {
@@ -1410,7 +1410,7 @@ pub async fn consolidate_binance_us_dist_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("consoldiate_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
-    let mut data = ProcessedData::new();
+    let mut data = BuData::new();
 
     let in_dist_paths: Vec<&str> = sc_matches
         .values_of("IN_FILES")
