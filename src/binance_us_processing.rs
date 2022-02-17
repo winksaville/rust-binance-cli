@@ -1067,7 +1067,7 @@ pub async fn process_binance_us_dist_files(
     // To this:
     let mut wdr = writer.map(csv::Writer::from_writer);
 
-    for f in &in_dist_file_paths {
+    for f in in_dist_file_paths {
         let reader = create_buf_reader(f)?;
 
         // Create reader
