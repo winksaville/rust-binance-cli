@@ -1,7 +1,7 @@
 use crate::de_string_to_utc_time_ms::{
     de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string,
 };
-use lazy_static::lazy_static;
+
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -9,6 +9,7 @@ use std::fmt::Debug;
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub enum TypeTxs {
+    Unknown,
     Trade,
     Deposit,
     Withdrawal,
@@ -48,8 +49,22 @@ pub struct TokenTaxRec {
     pub time: i64,
 }
 
-lazy_static! {
-    pub static ref VER: String = "v0".to_string();
+impl TokenTaxRec {
+    pub fn new() -> TokenTaxRec {
+        TokenTaxRec {
+            type_txs: TypeTxs::Unknown,
+            buy_amount: None,
+            buy_currency: "".to_string(),
+            sell_amount: None,
+            sell_currency: "".to_string(),
+            fee_amount: None,
+            fee_currency: "".to_string(),
+            exchange: "".to_string(),
+            group: None,
+            comment: "".to_string(),
+            time: 0,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@ mod binance_account_info;
 mod binance_auto_buy;
 mod binance_auto_sell;
 mod binance_avg_price;
+mod binance_com_processing;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
 mod binance_history;
