@@ -1,6 +1,7 @@
 //! This file processes binance.com commission files.
 //!
 use crate::{
+    common::{create_buf_reader, dec_to_separated_string, verify_input_files_exist},
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     token_tax::{TokenTaxRec, TypeTxs},
@@ -482,12 +483,64 @@ async fn to_tt_trade_rec(
     Ok(ttr)
 }
 
+#[derive(Debug)]
+struct BcData {
+    tr_vec: Vec<TradeRec>,
+    total_count: u64,
+}
+
+impl BcData {
+    fn new() -> BcData {
+        BcData {
+            tr_vec: Vec::new(),
+            total_count: 0u64,
+        }
+    }
+}
+
 pub async fn process_binance_com_trade_history_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("process_trade_history_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+    //println!("process_trade_history_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
+    let in_dist_file_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+
+    // Verify all input files exist
+    verify_input_files_exist(&in_dist_file_paths)?;
+
+    let mut data = BcData::new();
+
+    for f in in_dist_file_paths {
+        let reader = create_buf_reader(f)?;
+
+        // Create csv reader
+        let mut rdr = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in rdr.deserialize().enumerate() {
+            let line_number = rec_index + 2;
+            let tr: TradeRec = result?;
+
+            data.tr_vec.push(tr.clone());
+
+            if config.verbose {
+                print!(
+                    "Processing {line_number} {} {}                     \r",
+                    tr.operation, tr.coin
+                );
+            }
+
+            data.total_count += 1;
+        }
+    }
+
+    println!(
+        "Total count: {}",
+        dec_to_separated_string(Decimal::from(data.total_count), 0)
+    );
     Ok(())
 }
 
