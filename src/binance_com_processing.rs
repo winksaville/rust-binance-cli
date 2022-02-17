@@ -1,5 +1,7 @@
 //! This file processes binance.com commission files.
 //!
+use std::{collections::BTreeMap, fmt::Display};
+
 use crate::{
     common::{create_buf_reader, dec_to_separated_string, verify_input_files_exist},
     configuration::Configuration,
@@ -74,6 +76,88 @@ struct TradeRec {
 
     #[serde(rename = "Remark")]
     remark: String,
+}
+
+#[derive(Debug)]
+struct BcAssetRec {
+    asset: String,
+    quantity: Decimal,
+    transaction_count: usize,
+    tr_vec: Vec<TradeRec>,
+}
+
+#[allow(unused)]
+impl BcAssetRec {
+    fn new(asset: &str) -> BcAssetRec {
+        BcAssetRec {
+            asset: asset.to_owned(),
+            quantity: dec!(0),
+            transaction_count: 0,
+            tr_vec: Vec::new(),
+        }
+    }
+}
+
+impl Display for BcAssetRec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:<16} quantity: {:>20}   transaction_count: {:>10}",
+            self.asset,
+            dec_to_separated_string(self.quantity, 4),
+            dec_to_separated_string(Decimal::from(self.transaction_count), 0)
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct BcAssetRecMap {
+    bt: BTreeMap<String, BcAssetRec>,
+}
+
+impl BcAssetRecMap {
+    fn new() -> BcAssetRecMap {
+        BcAssetRecMap {
+            bt: BTreeMap::<String, BcAssetRec>::new(),
+        }
+    }
+
+    fn add_tr(&mut self, tr: TradeRec) {
+        // The asset is always either primary_asset or base_asset
+        let asset = tr.coin.as_str();
+
+        let entry = self
+            .bt
+            .entry(asset.to_owned())
+            .or_insert_with(|| BcAssetRec::new(asset));
+        entry.quantity += tr.change;
+        entry.transaction_count += 1;
+        entry.tr_vec.push(tr);
+        assert_eq!(entry.transaction_count, entry.tr_vec.len());
+    }
+
+    //fn add_or_update(&mut self, asset: &str, quantity: Decimal) {
+    //    let entry = self
+    //        .bt
+    //        .entry(asset.to_owned())
+    //        .or_insert_with(|| BcAssetRec::new(asset));
+    //    entry.quantity += quantity;
+    //    entry.transaction_count += 1;
+    //}
+
+    //fn inc_transaction_count(&mut self, asset: &str) {
+    //    let entry = self.bt.get_mut(asset).unwrap();
+    //    entry.transaction_count += 1;
+    //}
+
+    //fn add_quantity(&mut self, asset: &str, val: Decimal) {
+    //    let entry = self.bt.get_mut(asset).unwrap();
+    //    entry.quantity += val;
+    //}
+
+    //fn sub_quantity(&mut self, asset: &str, val: Decimal) {
+    //    self.add_quantity(asset, -val)
+    //}
 }
 
 impl TokenTaxRec {
@@ -450,7 +534,6 @@ impl TokenTaxRec {
         Ok(Some(ttr))
     }
 }
-
 // From bctr_buy, _sell and _fee records create a TokenTax trade record
 #[allow(unused)]
 async fn to_tt_trade_rec(
@@ -486,6 +569,7 @@ async fn to_tt_trade_rec(
 #[derive(Debug)]
 struct BcData {
     tr_vec: Vec<TradeRec>,
+    bc_asset_rec_map: BcAssetRecMap,
     total_count: u64,
 }
 
@@ -493,6 +577,7 @@ impl BcData {
     fn new() -> BcData {
         BcData {
             tr_vec: Vec::new(),
+            bc_asset_rec_map: BcAssetRecMap::new(),
             total_count: 0u64,
         }
     }
@@ -524,8 +609,6 @@ pub async fn process_binance_com_trade_history_files(
             let line_number = rec_index + 2;
             let tr: TradeRec = result?;
 
-            data.tr_vec.push(tr.clone());
-
             if config.verbose {
                 print!(
                     "Processing {line_number} {} {}                     \r",
@@ -533,13 +616,27 @@ pub async fn process_binance_com_trade_history_files(
                 );
             }
 
+            data.tr_vec.push(tr.clone());
+            data.bc_asset_rec_map.add_tr(tr.clone());
+
             data.total_count += 1;
         }
     }
 
+    let mut total_quantity = dec!(0);
+    let mut total_transaction_count = 0usize;
+    for ar in data.bc_asset_rec_map.bt.values() {
+        total_quantity += ar.quantity;
+        total_transaction_count += ar.tr_vec.len();
+
+        println!("{ar}");
+    }
+
     println!(
-        "Total count: {}",
-        dec_to_separated_string(Decimal::from(data.total_count), 0)
+        "{:<16}           {:>20}                      {:>10}",
+        data.bc_asset_rec_map.bt.len(),
+        dec_to_separated_string(total_quantity, 4),
+        dec_to_separated_string(Decimal::from(total_transaction_count), 0)
     );
     Ok(())
 }
@@ -691,7 +788,6 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             coin: "DOT".to_string(),
             change: dec!(0.00505120),
             remark: "".to_string(),
-            //usd_value: dec!(0),
         };
         println!("bctr: {bctr:?}");
 
