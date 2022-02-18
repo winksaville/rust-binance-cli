@@ -12,7 +12,7 @@ use std::{
 use crate::{
     common::{
         create_buf_reader, create_buf_writer_from_path, dec_to_separated_string,
-        verify_input_files_exist,
+        time_ms_to_utc_string, verify_input_files_exist,
     },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
@@ -89,9 +89,24 @@ struct TradeRec {
 }
 
 impl TradeRec {
-    #[allow(unused)]
     fn new() -> TradeRec {
         Default::default()
+    }
+}
+
+impl Display for TradeRec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {} {} {} {} {} {}",
+            self.user_id,
+            time_ms_to_utc_string(self.time),
+            self.account,
+            self.operation,
+            self.coin,
+            self.change,
+            self.remark
+        )
     }
 }
 
@@ -133,7 +148,6 @@ struct BcAssetRec {
     consolidated_tr_vec: Vec<TradeRec>,
 }
 
-#[allow(unused)]
 impl BcAssetRec {
     fn new(asset: &str) -> BcAssetRec {
         BcAssetRec {
@@ -159,14 +173,112 @@ impl Display for BcAssetRec {
 }
 
 impl BcAssetRec {
+    // Consolidate records in BcAssetRec.tr_vec to BcAssetRec::consolidated_tr_vec
+    // if the account and operation match
+    fn consolidate_account_operation(&mut self, account: &str, operation: &str) {
+        //println!("Consolidating {}", self.asset);
+
+        const MS_PER_DAY: i64 = (60 * 60 * 24) * 1000;
+        struct State {
+            tr: TradeRec,
+            time_of_next_consolidation_window: i64,
+        }
+        let mut state = State {
+            tr: TradeRec::new(),
+            time_of_next_consolidation_window: 0,
+        };
+
+        for tr in &mut self.tr_vec {
+            if tr.account == account && tr.operation == operation {
+                if state.time_of_next_consolidation_window == 0 {
+                    state.time_of_next_consolidation_window =
+                        ((tr.time + MS_PER_DAY) / MS_PER_DAY) * MS_PER_DAY;
+                    state.tr = tr.clone();
+                    *tr = TradeRec::new();
+                    //println!("Consolidating {} window: {} tr.time: {} change: {} tr: {tr}", self.asset, time_ms_to_utc_string(state.time_of_next_consolidation_window), time_ms_to_utc_string(tr.time), state.tr.change);
+                } else if tr.time < state.time_of_next_consolidation_window {
+                    state.tr.change += tr.change;
+                    *tr = TradeRec::new();
+                    //println!("Consolidating {} window: {} tr.time: {} change: {} tr: {tr}", self.asset, time_ms_to_utc_string(state.time_of_next_consolidation_window), time_ms_to_utc_string(tr.time), state.tr.change);
+                } else {
+                    // Calculate New Time Window
+                    state.time_of_next_consolidation_window =
+                        ((tr.time + MS_PER_DAY) / MS_PER_DAY) * MS_PER_DAY;
+
+                    // Add this record as we're Starting a new time window
+                    let consolidated_tr = state.tr.clone();
+                    state.tr = tr.clone();
+                    *tr = TradeRec::new();
+
+                    //println!("CONSOLIDATED  {} window: {} tr.time: {} change: {} tr: {tr} consolidated: {consolidated_tr}", self.asset, time_ms_to_utc_string(state.time_of_next_consolidation_window), time_ms_to_utc_string(tr.time), state.tr.change);
+                    self.consolidated_tr_vec.push(consolidated_tr);
+                }
+            }
+        }
+        if !state.tr.user_id.is_empty() {
+            //let tr = state.tr.clone();
+            //println!("LAST one      {} window: {} tr.time: {} change: {} tr: {tr} consolidated: {tr}", self.asset, time_ms_to_utc_string(state.time_of_next_consolidation_window), time_ms_to_utc_string(tr.time), state.tr.change);
+            self.consolidated_tr_vec.push(state.tr.clone());
+        }
+        //println!("consolidate_account_operation:- {account} {operation}");
+        //for tr in &self.consolidated_tr_vec {
+        //    println!("{}", tr);
+        //}
+    }
+
+    #[allow(clippy::needless_return)]
     fn consolidate_trade_recs(
         &mut self,
         _config: &Configuration,
     ) -> Result<(), Box<dyn std::error::Error>> {
         //println!("consolidate_trade_recs:+");
 
+        let mut sorted_by_account_operation = self.tr_vec.clone();
+        sorted_by_account_operation.sort_by(|lhs, rhs| {
+            assert!(self.asset == lhs.coin);
+            assert!(self.asset == rhs.coin);
+            assert!(lhs.user_id == rhs.user_id);
+            match lhs.account.partial_cmp(&rhs.account) {
+                Some(core::cmp::Ordering::Equal) => {}
+                Some(ord) => return ord,
+                None => panic!("WFT"),
+            }
+
+            match lhs.operation.partial_cmp(&rhs.operation) {
+                Some(ord) => return ord,
+                None => panic!("WFT"),
+            }
+        });
+
+        self.consolidate_account_operation("Coin-Futures", "Referrer rebates");
+        self.consolidate_account_operation("Pool", "Pool Distribution");
+        self.consolidate_account_operation("Spot", "Commission History");
+        self.consolidate_account_operation("Spot", "Commission Rebate");
+        self.consolidate_account_operation("Spot", "Distribution");
+        self.consolidate_account_operation("USDT-Futures", "Referrer rebates");
+
+        //println!("Consolidatation done          len: {}", self.consolidated_tr_vec.len());
+
+        // Move the non-consolidated entries to consolidated_tr_vec
         for tr in &self.tr_vec {
-            self.consolidated_tr_vec.push(tr.to_owned());
+            if !tr.coin.is_empty() {
+                self.consolidated_tr_vec.push(tr.clone());
+            }
+        }
+
+        // tr_vec is no longer has valid data, clear it
+        self.tr_vec.clear();
+
+        //println!("Consolidatation Updated       len: {}", self.consolidated_tr_vec.len());
+
+        self.consolidated_tr_vec
+            .sort_by(ttr_cmp_no_change_no_remark);
+
+        // Update the quantity and transaction_count
+        self.quantity = dec!(0);
+        for tr in &self.consolidated_tr_vec {
+            self.quantity += tr.change;
+            self.transaction_count = self.consolidated_tr_vec.len();
         }
 
         Ok(())
@@ -648,6 +760,10 @@ impl BcData {
     }
 }
 
+// Process binance.com trade history files.
+//
+// TODO: process_binance_com_trade_history_files started as a copy
+// of process_binance_us_dist_files and they should share code!!!
 pub async fn process_binance_com_trade_history_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
@@ -670,6 +786,7 @@ pub async fn process_binance_com_trade_history_files(
         // Create csv reader
         let mut rdr = csv::Reader::from_reader(reader);
 
+        let mut first_tr = TradeRec::new();
         for (rec_index, result) in rdr.deserialize().enumerate() {
             let line_number = rec_index + 2;
             let tr: TradeRec = result?;
@@ -680,6 +797,12 @@ pub async fn process_binance_com_trade_history_files(
                     tr.operation, tr.coin
                 );
             }
+
+            // Guarantee the user_id is always the same
+            if first_tr.user_id.is_empty() {
+                first_tr = tr.clone();
+            }
+            assert_eq!(first_tr.user_id, tr.user_id);
 
             data.tr_vec.push(tr.clone());
             data.bc_asset_rec_map.add_tr(tr.clone());
@@ -706,6 +829,10 @@ pub async fn process_binance_com_trade_history_files(
     Ok(())
 }
 
+// Consolidate binance.com trade history files.
+//
+// TODO: consolidate_binance_com_trade_history_files started as a copy
+// of consolidate_binance_us_dist_files and they should share code!!!
 pub async fn consolidate_binance_com_trade_history_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
@@ -773,6 +900,9 @@ pub async fn consolidate_binance_com_trade_history_files(
         // DataRec reader
         let mut data_rec_reader = csv::Reader::from_reader(reader);
 
+        // Read the TradeRecs and append them to data.tr_vec and at the
+        // same add them them in to per asset map.
+        let mut first_tr = TradeRec::new();
         for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
             let line_number = rec_index + 2;
@@ -783,6 +913,12 @@ pub async fn consolidate_binance_com_trade_history_files(
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
+            // Guarantee the user_id is always the same
+            if first_tr.user_id.is_empty() {
+                first_tr = tr.clone();
+            }
+            assert_eq!(first_tr.user_id, tr.user_id);
+
             data.tr_vec.push(tr.clone());
             data.bc_asset_rec_map.add_tr(tr);
         }
@@ -790,7 +926,7 @@ pub async fn consolidate_binance_com_trade_history_files(
 
     println!();
     println!();
-    let col_1 = 7;
+    let col_1 = 10;
     let col_2 = 15;
     let col_3 = 15;
 
@@ -802,6 +938,14 @@ pub async fn consolidate_binance_com_trade_history_files(
         "Asset", "pre count", "post count"
     );
 
+    // ------------------------
+    //DEBUG consolidated AE
+    //let  ae_ar = data.bc_asset_rec_map.bt.get_mut("AE").unwrap();
+    //ae_ar.consolidate_trade_recs(config)?;
+    //println!("{ae_ar}");
+    // ------------------------
+
+    // Loop through the asset records and consolidating each.
     //let mut state = ConsolidateState { prev_dr: Default::default() };
     for (asset, ar) in &mut data.bc_asset_rec_map.bt {
         let pre_len = ar.tr_vec.len();
@@ -887,14 +1031,14 @@ mod test {
 123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
 123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
 "#;
-        println!("csv: {csv:?}");
+        //println!("csv: {csv:?}");
         let mut bctr_a = Vec::<TradeRec>::new();
 
         let rdr = csv.as_bytes();
         let mut reader = csv::Reader::from_reader(rdr);
         //let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+        for (_idx, entry) in reader.deserialize().enumerate() {
+            //println!("{_idx}: entry: {:?}", entry);
             match entry {
                 Ok(bctr) => {
                     bctr_a.push(bctr);
@@ -902,7 +1046,7 @@ mod test {
                 Err(e) => panic!("Error: {e}"),
             }
         }
-        println!("bctr_a: {bctr_a:?}");
+        //println!("bctr_a: {bctr_a:?}");
 
         //TODO: implement create_tt_trade_rec
         //tt_trade_rec = create_tt_trade_rec(&bctr_a)?;
@@ -917,11 +1061,11 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         let mut reader = csv::Reader::from_reader(rdr);
         //let mut reader = csv::Reader::from_reader(csv.as_bytes());
         for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+            //println!("{idx}: entry: {:?}", entry);
             match entry {
                 Ok(bccr) => {
                     let bccr: CommissionRec = bccr;
-                    println!("bcr: {:?}", bccr);
+                    //println!("bcr: {:?}", bccr);
                     match idx {
                         0 => {
                             assert_eq!(bccr.order_type, "USDT-futures");
@@ -949,10 +1093,10 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             registration_time: 213,
             referral_id: "bpcode".to_string(),
         };
-        println!("bcr: {bccr:?}");
+        //println!("bcr: {bccr:?}");
 
         let ttr = TokenTaxRec::from_commission_rec(1, &bccr);
-        println!("ttr: {ttr:?}");
+        //println!("ttr: {ttr:?}");
         assert_eq!(ttr.type_txs, TypeTxs::Income);
         assert_eq!(ttr.buy_amount, Some(dec!(123)));
         assert_eq!(ttr.buy_currency, "USDT");
@@ -975,11 +1119,11 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         let mut reader = csv::Reader::from_reader(rdr);
         //let mut reader = csv::Reader::from_reader(csv.as_bytes());
         for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+            //println!("{idx}: entry: {:?}", entry);
             match entry {
                 Ok(bctr) => {
                     let bctr: TradeRec = bctr;
-                    println!("bcr: {:?}", bctr);
+                    //println!("bcr: {:?}", bctr);
                     match idx {
                         0 => {
                             assert_eq!(bctr.user_id, "123456789");
@@ -1009,10 +1153,10 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             change: dec!(0.00505120),
             remark: "".to_string(),
         };
-        println!("bctr: {bctr:?}");
+        //println!("bctr: {bctr:?}");
 
         let ttr = TokenTaxRec::from_trade_rec(1, &bctr).unwrap().unwrap();
-        println!("ttr: {ttr:?}");
+        //println!("ttr: {ttr:?}");
         assert!(bctr.remark.is_empty());
         assert_eq!(ttr.type_txs, TypeTxs::Income);
         assert_eq!(ttr.buy_amount, Some(dec!(0.0050512)));
@@ -1047,8 +1191,11 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         ttr2.change = dec!(1);
 
         assert!(ttr1 <= ttr2);
-        println!("{:?}",ttr_cmp_no_change_no_remark(&ttr1, &ttr2));
-        assert_eq!(ttr_cmp_no_change_no_remark(&ttr1, &ttr2), core::cmp::Ordering::Equal);
+        //println!("{:?}", ttr_cmp_no_change_no_remark(&ttr1, &ttr2));
+        assert_eq!(
+            ttr_cmp_no_change_no_remark(&ttr1, &ttr2),
+            core::cmp::Ordering::Equal
+        );
     }
 
     #[test]
@@ -1062,7 +1209,10 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         ttr1.remark = "3".to_owned();
 
         assert!(ttr1 != ttr2);
-        assert_eq!(ttr_cmp_no_change_no_remark(&ttr1, &ttr2), core::cmp::Ordering::Equal);
+        assert_eq!(
+            ttr_cmp_no_change_no_remark(&ttr1, &ttr2),
+            core::cmp::Ordering::Equal
+        );
     }
 
     #[test]
