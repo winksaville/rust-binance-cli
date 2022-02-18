@@ -163,7 +163,7 @@ impl BcAssetRec {
         &mut self,
         _config: &Configuration,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        //println!("consolidate_distributions:+");
+        //println!("consolidate_trade_recs:+");
 
         for tr in &self.tr_vec {
             self.consolidated_tr_vec.push(tr.to_owned());
@@ -710,7 +710,7 @@ pub async fn consolidate_binance_com_trade_history_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    //println!("consoldiate_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+    //println!("consoldiate_binance_com_trade_history:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let mut data = BcData::new();
 
@@ -720,26 +720,26 @@ pub async fn consolidate_binance_com_trade_history_files(
         .collect();
     verify_input_files_exist(&in_th_paths)?;
 
-    // Create out_dist_path
-    let out_dist_path = sc_matches
+    // Create out_tr_path
+    let out_tr_path = sc_matches
         .value_of("OUT_FILE")
         .unwrap_or_else(|| panic!("out-file option is missing"));
-    let out_dist_path = Path::new(out_dist_path);
+    let out_tr_path = Path::new(out_tr_path);
 
     // Determine parent path, file_stem and extension so we can construct out_token_tax_path
-    let out_parent_path = if let Some(pp) = out_dist_path.parent() {
+    let out_parent_path = if let Some(pp) = out_tr_path.parent() {
         pp
     } else {
         Path::new(".")
     };
 
-    let out_path_file_stem = if let Some(stem) = out_dist_path.file_stem() {
+    let out_path_file_stem = if let Some(stem) = out_tr_path.file_stem() {
         stem
     } else {
-        return Err(format!("There was no file in: '{out_dist_path:?}").into());
+        return Err(format!("There was no file in: '{out_tr_path:?}").into());
     };
 
-    let out_path_extension = if let Some(csv_extension) = out_dist_path.extension() {
+    let out_path_extension = if let Some(csv_extension) = out_tr_path.extension() {
         let csv_extension = csv_extension.to_string_lossy().to_string();
         if csv_extension != "csv" {
             return Err(
@@ -761,7 +761,7 @@ pub async fn consolidate_binance_com_trade_history_files(
     filename.push(extx);
     let _out_token_tax_path = &(*out_token_tax_path.join(filename));
 
-    let tr_writer = create_buf_writer_from_path(out_dist_path)?;
+    let tr_writer = create_buf_writer_from_path(out_tr_path)?;
 
     //let f = File::create(out_token_tax_path)?;
     //let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
@@ -812,7 +812,7 @@ pub async fn consolidate_binance_com_trade_history_files(
         let post_len = ar.consolidated_tr_vec.len();
         total_post_len += post_len;
 
-        // Append the ar.consolidated_dis_rec_vec to end of data.consolidated_dist_rec_vec
+        // Append the ar.consolidated_tr_vec to end of data.consolidated_tr_vec
         for tr in &ar.consolidated_tr_vec {
             data.bc_consolidated_tr_vec.push(tr.clone());
         }
@@ -829,14 +829,14 @@ pub async fn consolidate_binance_com_trade_history_files(
     data.bc_consolidated_tr_vec
         .sort_by(ttr_cmp_no_change_no_remark);
 
-    // Output consolidated data as dist records and token_tax records
+    // Output consolidated data as tr records and token_tax records
     println!("Writing trade records");
     write_tr_vec(tr_writer, &data.bc_consolidated_tr_vec)?;
     //println!("Writing token tax records");
-    //write_dist_rec_vec_as_token_tax(token_tax_rec_writer, &data.consolidated_dist_rec_vec)?;
+    //write_tr_vec_as_token_tax(token_tax_rec_writer, &data.consolidated_tr_vec)?;
 
     // For debug
-    //write_dist_rec_vec_for_asset(&data, "USD")?;
+    //write_tr_vec_for_asset(&data, "USD")?;
 
     println!();
     println!("Done");
