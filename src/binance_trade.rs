@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     binance_exchange_info::ExchangeInfo,
-    binance_klines::get_kline,
+    binance_klines::{get_kline, get_kline_of_primary_asset_for_value_asset},
     binance_order_response::{
         AckTradeResponseRec, FullTradeResponseRec, ResultTradeResponseRec, TestTradeResponseRec,
         TradeResponse, UnknownTradeResponseRec,
@@ -92,20 +92,15 @@ pub async fn convert(
     value: Decimal,
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
-    trace!(
+    println!(
         "convert: asset: {} value: {} other_asset: {}",
-        asset,
-        value,
-        other_asset
+        asset, value, other_asset
     );
     let other_value: Decimal = if asset == other_asset {
         let new_value = value;
-        trace!(
+        println!(
             "convert: asset: {} value: {} to {}: {}",
-            asset,
-            value,
-            other_asset,
-            new_value
+            asset, value, other_asset, new_value
         );
         new_value
     } else {
@@ -113,23 +108,64 @@ pub async fn convert(
         let cvrt_asset_name = asset.to_string() + other_asset;
         match get_kline(config, &cvrt_asset_name, time_ms).await {
             Ok(kr) => {
-                // TODO: Consider using an average or median instead of close?
-                let new_value = kr.close * value;
-                trace!(
+                let direct_result = kr.close * value;
+                println!(
                     "convert: asset: {} value: {} to {}: {}",
-                    asset,
-                    value,
-                    other_asset,
-                    new_value
+                    asset, value, other_asset, direct_result
                 );
-                new_value
+
+                direct_result
             }
             Err(_) => {
-                return Err(format!(
-                    "convert error, asset: {} not convertable to {}",
-                    asset, other_asset
-                )
-                .into());
+                // Couldn't convert directly so try indirectly through an intermediate value as USD
+                let value_assets = ["USD", "USDT", "BUSD"];
+                let indirect_result = if let Some((sym_name, kr)) =
+                    get_kline_of_primary_asset_for_value_asset(
+                        config,
+                        time_ms,
+                        asset,
+                        &value_assets,
+                    )
+                    .await
+                {
+                    let one_asset_value_in_usd = kr.close;
+                    println!("{sym_name}: one_asset_value_in_usd: {one_asset_value_in_usd}");
+                    let zxx = if let Some((sym_name, kr)) =
+                        get_kline_of_primary_asset_for_value_asset(
+                            config,
+                            time_ms,
+                            other_asset,
+                            &value_assets,
+                        )
+                        .await
+                    {
+                        let one_other_asset_value_in_usd = kr.close;
+                        println!("{sym_name}: one_other_asset_value_in_usd: {one_other_asset_value_in_usd}");
+                        let ir = value * (one_asset_value_in_usd / one_other_asset_value_in_usd);
+                        println!("{asset}{other_asset}: indirect_result = value: {} * (one_asset_value_in_usd: {} / one_other_asset_value_in_usd: {})",
+                            value, one_asset_value_in_usd, one_other_asset_value_in_usd);
+
+                        ir
+                    } else {
+                        return Err(format!(
+                            "convert error, asset: {} not convertable to {}",
+                            asset, other_asset
+                        )
+                        .into());
+                    };
+
+                    println!("zxx: {zxx}");
+                    zxx
+                } else {
+                    return Err(format!(
+                        "convert error, asset: {} not convertable to {}",
+                        asset, other_asset
+                    )
+                    .into());
+                };
+
+                println!("indirect_result: {indirect_result}");
+                indirect_result
             }
         }
     };
@@ -377,7 +413,7 @@ mod test {
     }"#;
 
     #[tokio::test]
-    async fn test_convert() {
+    async fn test_convert_usd() {
         let mut config = Configuration::default();
         config.keys.api_key = Some("a_key".to_string());
         config.keys.secret_key = Some("a_secret_key".to_string());
@@ -387,6 +423,13 @@ mod test {
             .await
             .unwrap();
         assert_eq!(value_usd, dec!(1234.5678));
+    }
+
+    #[tokio::test]
+    async fn test_convert_direct() {
+        let mut config = Configuration::default();
+        config.keys.api_key = Some("a_key".to_string());
+        config.keys.secret_key = Some("a_secret_key".to_string());
 
         // Needs to "mock" get_kline so "BNB" asset always returns a specific value
         // and also because it now sometimes failing with:
@@ -399,6 +442,26 @@ mod test {
         // assert_eq!(value_usd, dec!(xxx))
         println!("convert 1 BNBUSD: {}", value_usd);
         assert!(value_usd > dec!(0));
+    }
+
+    #[tokio::test]
+    async fn test_convert_indirect() {
+        let mut config = Configuration::default();
+        config.keys.api_key = Some("a_key".to_string());
+        config.keys.secret_key = Some("a_secret_key".to_string());
+
+        // Needs to "mock" get_kline so "BNB" asset always returns a specific value
+        // and also because it now sometimes failing with:
+        //   "convert error, asset: BNB not convertable to USD"
+        // So, for now changing to "Binance USD" or BUSB instead of USD
+
+        let time_ms = utc_now_to_time_ms(); // - 10 * 60 * 1000; // Get a reading from 10 minutes ago
+        let value_bnb = convert(&config, time_ms, "BAT", dec!(1), "BNB")
+            .await
+            .unwrap();
+        // assert_eq!(value_bnb, dec!(xxx))
+        println!("convert 1 BATBNB: {}", value_bnb);
+        assert!(value_bnb > dec!(0));
     }
 
     #[tokio::test]

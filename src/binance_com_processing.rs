@@ -254,7 +254,7 @@ impl BcAssetRec {
         self.consolidate_account_operation("Pool", "Pool Distribution");
         self.consolidate_account_operation("Spot", "Commission History");
         self.consolidate_account_operation("Spot", "Commission Rebate");
-        self.consolidate_account_operation("Spot", "Distribution");
+        self.consolidate_account_operation("Spot", "ETH 2.0 Staking Rewards");
         self.consolidate_account_operation("USDT-Futures", "Referrer rebates");
 
         //println!("Consolidatation done          len: {}", self.consolidated_tr_vec.len());
