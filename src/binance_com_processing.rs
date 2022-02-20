@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     common::{
-        create_buf_reader, create_buf_writer_from_path, dec_to_separated_string,
+        create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_separated_string,
         time_ms_to_utc_string, verify_input_files_exist,
     },
     configuration::Configuration,
@@ -778,6 +778,9 @@ pub async fn process_binance_com_trade_history_files(
     // Verify all input files exist
     verify_input_files_exist(&in_th_file_paths)?;
 
+    // Create out_tr_path if there was one, if not it'll be None
+    let out_tr_path_str = sc_matches.value_of("OUT_FILE");
+
     let mut data = BcData::new();
 
     for f in in_th_file_paths {
@@ -826,6 +829,13 @@ pub async fn process_binance_com_trade_history_files(
         dec_to_separated_string(total_quantity, 4),
         dec_to_separated_string(Decimal::from(total_transaction_count), 0)
     );
+
+    if let Some(otp) = out_tr_path_str {
+        println!("Writing trade records to {otp}");
+        let writer = create_buf_writer(otp)?;
+        write_tr_vec(writer, &data.tr_vec)?;
+    }
+
     Ok(())
 }
 
@@ -848,10 +858,10 @@ pub async fn consolidate_binance_com_trade_history_files(
     verify_input_files_exist(&in_th_paths)?;
 
     // Create out_tr_path
-    let out_tr_path = sc_matches
+    let out_tr_path_str = sc_matches
         .value_of("OUT_FILE")
         .unwrap_or_else(|| panic!("out-file option is missing"));
-    let out_tr_path = Path::new(out_tr_path);
+    let out_tr_path = Path::new(out_tr_path_str);
 
     // Determine parent path, file_stem and extension so we can construct out_token_tax_path
     let out_parent_path = if let Some(pp) = out_tr_path.parent() {
@@ -974,7 +984,7 @@ pub async fn consolidate_binance_com_trade_history_files(
         .sort_by(ttr_cmp_no_change_no_remark);
 
     // Output consolidated data as tr records and token_tax records
-    println!("Writing trade records");
+    println!("Writing trade records to {out_tr_path_str}");
     write_tr_vec(tr_writer, &data.bc_consolidated_tr_vec)?;
     //println!("Writing token tax records");
     //write_tr_vec_as_token_tax(token_tax_rec_writer, &data.consolidated_tr_vec)?;
