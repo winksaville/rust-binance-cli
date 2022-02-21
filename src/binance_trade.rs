@@ -85,65 +85,96 @@ pub fn log_order_response(
     Ok(())
 }
 
+// Convert quantity of asset to the quantity in other_asset at UTC time_ms
 pub async fn convert(
     config: &Configuration,
     time_ms: i64,
     asset: &str,
-    value: Decimal,
+    quantity: Decimal,
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
-    println!(
-        "convert: asset: {} value: {} other_asset: {}",
-        asset, value, other_asset
+    trace!(
+        "convert: asset: {} quantity: {} other_asset: {}",
+        asset,
+        quantity,
+        other_asset
     );
-    let other_value: Decimal = if asset == other_asset {
-        let new_value = value;
-        println!(
-            "convert: asset: {} value: {} to {}: {}",
-            asset, value, other_asset, new_value
+    let other_quantity: Decimal = if asset == other_asset {
+        let new_quantity = quantity;
+        trace!(
+            "convert: asset: {} quantity: {} to {}: {}",
+            asset,
+            quantity,
+            other_asset,
+            new_quantity
         );
-        new_value
+        new_quantity
     } else {
+        let (lhs, rhs, invert_result) = if (asset == "USD") | (asset == "USDT") | (asset == "BUSD")
+        {
+            (other_asset, asset, true)
+        } else {
+            (asset, other_asset, false)
+        };
+
         // Try to directly convert it
-        let cvrt_asset_name = asset.to_string() + other_asset;
-        match get_kline(config, &cvrt_asset_name, time_ms).await {
+        let cvrt_asset_name = lhs.to_string() + rhs;
+        let result = match get_kline(config, &cvrt_asset_name, time_ms).await {
             Ok(kr) => {
-                let direct_result = kr.close * value;
-                println!(
-                    "convert: asset: {} value: {} to {}: {}",
-                    asset, value, other_asset, direct_result
-                );
+                let direct_result = if invert_result {
+                    let tmp = quantity / kr.close;
+                    trace!(
+                        "{asset}{other_asset}: INVERTED direct_result: {} = quantity: {} / kr.close: {}",
+                        tmp, quantity, kr.close
+                    );
+
+                    tmp
+                } else {
+                    let tmp = quantity * kr.close;
+                    trace!(
+                        "{asset}{other_asset}: direct_result {} = quantity: {} * kr.close: {}",
+                        tmp,
+                        quantity,
+                        kr.close
+                    );
+
+                    tmp
+                };
 
                 direct_result
             }
             Err(_) => {
-                // Couldn't convert directly so try indirectly through an intermediate value as USD
+                // Couldn't convert directly so try indirectly through an intermediate quantity as USD
                 let value_assets = ["USD", "USDT", "BUSD"];
                 let indirect_result = if let Some((sym_name, kr)) =
-                    get_kline_of_primary_asset_for_value_asset(
-                        config,
-                        time_ms,
-                        asset,
-                        &value_assets,
-                    )
-                    .await
+                    get_kline_of_primary_asset_for_value_asset(config, time_ms, lhs, &value_assets)
+                        .await
                 {
-                    let one_asset_value_in_usd = kr.close;
-                    println!("{sym_name}: one_asset_value_in_usd: {one_asset_value_in_usd}");
-                    let zxx = if let Some((sym_name, kr)) =
+                    let one_lhs_value_in_usd = kr.close;
+                    trace!("{sym_name}: one_lhs_value_in_usd: {one_lhs_value_in_usd}");
+                    let indirect_result = if let Some((sym_name, kr)) =
                         get_kline_of_primary_asset_for_value_asset(
                             config,
                             time_ms,
-                            other_asset,
+                            rhs,
                             &value_assets,
                         )
                         .await
                     {
-                        let one_other_asset_value_in_usd = kr.close;
-                        println!("{sym_name}: one_other_asset_value_in_usd: {one_other_asset_value_in_usd}");
-                        let ir = value * (one_asset_value_in_usd / one_other_asset_value_in_usd);
-                        println!("{asset}{other_asset}: indirect_result = value: {} * (one_asset_value_in_usd: {} / one_other_asset_value_in_usd: {})",
-                            value, one_asset_value_in_usd, one_other_asset_value_in_usd);
+                        let one_rhs_value_in_usd = kr.close;
+                        trace!("{sym_name}: one_rhs_value_in_usd: {one_rhs_value_in_usd}");
+                        let ir = if invert_result {
+                            let tmp = quantity * (one_rhs_value_in_usd / one_lhs_value_in_usd);
+                            trace!("{asset}{other_asset}: INVERTED indirect_result: {} = quantity: {} * (one_rhs_value_in_usd: {} / one_lhs_value_in_usd: {}))",
+                                tmp, quantity, one_rhs_value_in_usd, one_lhs_value_in_usd);
+                            tmp
+                        } else {
+                            let tmp = quantity * (one_lhs_value_in_usd / one_rhs_value_in_usd);
+                            trace!("{asset}{other_asset}: indirect_result: {} = quantity: {} * (one_lhs_value_in_usd: {} / one_rhs_value_in_usd: {})",
+                                tmp, quantity, one_lhs_value_in_usd, one_rhs_value_in_usd);
+
+                            tmp
+                        };
 
                         ir
                     } else {
@@ -154,8 +185,7 @@ pub async fn convert(
                         .into());
                     };
 
-                    println!("zxx: {zxx}");
-                    zxx
+                    indirect_result
                 } else {
                     return Err(format!(
                         "convert error, asset: {} not convertable to {}",
@@ -164,13 +194,21 @@ pub async fn convert(
                     .into());
                 };
 
-                println!("indirect_result: {indirect_result}");
                 indirect_result
             }
-        }
+        };
+        trace!(
+            "convert: asset: {} value: {} to {}: {}",
+            asset,
+            quantity,
+            other_asset,
+            result
+        );
+
+        result
     };
 
-    Ok(other_value)
+    Ok(other_quantity)
 }
 
 async fn convert_commission(
@@ -412,56 +450,81 @@ mod test {
         ]
     }"#;
 
-    #[tokio::test]
-    async fn test_convert_usd() {
+    async fn convert_test(asset: &str, quantity: Decimal, other_asset: &str) {
+        // TODO: we should use a "mock" so the results are predictable and a
+        // network connection is not needed
+
         let mut config = Configuration::default();
         config.keys.api_key = Some("a_key".to_string());
         config.keys.secret_key = Some("a_secret_key".to_string());
 
-        // Expect to always return the value parameter
-        let value_usd = convert(&config, utc_now_to_time_ms(), "USD", dec!(1234.5678), "USD")
+        // Use a time 10 minutes earlier than "now" otherwise the kline
+        // changes as it's being actively being updated by binance.
+        let time_ms = utc_now_to_time_ms() - 10 * 60 * 1000;
+
+        let asset_to_other_value = convert(&config, time_ms, asset, quantity, other_asset)
             .await
             .unwrap();
-        assert_eq!(value_usd, dec!(1234.5678));
+        println!(
+            "converted {} {asset} -> {} {other_asset}",
+            quantity, asset_to_other_value
+        );
+
+        let other_to_asset_value = convert(&config, time_ms, other_asset, quantity, asset)
+            .await
+            .unwrap();
+
+        println!(
+            "converted {} {other_asset} -> {} {asset}",
+            quantity, other_to_asset_value
+        );
+
+        // Validate the convsersion by checking
+        //    ((convert(asset, quantity, other_asset) * convert(other_asset, quantity, asset)) / quantity^2)
+        // is approximately equal to 1
+        let approx_one = (asset_to_other_value * other_to_asset_value) / (quantity * quantity);
+        println!(
+            "approx_one: {} = {asset}{other_asset}: {} * {other_asset}{asset}: {} / (quantity^2: {} )",
+            approx_one, asset_to_other_value, other_to_asset_value, quantity * quantity
+        );
+
+        // Take the difference between 1 and approx_one and assert it's small
+        let diff = dec!(1) - approx_one;
+        println!("diff: {} = {} - approx_one: {}", diff, dec!(1), approx_one);
+
+        assert!(diff.abs() < dec!(0.0000000000001));
+    }
+
+    #[tokio::test]
+    async fn test_convert_usd() {
+        convert_test("USD", dec!(1234.5), "USD").await;
+        //let mut config = Configuration::default();
+        //config.keys.api_key = Some("a_key".to_string());
+        //config.keys.secret_key = Some("a_secret_key".to_string());
+
+        //// Expect to always return the value parameter
+        //let value_usd = convert(&config, utc_now_to_time_ms(), "USD", dec!(1234.5678), "USD")
+        //    .await
+        //    .unwrap();
+        //assert_eq!(value_usd, dec!(1234.5678));
     }
 
     #[tokio::test]
     async fn test_convert_direct() {
-        let mut config = Configuration::default();
-        config.keys.api_key = Some("a_key".to_string());
-        config.keys.secret_key = Some("a_secret_key".to_string());
+        convert_test("BAT", dec!(1), "USD").await;
+        convert_test("BAT", dec!(10), "USD").await;
 
-        // Needs to "mock" get_kline so "BNB" asset always returns a specific value
-        // and also because it now sometimes failing with:
-        //   "convert error, asset: BNB not convertable to USD"
-        // So, for now changing to "Binance USD" or BUSB instead of USD
-        let time_ms = utc_now_to_time_ms(); // - 10 * 60 * 1000; // Get a reading from 10 minutes ago
-        let value_usd = convert(&config, time_ms, "BNB", dec!(1), "BUSD")
-            .await
-            .unwrap();
-        // assert_eq!(value_usd, dec!(xxx))
-        println!("convert 1 BNBUSD: {}", value_usd);
-        assert!(value_usd > dec!(0));
+        convert_test("USD", dec!(1), "BAT").await;
+        convert_test("USD", dec!(10), "BAT").await;
     }
 
     #[tokio::test]
     async fn test_convert_indirect() {
-        let mut config = Configuration::default();
-        config.keys.api_key = Some("a_key".to_string());
-        config.keys.secret_key = Some("a_secret_key".to_string());
+        convert_test("BAT", dec!(1), "BNB").await;
+        convert_test("BNB", dec!(1), "BAT").await;
 
-        // Needs to "mock" get_kline so "BNB" asset always returns a specific value
-        // and also because it now sometimes failing with:
-        //   "convert error, asset: BNB not convertable to USD"
-        // So, for now changing to "Binance USD" or BUSB instead of USD
-
-        let time_ms = utc_now_to_time_ms(); // - 10 * 60 * 1000; // Get a reading from 10 minutes ago
-        let value_bnb = convert(&config, time_ms, "BAT", dec!(1), "BNB")
-            .await
-            .unwrap();
-        // assert_eq!(value_bnb, dec!(xxx))
-        println!("convert 1 BATBNB: {}", value_bnb);
-        assert!(value_bnb > dec!(0));
+        convert_test("BAT", dec!(123.4), "BNB").await;
+        convert_test("BNB", dec!(123.4), "BAT").await;
     }
 
     #[tokio::test]
