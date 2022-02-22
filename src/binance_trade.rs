@@ -480,8 +480,31 @@ mod test {
         );
 
         // Validate the convsersion by checking
-        //    ((convert(asset, quantity, other_asset) * convert(other_asset, quantity, asset)) / quantity^2)
+        //    ((convert(asset, quantity, other_asset) * convert(other_asset, quantity, asset)) / quantity * quantity)
         // is approximately equal to 1
+        //
+        // Proof:
+        //  fn convert(asset: &str, quantity: Decimal , other_asset: &str) -> Decimal {
+        //      let va = value_of_an_asset_per_x(asset);
+        //      let vo = value_of_an_asset_per_x(other_asset);
+        //
+        //      quantity * (va / vo)
+        //  }
+        //
+        //  So:
+        //      let quantity_a = convert(asset, quantity, other_asset)
+        //      let quantity_a = quantity * va/vo
+        //      let quantity_b = convert(other_asset, quantity, asset)
+        //      let quantity_b = quantity * vo/va
+        //
+        //      assert_approx_eq!((quantity_a * quantity_b) / (quantity * quantity), 1)
+        //      assert_approx_eq!(((quantity * va / vo) * (quantity * (vo / va))) / quantity^2, 1)
+        //      assert_approx_eq!((quantity * quantity * (va / vo) * (vo / va)) / quantity^2, 1)
+        //      assert_approx_eq!((quantity^2 * (va * vo) / (vo * va)) / quantity^2, 1)
+        //      assert_approx_eq!((quantity^2 * (va * vo) / (va * vo)) / quantity^2, 1)
+        //      assert_approx_eq!((quantity^2 * 1) / quantity^2, 1)
+        //      assert_approx_eq!(quantity^2 / quantity^2, 1)
+        //      assert_approx_eq!(1, 1)
         let approx_one = (asset_to_other_value * other_to_asset_value) / (quantity * quantity);
         println!(
             "approx_one: {} = {asset}{other_asset}: {} * {other_asset}{asset}: {} / (quantity^2: {} )",
