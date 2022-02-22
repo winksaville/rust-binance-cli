@@ -44,6 +44,7 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    arg_matches::time_offset_days_to_time_ms_offset,
     binance_klines::get_kline_of_primary_asset_for_value_asset,
     common::{
         create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_money_string,
@@ -1380,6 +1381,8 @@ pub async fn consolidate_binance_us_dist_files(
         .unwrap_or_else(|| panic!("out-file option is missing"));
     let out_dist_path = Path::new(out_dist_path);
 
+    let time_ms_offset = time_offset_days_to_time_ms_offset(sc_matches)?;
+
     // Determine parent path, file_stem and extension so we can construct out_token_tax_path
     let out_parent_path = if let Some(pp) = out_dist_path.parent() {
         pp
@@ -1436,11 +1439,15 @@ pub async fn consolidate_binance_us_dist_files(
         for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
             let line_number = rec_index + 2;
-            let dr: DistRec = result?;
+            let mut dr: DistRec = result?;
 
             if config.verbose {
                 let asset = dr.get_asset();
                 print!("Processing {line_number} {asset}                        \r",);
+            }
+
+            if let Some(offset) = time_ms_offset {
+                dr.time += offset;
             }
 
             data.dist_rec_vec.push(dr.clone());

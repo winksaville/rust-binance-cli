@@ -10,6 +10,7 @@ use std::{
 };
 
 use crate::{
+    arg_matches::time_offset_days_to_time_ms_offset,
     common::{
         create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_separated_string,
         time_ms_to_utc_string, verify_input_files_exist,
@@ -863,6 +864,8 @@ pub async fn consolidate_binance_com_trade_history_files(
         .unwrap_or_else(|| panic!("out-file option is missing"));
     let out_tr_path = Path::new(out_tr_path_str);
 
+    let time_ms_offset = time_offset_days_to_time_ms_offset(sc_matches)?;
+
     // Determine parent path, file_stem and extension so we can construct out_token_tax_path
     let out_parent_path = if let Some(pp) = out_tr_path.parent() {
         pp
@@ -916,7 +919,7 @@ pub async fn consolidate_binance_com_trade_history_files(
         for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
             let line_number = rec_index + 2;
-            let tr: TradeRec = result?;
+            let mut tr: TradeRec = result?;
 
             if config.verbose {
                 let asset = &tr.coin;
@@ -928,6 +931,11 @@ pub async fn consolidate_binance_com_trade_history_files(
                 first_tr = tr.clone();
             }
             assert_eq!(first_tr.user_id, tr.user_id);
+
+            // Update the time by the offset if present
+            if let Some(offset) = time_ms_offset {
+                tr.time += offset;
+            }
 
             data.tr_vec.push(tr.clone());
             data.bc_asset_rec_map.add_tr(tr);

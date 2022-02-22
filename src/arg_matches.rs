@@ -4,6 +4,26 @@ use std::error::Error;
 
 use crate::common::{APP_NAME, APP_VERSION};
 
+pub fn time_offset_days_to_time_ms_offset(
+    sc_matches: &ArgMatches,
+) -> Result<Option<i64>, Box<dyn Error>> {
+    // Get time-offset which will be added to each transactions time
+    let time_ms_offset = if let Some(offset_days) = sc_matches.value_of("TIME_OFFSET_DAYS") {
+        let days = offset_days.parse::<i64>();
+        //let days = if let Ok(d) = match offset_days.parse::<i64>() {
+        let tms = match days {
+            Ok(d) => d * 24 * 60 * 60 * 1000,
+            Err(e) => return Err(format!("{offset_days} was not a number, {e}").into()),
+        };
+
+        Some(tms)
+    } else {
+        None
+    };
+
+    Ok(time_ms_offset)
+}
+
 pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
     // The config option is the only option that has a default_value,
     // all others get their defaults from the Configuration.
@@ -86,6 +106,12 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .long("domain")
         .value_name("BINANCE_DOMAIN")
         .help("Domain such as binance.us or binance.com")
+        .takes_value(true);
+    let time_offset_days_arg = Arg::new("TIME_OFFSET_DAYS")
+        .global(false)
+        .required(false)
+        .long("time-offset")
+        .help("Add the time-offset parameter to each transaction, time-offset may be positive or negative.")
         .takes_value(true);
 
     let matches = App::new(APP_NAME.as_str())
@@ -433,6 +459,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(
                     Arg::new("IN_FILES")
                         .global(false)
+                        .required(true)
                         .long("files")
                         .short('f')
                         .multiple_values(true)
@@ -442,28 +469,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(
                     Arg::new("OUT_FILE")
                         .global(false)
-                        .long("out-file")
-                        .short('o')
-                        .help("The output file")
-                        .takes_value(true),
-                )
-        )
-        .subcommand(
-            App::new("cbudf")
-                .display_order(9)
-                .about("consolidate binance.us distribution files")
-                .arg(
-                    Arg::new("IN_FILES")
-                        .global(false)
-                        .long("files")
-                        .short('f')
-                        .multiple_values(true)
-                        .help("List of input files")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::new("OUT_FILE")
-                        .global(false)
+                        .required(true)
                         .long("out-file")
                         .short('o')
                         .help("The output file")
@@ -477,12 +483,47 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(
                     Arg::new("IN_FILES")
                         .global(false)
+                        .required(true)
                         .long("files")
                         .short('f')
                         .multiple_values(true)
                         .help("List of input files")
                         .takes_value(true),
-                ),
+                )
+                .arg(
+                    Arg::new("OUT_FILE")
+                        .global(false)
+                        .required(false)
+                        .long("out-file")
+                        .short('o')
+                        .help("The optional output file")
+                        .takes_value(true),
+                )
+        )
+        .subcommand(
+            App::new("cbudf")
+                .display_order(9)
+                .about("consolidate binance.us distribution files")
+                .arg(
+                    Arg::new("IN_FILES")
+                        .global(false)
+                        .required(true)
+                        .long("files")
+                        .short('f')
+                        .multiple_values(true)
+                        .help("List of input files")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("OUT_FILE")
+                        .global(false)
+                        .required(true)
+                        .long("out-file")
+                        .short('o')
+                        .help("The output file")
+                        .takes_value(true),
+                )
+                .arg(&time_offset_days_arg)
         )
         .subcommand(
             App::new("pbcthf")
@@ -531,6 +572,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                         .help("The output file")
                         .takes_value(true),
                 )
+                .arg(&time_offset_days_arg)
         )
         .subcommand(
             App::new("version")
