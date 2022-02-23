@@ -997,32 +997,30 @@ pub async fn process_binance_us_dist_files(
         .values_of("IN_FILES")
         .expect("files option is missing")
         .collect();
-    let out_dist_file_path = if subcmd == ProcessDistSubCommand::Udf {
-        if let Some(r) = sc_matches.value_of("OUT_FILE") {
-            Some(r)
-        } else {
+
+    let out_dist_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
+        Some(r)
+    } else {
+        if subcmd == ProcessDistSubCommand::Udf {
             return Err("Expected --out-file parameter".into());
         }
-    } else {
+
         None
     };
 
-    //println!("in_dist_file_path: {in_dist_file_paths:?}");
+    //println!("in_dist_file_paths: {in_dist_file_paths:?}");
     //println!("out_dist_file_path: {out_dist_file_path:?}");
 
     // Verify all input files exist
     verify_input_files_exist(&in_dist_file_paths)?;
 
-    let writer = if let Some(out_file_path) = out_dist_file_path {
-        Some(create_buf_writer(out_file_path)?)
+    // Create csv::Writer if out_file_path exists
+    let mut wdr = if let Some(out_file_path) = out_dist_file_path {
+        let writer = create_buf_writer(out_file_path)?;
+        Some(csv::Writer::from_writer(writer))
     } else {
         None
     };
-
-    // Clippy suggested changing this:
-    //   let mut wdr = if let Some(wtr) = writer { Some(csv::Writer::from_writer(wtr)) } else { None };
-    // To this:
-    let mut wdr = writer.map(csv::Writer::from_writer);
 
     for f in in_dist_file_paths {
         let reader = create_buf_reader(f)?;
