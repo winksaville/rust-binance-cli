@@ -526,6 +526,31 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&time_offset_days_arg)
         )
         .subcommand(
+            App::new("ttffbudf")
+                .display_order(9)
+                .about("Token Tax file from binance.us distribution files")
+                .arg(
+                    Arg::new("IN_FILES")
+                        .global(false)
+                        .required(true)
+                        .long("files")
+                        .short('f')
+                        .multiple_values(true)
+                        .help("List of input files")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("OUT_FILE")
+                        .global(false)
+                        .required(true)
+                        .long("out-file")
+                        .short('o')
+                        .help("The output file")
+                        .takes_value(true),
+                )
+                .arg(&time_offset_days_arg)
+        )
+        .subcommand(
             App::new("pbcthf")
                 .display_order(9)
                 .about("process binance.com trade history files")

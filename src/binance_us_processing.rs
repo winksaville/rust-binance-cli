@@ -1510,6 +1510,72 @@ pub async fn consolidate_binance_us_dist_files(
     Ok(())
 }
 
+pub async fn tt_file_from_binance_us_dist_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //println!("tt_file_from_binance_us_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let mut data = BuData::new();
+
+    let in_dist_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+    verify_input_files_exist(&in_dist_paths)?;
+
+    // Create out_dist_path
+    let out_token_tax_path_str = sc_matches
+        .value_of("OUT_FILE")
+        .unwrap_or_else(|| panic!("out-file option is missing"));
+    let out_token_tax_path = Path::new(out_token_tax_path_str);
+
+    let time_ms_offset = time_offset_days_to_time_ms_offset(sc_matches)?;
+
+    let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
+
+    println!("Read files");
+    for f in &in_dist_paths {
+        let in_file = if let Ok(in_f) = File::open(*f) {
+            in_f
+        } else {
+            return Err(format!("Unable to open {f}").into());
+        };
+        let reader = BufReader::new(in_file);
+
+        // DataRec reader
+        let mut data_rec_reader = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+            //println!("{rec_index}: {result:?}");
+            let line_number = rec_index + 2;
+            let mut dr: DistRec = result?;
+
+            if config.verbose {
+                let asset = dr.get_asset();
+                print!("Processing {line_number} {asset}                        \r",);
+            }
+
+            if let Some(offset) = time_ms_offset {
+                dr.time += offset;
+            }
+
+            data.dist_rec_vec.push(dr.clone());
+        }
+    }
+
+    println!("Writing token tax records");
+    write_dist_rec_vec_as_token_tax(token_tax_rec_writer, &data.dist_rec_vec)?;
+
+    // For debug
+    //write_dist_rec_vec_for_asset(&data, "USD")?;
+
+    println!();
+    println!("Done");
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
 

@@ -56,8 +56,8 @@ use crate::{
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
     binance_us_processing::{
-        consolidate_binance_us_dist_files, process_binance_us_dist_files, ProcessDistSubCommand,
-        ProcessType,
+        consolidate_binance_us_dist_files, process_binance_us_dist_files,
+        tt_file_from_binance_us_dist_files, ProcessDistSubCommand, ProcessType,
     },
     binance_withdraw_cmd::{withdraw_cmd, WithdrawParams},
     common::{
@@ -423,7 +423,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await?;
             }
-            "cbudf" => consolidate_binance_us_dist_files(&config, sc_matches).await?,
             "pbudf" => {
                 process_binance_us_dist_files(
                     &config,
@@ -433,11 +432,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await?;
             }
-            "cbcthf" => {
-                consolidate_binance_com_trade_history_files(&config, sc_matches).await?;
-            }
+            "cbudf" => consolidate_binance_us_dist_files(&config, sc_matches).await?,
+            "ttffbudf" => tt_file_from_binance_us_dist_files(&config, sc_matches).await?,
             "pbcthf" => {
                 process_binance_com_trade_history_files(&config, sc_matches).await?;
+            }
+            "cbcthf" => {
+                consolidate_binance_com_trade_history_files(&config, sc_matches).await?;
             }
             _ => println!("Unknown subcommand: {}", sc_name),
         }
