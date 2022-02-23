@@ -64,6 +64,7 @@ use crate::{
         dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
         InternalErrorRec, APP_VERSION,
     },
+    token_tax::process_token_tax_files,
 };
 
 fn get_sym_qty_or_val(
@@ -433,13 +434,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await?;
             }
             "cbudf" => consolidate_binance_us_dist_files(&config, sc_matches).await?,
-            "ttffbudf" => tt_file_from_binance_us_dist_files(&config, sc_matches).await?,
             "pbcthf" => {
                 process_binance_com_trade_history_files(&config, sc_matches).await?;
             }
             "cbcthf" => {
                 consolidate_binance_com_trade_history_files(&config, sc_matches).await?;
             }
+            "ttffbudf" => tt_file_from_binance_us_dist_files(&config, sc_matches).await?,
+            "pttf" => process_token_tax_files(&config, sc_matches).await?,
             _ => println!("Unknown subcommand: {}", sc_name),
         }
     }
