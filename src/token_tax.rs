@@ -189,7 +189,7 @@ impl AssetRecMap {
     }
 
     fn push_rec(&mut self, ttr: TokenTaxRec) {
-        // The asset is always either primary_asset or base_asset
+        // The asset is always either buy_currency or sell_currency
         let asset = ttr.get_asset();
 
         let entry = self
@@ -214,13 +214,13 @@ impl AssetRecMap {
         entry.transaction_count += 1;
     }
 
-    fn _add_quantity(&mut self, asset: &str, val: Decimal) {
+    fn add_quantity(&mut self, asset: &str, val: Decimal) {
         let entry = self.bt.get_mut(asset).unwrap();
         entry.quantity += val;
     }
 
-    fn _sub_quantity(&mut self, asset: &str, val: Decimal) {
-        self._add_quantity(asset, -val)
+    fn sub_quantity(&mut self, asset: &str, val: Decimal) {
+        self.add_quantity(asset, -val)
     }
 }
 
@@ -349,11 +349,11 @@ impl TokenTaxData {
 // to calling process_entry and thus can use unwrap() on
 // the Option<Decimal> fields.
 fn process_entry(
-    _config: &Configuration,
+    config: &Configuration,
     data: &mut TokenTaxData,
     arm: &mut AssetRecMap,
     ttr: &TokenTaxRec,
-    _line_number: usize,
+    line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     data.total_count += 1;
 
@@ -392,38 +392,78 @@ fn process_entry(
 
     arm.inc_transaction_count(asset);
 
-    //let leading_nl = if config.verbose { "\n" } else { "" };
+    let leading_nl = if config.verbose { "\n" } else { "" };
+
+    if let Some(buy_amount) = ttr.buy_amount {
+        assert!(buy_amount >= dec!(0));
+        assert!(!ttr.buy_currency.is_empty());
+        arm.add_quantity(&ttr.buy_currency, buy_amount);
+    }
+
+    if let Some(sell_amount) = ttr.sell_amount {
+        assert!(sell_amount >= dec!(0));
+        assert!(!ttr.sell_currency.is_empty());
+        arm.sub_quantity(&ttr.sell_currency, sell_amount);
+    }
+
+    if let Some(fee_amount) = ttr.fee_amount {
+        assert!(fee_amount >= dec!(0));
+        assert!(!ttr.fee_currency.is_empty());
+        arm.sub_quantity(&ttr.fee_currency, fee_amount);
+    }
 
     // TODO: For all the category and operations we need to save asset_value_usd as "usd_cost_basis"
     match ttr.type_txs {
         TypeTxs::Unknown => {
+            println!(
+                "{leading_nl}{} Unknown transaction type: {:?}",
+                line_number, ttr
+            );
             data.type_txs_unknown_count += 1;
         }
         TypeTxs::Trade => {
+            assert!(!ttr.buy_currency.is_empty());
+            assert!(!ttr.sell_currency.is_empty());
             data.type_txs_trade_count += 1;
         }
         TypeTxs::Deposit => {
+            assert!(!ttr.buy_currency.is_empty());
+            assert!(ttr.sell_currency.is_empty());
             data.type_txs_deposit_count += 1;
         }
         TypeTxs::Withdrawal => {
+            assert!(ttr.buy_currency.is_empty());
+            assert!(!ttr.sell_currency.is_empty());
             data.type_txs_withdrawal_count += 1;
         }
         TypeTxs::Income => {
+            assert!(!ttr.buy_currency.is_empty());
+            assert!(ttr.sell_currency.is_empty());
             data.type_txs_income_count += 1;
         }
         TypeTxs::Spend => {
+            assert!(ttr.buy_currency.is_empty());
+            assert!(!ttr.sell_currency.is_empty());
             data.type_txs_spend_count += 1;
         }
         TypeTxs::Lost => {
+            assert!(ttr.buy_currency.is_empty());
+            assert!(!ttr.sell_currency.is_empty());
             data.type_txs_lost_count += 1;
         }
         TypeTxs::Stolen => {
+            assert!(ttr.buy_currency.is_empty());
+            assert!(!ttr.sell_currency.is_empty());
             data.type_txs_stolen_count += 1;
         }
         TypeTxs::Mining => {
+            assert!(!ttr.buy_currency.is_empty());
+            assert!(ttr.sell_currency.is_empty());
             data.type_txs_mining_count += 1;
         }
         TypeTxs::Gift => {
+            assert!(ttr.buy_currency.is_empty());
+            assert!(!ttr.sell_currency.is_empty());
             data.type_txs_gift_count += 1;
         }
     }
@@ -481,13 +521,16 @@ pub async fn process_token_tax_files(
             if config.verbose {
                 let asset = ttr.get_asset();
                 print!("Processing {line_number} {asset}                        \r",);
+
+                // Using eprint is slower, 30secs vs 90secs, but nicer as this output doesn't
+                // show up in stdout thus making command line redirection to file nicer.
+                //eprint!("Processing {line_number} {asset}                        \r",);
             }
 
             process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
 
             data.ttr_vec.push(ttr.clone());
             data.asset_rec_map.push_rec(ttr.clone());
-            data.total_count += 1;
 
             if let Some(w) = &mut csv_ttr_writer {
                 w.serialize(&ttr)?;
@@ -535,6 +578,11 @@ pub async fn process_token_tax_files(
             dec_to_money_string(total_value_usd)
         );
     }
+
+    println!(
+        "total txs count: {}",
+        dec_to_separated_string(Decimal::from(data.total_count), 0)
+    );
 
     //let lbl_width = 45;
     //let cnt_width = 10;
