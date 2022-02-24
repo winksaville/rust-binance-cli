@@ -11,7 +11,7 @@ use std::{
 use crate::{
     binance_klines::get_kline_of_primary_asset_for_value_asset,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::dec_to_separated_string,
+    common::{dec_to_separated_string, VALUE_ASSETS},
 };
 use crate::{
     common::{dec_to_money_string, get_req_get_response, time_ms_to_utc},
@@ -97,12 +97,11 @@ impl AccountInfo {
             // Print all assets with a free or locked balance
             if balance.free != dec!(0) || balance.locked != dec!(0) {
                 let price_in_usd = if balance.asset != "USD" {
-                    let value_assets = ["USD", "USDT", "BUSD"];
                     let r = get_kline_of_primary_asset_for_value_asset(
                         config,
                         time_ms,
                         &balance.asset,
-                        &value_assets,
+                        &VALUE_ASSETS,
                     )
                     .await;
 

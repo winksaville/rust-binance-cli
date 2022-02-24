@@ -17,7 +17,7 @@ use crate::{
         TradeResponse, UnknownTradeResponseRec,
     },
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{post_req_get_response, utc_now_to_time_ms, ResponseErrorRec, Side},
+    common::{post_req_get_response, utc_now_to_time_ms, ResponseErrorRec, Side, VALUE_ASSETS},
     configuration::Configuration,
 };
 
@@ -94,7 +94,7 @@ pub async fn convert(
     other_asset: &str,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
     trace!(
-        "convert: asset: {} quantity: {} other_asset: {}",
+        "convert:+ asset: {} quantity: {} other_asset: {}",
         asset,
         quantity,
         other_asset
@@ -102,7 +102,7 @@ pub async fn convert(
     let other_quantity: Decimal = if asset == other_asset {
         let new_quantity = quantity;
         trace!(
-            "convert: asset: {} quantity: {} to {}: {}",
+            "convert:- asset: {} quantity: {} to {}: {}",
             asset,
             quantity,
             other_asset,
@@ -110,8 +110,8 @@ pub async fn convert(
         );
         new_quantity
     } else {
-        let (lhs, rhs, invert_result) = if (asset == "USD") | (asset == "USDT") | (asset == "BUSD")
-        {
+        // If the asset is one of the VALUE_ASSETS then invert the conversion
+        let (lhs, rhs, invert_result) = if VALUE_ASSETS.contains(&asset.to_owned()) {
             (other_asset, asset, true)
         } else {
             (asset, other_asset, false)
@@ -144,20 +144,19 @@ pub async fn convert(
                 direct_result
             }
             Err(_) => {
-                // Couldn't convert directly so try indirectly through an intermediate quantity as USD
-                let value_assets = ["USD", "USDT", "BUSD"];
+                trace!("{cvrt_asset_name} failed: try getting kline of {lhs} in {VALUE_ASSETS:?}");
                 let indirect_result = if let Some((sym_name, kr)) =
-                    get_kline_of_primary_asset_for_value_asset(config, time_ms, lhs, &value_assets)
+                    get_kline_of_primary_asset_for_value_asset(config, time_ms, lhs, &VALUE_ASSETS)
                         .await
                 {
                     let one_lhs_value_in_usd = kr.close;
-                    trace!("{sym_name}: one_lhs_value_in_usd: {one_lhs_value_in_usd}");
+                    trace!("{sym_name}: one_lhs_value_in_usd: {one_lhs_value_in_usd} try getting kline of {rhs} in {VALUE_ASSETS:?}");
                     let indirect_result = if let Some((sym_name, kr)) =
                         get_kline_of_primary_asset_for_value_asset(
                             config,
                             time_ms,
                             rhs,
-                            &value_assets,
+                            &VALUE_ASSETS,
                         )
                         .await
                     {
@@ -198,7 +197,7 @@ pub async fn convert(
             }
         };
         trace!(
-            "convert: asset: {} value: {} to {}: {}",
+            "convert:- asset: {} value: {} to {}: {}",
             asset,
             quantity,
             other_asset,
@@ -515,21 +514,26 @@ mod test {
         let diff = dec!(1) - approx_one;
         println!("diff: {} = {} - approx_one: {}", diff, dec!(1), approx_one);
 
-        assert!(diff.abs() < dec!(0.0000000000001));
+        //assert!(diff.abs() < dec!(0.0000000000001));
+        assert!(diff.abs() < dec!(0.01));
     }
 
     #[tokio::test]
-    async fn test_convert_usd() {
-        convert_test("USD", dec!(1234.5), "USD").await;
-        //let mut config = Configuration::default();
-        //config.keys.api_key = Some("a_key".to_string());
-        //config.keys.secret_key = Some("a_secret_key".to_string());
+    async fn test_convert_value_assets_to_value_assets() {
+        for asset in VALUE_ASSETS.iter() {
+            for other_asset in VALUE_ASSETS.iter() {
+                convert_test(asset, dec!(10), other_asset).await;
+                convert_test(other_asset, dec!(10), asset).await;
+            }
+        }
+    }
 
-        //// Expect to always return the value parameter
-        //let value_usd = convert(&config, utc_now_to_time_ms(), "USD", dec!(1234.5678), "USD")
-        //    .await
-        //    .unwrap();
-        //assert_eq!(value_usd, dec!(1234.5678));
+    #[tokio::test]
+    async fn test_convert_shib_to_value_assets() {
+        for asset in VALUE_ASSETS.iter() {
+            convert_test("SHIB", dec!(10), asset).await;
+            convert_test(asset, dec!(10), "SHIB").await;
+        }
     }
 
     #[tokio::test]

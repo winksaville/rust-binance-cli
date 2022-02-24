@@ -49,6 +49,7 @@ use crate::{
     common::{
         create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_money_string,
         dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms, verify_input_files_exist,
+        VALUE_ASSETS,
     },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
@@ -590,19 +591,18 @@ async fn get_asset_in_usd_value_update_if_none(
             v
         }
         None => {
-            let value_assets = ["USD", "USDT", "BUSD"];
             let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
                 config,
                 time,
                 asset,
-                &value_assets,
+                &VALUE_ASSETS,
             )
             .await
             {
                 Some(r) => r,
                 None => {
                     return Err(
-                        format!("{leading_nl}Unable to convert {asset} to {value_assets:?} at line_number: {line_number} time: {time_utc}").into()
+                        format!("{leading_nl}Unable to convert {asset} to {VALUE_ASSETS:?} at line_number: {line_number} time: {time_utc}").into()
                     );
                 }
             };

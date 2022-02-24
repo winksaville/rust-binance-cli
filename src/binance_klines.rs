@@ -283,17 +283,37 @@ pub async fn get_kline_of_primary_asset_for_value_asset(
     config: &Configuration,
     time: i64,
     primary_asset: &str,
-    value_assets: &[&str],
+    value_assets: &[String],
 ) -> Option<(String, KlineRec)> {
+    //if primary_asset
     for value_asset in value_assets {
-        let sym_name = primary_asset.to_owned() + value_asset;
-        match get_kline(config, &sym_name, time).await {
-            Ok(kr) => {
-                trace!("Ok: {sym_name} time: {} kr: {kr:?}", time_ms_to_utc(time));
-                return Some((sym_name, kr));
-            }
-            Err(e) => {
-                trace!("Error: {sym_name} time: {} e: {e}", time_ms_to_utc(time));
+        if primary_asset == value_asset {
+            let kr = KlineRec {
+                open_time: time,
+                open: dec!(1),
+                high: dec!(1),
+                low: dec!(1),
+                close: dec!(1),
+                volume: dec!(1),
+                close_time: time,
+                quote_asset_volume: dec!(1),
+                number_of_trades: 1,
+                taker_buy_base_asset_volume: dec!(0),
+                taker_buy_quote_asset_volume: dec!(0),
+                ignore: dec!(0),
+            };
+
+            return Some((primary_asset.to_owned(), kr));
+        } else {
+            let sym_name = primary_asset.to_owned() + value_asset;
+            match get_kline(config, &sym_name, time).await {
+                Ok(kr) => {
+                    trace!("Ok: {sym_name} time: {} kr: {kr:?}", time_ms_to_utc(time));
+                    return Some((sym_name, kr));
+                }
+                Err(e) => {
+                    trace!("Error: {sym_name} time: {} e: {e}", time_ms_to_utc(time));
+                }
             }
         }
     }

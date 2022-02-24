@@ -35,6 +35,9 @@ lazy_static! {
     // so it's computed only once.
     pub static ref APP_VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
     pub static ref APP_NAME: String = PKG_NAME.to_string();
+
+    #[derive(Debug)]
+    pub static ref VALUE_ASSETS: Vec<String>  = vec!("USD".to_owned(), "USDT".to_owned(), "BUSD".to_owned());
 }
 
 #[derive(Debug, Deserialize, Serialize)]
