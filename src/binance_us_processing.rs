@@ -108,31 +108,80 @@ struct DistRec {
 
 #[allow(unused)]
 impl DistRec {
-    fn get_asset(&self) -> &str {
-        if self.primary_asset.is_empty() {
-            assert!(!self.base_asset.is_empty());
-            &self.base_asset
+    // Return a tuple of (asset, quantity and usd_value)
+    fn get_asset_quantity_usd_value(&self, line_number: Option<usize>) -> (&str, Decimal, Decimal) {
+        let result = if !self.primary_asset.is_empty() {
+            assert!(self.base_asset.is_empty());
+            (
+                self.primary_asset.as_str(),
+                self.realized_amount_for_primary_asset.unwrap_or_else(|| {
+                    panic!("No realized_amount_for_primary_asset at {line_number:?}")
+                }),
+                self.realized_amount_for_primary_asset_in_usd_value
+                    .unwrap_or_else(|| {
+                        panic!("No realized_amount_for_primary_asset at {line_number:?}")
+                    }),
+            )
         } else {
-            &self.primary_asset
-        }
+            match self.category.as_str() {
+                "Quick Buy" | "Quick Sell" | "Spot Trading" => match self.operation.as_str() {
+                    "Buy" => (
+                        self.base_asset.as_str(),
+                        self.realized_amount_for_base_asset.unwrap_or_else(|| {
+                            panic!("No realized_amount_for_base_asset at {line_number:?}")
+                        }),
+                        self.realized_amount_for_base_asset_in_usd_value
+                            .unwrap_or_else(|| {
+                                panic!("No realized_amount_for_base_asset at {line_number:?}")
+                            }),
+                    ),
+                    "Sell" => (
+                        self.quote_asset.as_str(),
+                        self.realized_amount_for_quote_asset.unwrap_or_else(|| {
+                            panic!("No realized_amount_for_primary_asset at {line_number:?}")
+                        }),
+                        self.realized_amount_for_quote_asset_in_usd_value
+                            .unwrap_or_else(|| {
+                                panic!("No realized_amount_for_primary_asset at {line_number:?}")
+                            }),
+                    ),
+                    _ => {
+                        panic!("Unsupported {} category with operation {}, expected operation to be Buy or Sell",
+                                self.category, self.operation);
+                    }
+                },
+                _ => (
+                    self.base_asset.as_str(),
+                    self.realized_amount_for_base_asset.unwrap_or_else(|| {
+                        panic!("No realized_amount_for_base_asset at {line_number:?}")
+                    }),
+                    self.realized_amount_for_base_asset_in_usd_value
+                        .unwrap_or_else(|| {
+                            panic!("No realized_amount_for_base_asset at {line_number:?}")
+                        }),
+                ),
+            }
+        };
+
+        result
+    }
+
+    fn get_asset(&self) -> &str {
+        let (asset, _, _) = self.get_asset_quantity_usd_value(None);
+
+        asset
     }
 
     fn get_value(&self) -> Decimal {
-        if self.primary_asset.is_empty() {
-            self.realized_amount_for_base_asset.expect("WTF")
-        } else {
-            self.realized_amount_for_primary_asset.expect("WTF")
-        }
+        let (_, quantity, _) = self.get_asset_quantity_usd_value(None);
+
+        quantity
     }
 
     fn get_value_usd(&self) -> Decimal {
-        if self.primary_asset.is_empty() {
-            self.realized_amount_for_base_asset_in_usd_value
-                .expect("WTF")
-        } else {
-            self.realized_amount_for_primary_asset_in_usd_value
-                .expect("WTF")
-        }
+        let (_, _, usd_value) = self.get_asset_quantity_usd_value(None);
+
+        usd_value
     }
 
     fn sum_quantity_and_value_usd(&self, dr: &DistRec) -> (Decimal, Decimal) {
@@ -316,12 +365,21 @@ impl AssetRecMap {
     }
 
     fn add_dr(&mut self, dr: DistRec, line_number: usize) {
-        // The asset is always either primary_asset or base_asset
         let asset = if !dr.primary_asset.is_empty() {
             assert!(dr.base_asset.is_empty());
             &dr.primary_asset
         } else if !dr.base_asset.is_empty() {
-            &dr.base_asset
+            match dr.category.as_str() {
+                "Quick Buy" | "Quick Sell" | "Spot Trading" => match dr.operation.as_str() {
+                    "Buy" => &dr.base_asset,
+                    "Sell" => &dr.quote_asset,
+                    _ => {
+                        panic!("Got {} category with operation {} is an unsupported, expected operation to be Buy or Sell at {line_number}",
+                                dr.category, dr.operation);
+                    }
+                },
+                _ => &dr.base_asset,
+            }
         } else {
             panic!("No primary_asset or base_asset at line {line_number}");
         };
@@ -745,10 +803,8 @@ fn process_entry(
 ) -> Result<(), Box<dyn std::error::Error>> {
     data.total_count += 1;
 
-    // The asset is always either primary_asset or base_asset
-    let asset = dr.get_asset();
-    let asset_value = dr.get_value();
-    let asset_value_usd = dr.get_value_usd();
+    // The get the asset is always either primary_asset or base_asset
+    let (asset, quantity, value_usd) = dr.get_asset_quantity_usd_value(Some(line_number));
 
     // Add missing AssetRecMap entries that might be needed
     // Adding them here means less surprises later and we can
@@ -782,7 +838,7 @@ fn process_entry(
             // will return an error, we can safely use unwrap().
             data.distribution_category_count += 1;
 
-            arm.add_quantity(asset, asset_value);
+            arm.add_quantity(asset, quantity);
             if !dr.fee_asset.is_empty() {
                 println!(
                     "Distribution fee: {} {:?}",
@@ -794,17 +850,17 @@ fn process_entry(
             match dr.operation.as_ref() {
                 "Referral Commission" => {
                     data.distribution_operation_referral_commission_count += 1;
-                    data.distribution_operation_referral_commission_value_usd += asset_value_usd;
+                    data.distribution_operation_referral_commission_value_usd += value_usd;
                 }
                 "Staking Rewards" => {
                     data.distribution_operation_staking_reward_count += 1;
-                    data.distribution_operation_staking_rewards_value_usd += asset_value_usd;
+                    data.distribution_operation_staking_rewards_value_usd += value_usd;
                 }
                 "Others" => {
                     data.distribution_operation_others_count += 1;
-                    data.distribution_operation_others_value_usd += asset_value_usd;
+                    data.distribution_operation_others_value_usd += value_usd;
                     data.others_rec_map
-                        .add_or_update(asset, asset_value, asset_value_usd);
+                        .add_or_update(asset, quantity, value_usd);
                 }
                 _ => {
                     data.distribution_operation_unknown_count += 1;
@@ -822,7 +878,7 @@ fn process_entry(
                     trade_asset(TradeType::Buy, dr, arm)?;
 
                     data.quick_buy_operation_buy_count += 1;
-                    data.quick_buy_base_asset_in_usd_value += asset_value_usd;
+                    data.quick_buy_base_asset_in_usd_value += value_usd;
                     data.quick_buy_operation_buy_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
@@ -833,7 +889,7 @@ fn process_entry(
                     trade_asset(TradeType::Sell, dr, arm)?;
 
                     data.quick_sell_operation_sell_count += 1;
-                    data.quick_sell_base_asset_in_usd_value += asset_value_usd;
+                    data.quick_sell_base_asset_in_usd_value += value_usd;
                     data.quick_sell_operation_sell_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
@@ -856,7 +912,7 @@ fn process_entry(
                     trade_asset(TradeType::Buy, dr, arm)?;
 
                     data.spot_trading_operation_buy_count += 1;
-                    data.spot_trading_operation_buy_base_asset_in_usd_value += asset_value_usd;
+                    data.spot_trading_operation_buy_base_asset_in_usd_value += value_usd;
                     data.spot_trading_operation_buy_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
@@ -867,7 +923,7 @@ fn process_entry(
                     trade_asset(TradeType::Sell, dr, arm)?;
 
                     data.spot_trading_operation_sell_count += 1;
-                    data.spot_trading_operation_sell_base_asset_in_usd_value += asset_value_usd;
+                    data.spot_trading_operation_sell_base_asset_in_usd_value += value_usd;
                     data.spot_trading_operation_sell_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
@@ -888,7 +944,7 @@ fn process_entry(
             data.withdrawal_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Withdrawal" => {
-                    arm.sub_quantity(asset, asset_value);
+                    arm.sub_quantity(asset, quantity);
                     if !dr.fee_asset.is_empty() {
                         //println!("Crypto Withdrawal fee: {} {} {:?}", dr.fee_asset, dec_to_money_string(dr.realized_amount_for_fee_asset_in_usd_value.unwrap()), dr.realized_amount_for_fee_asset);
                         arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
@@ -898,7 +954,7 @@ fn process_entry(
                     }
 
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
-                    data.withdrawal_operation_crypto_withdrawal_usd_value += asset_value_usd;
+                    data.withdrawal_operation_crypto_withdrawal_usd_value += value_usd;
                 }
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
@@ -914,7 +970,7 @@ fn process_entry(
             data.deposit_category_count += 1;
             match dr.operation.as_ref() {
                 "Crypto Deposit" => {
-                    arm.add_quantity(asset, asset_value);
+                    arm.add_quantity(asset, quantity);
                     if !dr.fee_asset.is_empty() {
                         println!(
                             "Crypto Deposit fee: {} {:?}",
@@ -930,10 +986,10 @@ fn process_entry(
 
                     //entry.value_usd += asset_value_usd;
                     data.deposit_operation_crypto_deposit_count += 1;
-                    data.deposit_operation_crypto_deposit_usd_value += asset_value_usd;
+                    data.deposit_operation_crypto_deposit_usd_value += value_usd;
                 }
                 "USD Deposit" => {
-                    arm.add_quantity(asset, asset_value);
+                    arm.add_quantity(asset, quantity);
                     if !dr.fee_asset.is_empty() {
                         // This is subtracted on the way in so this needs to be tracked in a separate
                         // "external_fees: BTreeMap<AssetRec>" collection. Especially if total_crypto_deposit_fee_count != 0.
@@ -947,7 +1003,7 @@ fn process_entry(
                     }
 
                     data.deposit_operation_usd_deposit_count += 1;
-                    data.deposit_operation_usd_deposit_usd_value += asset_value_usd;
+                    data.deposit_operation_usd_deposit_usd_value += value_usd;
                 }
                 _ => {
                     data.deposit_operation_unknown_count += 1;
