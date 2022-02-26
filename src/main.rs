@@ -19,6 +19,7 @@ mod binance_verify_order;
 mod binance_withdraw_cmd;
 mod common;
 mod configuration;
+mod date_time_utc;
 mod de_string_or_number;
 mod de_string_to_utc_time_ms;
 mod serde_header_map;
