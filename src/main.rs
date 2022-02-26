@@ -23,8 +23,8 @@ mod date_time_utc;
 mod de_string_or_number;
 mod de_string_to_utc_time_ms;
 mod serde_header_map;
-mod token_tax;
 mod token_tax_comment_vers;
+mod token_tax_processing;
 
 use clap::ArgMatches;
 use log::trace;
@@ -65,7 +65,7 @@ use crate::{
         dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
         InternalErrorRec, APP_VERSION,
     },
-    token_tax::process_token_tax_files,
+    token_tax_processing::{consolidate_token_tax_files, process_token_tax_files},
 };
 
 fn get_sym_qty_or_val(
@@ -443,6 +443,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "ttffbudf" => tt_file_from_binance_us_dist_files(&config, sc_matches).await?,
             "pttf" => process_token_tax_files(&config, sc_matches).await?,
+            "cttf" => consolidate_token_tax_files(&config, sc_matches).await?,
             _ => println!("Unknown subcommand: {}", sc_name),
         }
     }

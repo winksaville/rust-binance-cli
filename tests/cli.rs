@@ -67,7 +67,8 @@ fn test_params_as_env_vars() -> Result<(), Box<dyn Error>> {
 fn test_params_failure() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
     cmd.arg("check-params");
-    //cmd.arg("--secret-key=secret-key");
+    cmd.arg("--secret-key="); // Previously the default for keys was that they were None.
+                              // Now we'll force it to be empty and check the error.
     cmd.arg("--api-key").arg("api key");
 
     //let p = cmd.output();

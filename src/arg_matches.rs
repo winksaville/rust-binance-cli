@@ -624,6 +624,30 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
+            App::new("cttf")
+                .display_order(9)
+                .about("consolidate Token Tax files")
+                .arg(
+                    Arg::new("IN_FILES")
+                        .global(false)
+                        .required(true)
+                        .long("files")
+                        .short('f')
+                        .multiple_values(true)
+                        .help("List of input files")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("OUT_FILE")
+                        .global(false)
+                        .required(false)
+                        .long("out-file")
+                        .short('o')
+                        .help("The optional output file")
+                        .takes_value(true),
+                )
+        )
+        .subcommand(
             App::new("version")
                 .display_order(12)
                 .about("Display version"),

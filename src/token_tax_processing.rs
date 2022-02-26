@@ -2,34 +2,39 @@ use crate::{
     binance_trade::convert,
     common::{
         create_buf_reader, create_buf_writer, dec_to_money_string, dec_to_separated_string,
-        utc_now_to_time_ms, verify_input_files_exist,
+        time_ms_to_utc, time_ms_to_utc_string, utc_now_to_time_ms, verify_input_files_exist,
     },
     configuration::Configuration,
+    date_time_utc::DateTimeUtc,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
 use clap::ArgMatches;
-use rust_decimal::Decimal;
+use log::trace;
+use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, PartialOrd, Ord)]
 #[serde(rename_all = "PascalCase")]
 pub enum TypeTxs {
-    Unknown,
+    Income, // Income must sort as "smallest"
     Trade,
     Deposit,
     Withdrawal,
-    Income,
     Spend,
     Lost,
     Stolen,
     Mining,
     Gift,
+    Unknown,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, Ord, PartialEq, PartialOrd)]
 pub enum GroupType {
     #[serde(rename = "margin")]
     Margin,
@@ -118,47 +123,132 @@ impl TokenTaxRec {
             TypeTxs::Gift => &self.buy_currency,
         }
     }
-
-    //fn get_other_value(&self) -> Decimal {
-    //    match self.type_txs {
-    //        TypeTxs::Unknown => panic!("WTF"),
-    //        TypeTxs::Trade => self.sell_amount.expect("WTF"),
-    //        TypeTxs::Deposit => self.sell_amount.expect("WTF"),
-    //        TypeTxs::Withdrawal => self.buy_amount.expect("WTF"),
-    //        TypeTxs::Income => self.sell_amount.expect("WTF"),
-    //        TypeTxs::Spend => self.buy_amount.expect("WTF"),
-    //        TypeTxs::Lost => self.buy_amount.expect("WTF"),
-    //        TypeTxs::Stolen => self.buy_amount.expect("WTF"),
-    //        TypeTxs::Mining => self.sell_amount.expect("WTF"),
-    //        TypeTxs::Gift => self.buy_amount.expect("WTF"),
-    //    }
-    //}
-
-    //fn sum_amount(&self, ttr: &TokenTaxRec) -> Decimal {
-    //    self.get_value() + ttr.get_value()
-    //}
-
-    //fn consolidate(&mut self, dr: &DistRec) {
-    //    //let cdr = self.consolidated_dist_rec_vec.last().expect("WTF");
-    //    let (quantity, value_usd) = self.sum_quantity_and_value_usd(dr);
-
-    //    //let cdr = self.consolidated_dist_rec_vec.last_mut().expect("WTF");
-    //    self.realized_amount_for_primary_asset = Some(quantity);
-    //    self.realized_amount_for_primary_asset_in_usd_value = Some(value_usd);
-    //    //cdr.time = dr.time; // Last entry will be used as the time for the consolidated record, otherwise first entry is used
-    //    self.order_id = dr.order_id.clone();
-    //    self.transaction_id = dr.transaction_id;
-    //}
 }
 
-#[derive(Debug)]
+impl Display for TokenTaxRec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "time: {} type_txs: {:?} buy_amount: {:?} buy_currency {} sell_amount: {:?} sell_currency: {} fee_amount: {:?} fee_currency: {} exchange: {} group: {:?} comment: {}",
+            time_ms_to_utc_string(self.time),
+            self.type_txs,
+            self.buy_amount,
+            self.buy_currency,
+            self.sell_amount,
+            self.sell_currency,
+            self.fee_amount,
+            self.fee_currency,
+            self.exchange,
+            self.group,
+            self.comment,
+        )
+    }
+}
+
+// TODO: Add tests for Eq Ord PartialEq PartialOrd
+impl Eq for TokenTaxRec {}
+
+// Manually imiplement PartialEq so time is sorted first
+impl PartialEq for TokenTaxRec {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_txs == other.type_txs
+            && self.time == other.time
+            && self.buy_amount == other.buy_amount
+            && self.buy_currency == other.buy_currency
+            && self.sell_amount == other.sell_amount
+            && self.sell_currency == other.sell_currency
+            && self.fee_amount == other.fee_amount
+            && self.fee_currency == other.fee_currency
+            && self.exchange == other.exchange
+            && self.group == other.group
+            && self.comment == other.comment
+    }
+}
+
+impl PartialOrd for TokenTaxRec {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.time.partial_cmp(&other.time) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.type_txs.partial_cmp(&other.type_txs) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.buy_amount.partial_cmp(&other.buy_amount) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.buy_currency.partial_cmp(&other.buy_currency) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.sell_amount.partial_cmp(&other.sell_amount) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.sell_currency.partial_cmp(&other.sell_currency) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.fee_amount.partial_cmp(&other.fee_amount) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.fee_currency.partial_cmp(&other.fee_currency) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.exchange.partial_cmp(&other.exchange) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.group.partial_cmp(&other.group) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        self.comment.partial_cmp(&other.comment)
+    }
+}
+
+impl Ord for TokenTaxRec {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.partial_cmp(other) {
+            Some(ord) => ord,
+            None => panic!("WTF"),
+        }
+    }
+}
+
+#[allow(unused)]
+fn ttr_cmp_income_time(lhs: &TokenTaxRec, rhs: &TokenTaxRec) -> std::cmp::Ordering {
+    #[inline(always)]
+    fn done(ord: Option<std::cmp::Ordering>) -> std::cmp::Ordering {
+        //println!("PartialOrd::partial_cmp:- {ord:?}");
+        match ord {
+            Some(o) => o,
+            None => panic!("WTF"),
+        }
+    }
+
+    //println!("PartialOrd::partial_cmp:+\n lhs: {lhs:?}\n rhs: {rhs:?}");
+
+    // We assume Income sorts as "smallest"
+    match lhs.type_txs.partial_cmp(&rhs.type_txs) {
+        Some(core::cmp::Ordering::Equal) => {}
+        ord => return done(ord),
+    }
+    done(lhs.time.partial_cmp(&rhs.time))
+}
+
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct AssetRec {
     asset: String,
     quantity: Decimal,
     value_usd: Decimal,
     transaction_count: u64,
     ttr_vec: Vec<TokenTaxRec>,
-    //consolidated_dist_rec_vec: Vec<DistRec>,
+    consolidated_ttr_vec: Vec<TokenTaxRec>,
 }
 
 #[allow(unused)]
@@ -170,8 +260,106 @@ impl AssetRec {
             value_usd: dec!(0),
             transaction_count: 0,
             ttr_vec: Vec::new(),
-            //consolidated_ttr_vec: Vec::new(),
+            consolidated_ttr_vec: Vec::new(),
         }
+    }
+
+    fn consolidate(
+        &self,
+        ttr: &TokenTaxRec,
+        start_period: &DateTimeUtc,
+        quantity: Decimal,
+    ) -> TokenTaxRec {
+        let mut ttr = ttr.clone();
+        ttr.time = start_period.time_ms();
+        ttr.buy_amount = Some(quantity);
+
+        ttr
+    }
+
+    fn push_to_consolidated_ttr_vec(&mut self, ttr: &TokenTaxRec) {
+        self.consolidated_ttr_vec.push(ttr.clone());
+    }
+
+    fn consolidate_push_to_consolidated_ttr_vec(
+        &mut self,
+        ttr: &TokenTaxRec,
+        start_period: &DateTimeUtc,
+        quantity: Decimal,
+    ) {
+        let cttr = self.consolidate(ttr, start_period, quantity);
+        trace!("End Period       Q {quantity} push {cttr}");
+        self.push_to_consolidated_ttr_vec(&cttr);
+    }
+
+    fn consolidate_income(
+        &mut self,
+        config: &Configuration,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        trace!("consolidate_income:+");
+
+        self.ttr_vec.sort();
+
+        if let Some(first_ttr) = self.ttr_vec.get(0) {
+            let first_dt = DateTimeUtc::from_utc_time_ms(first_ttr.time);
+            let mut start_period = first_dt.beginning_of_this_month();
+            let mut end_period = start_period.beginning_of_next_month();
+            let mut end_period_ms = end_period.signed_duration_since_in_secs(&start_period) * 1_000;
+            let mut consolidated_quantity = dec!(0);
+            let mut cur_ttr = first_ttr.clone();
+            trace!("first_dt: {first_dt} start_period: {start_period} end_period: {end_period} cur_ttr: {cur_ttr}");
+
+            for (idx, ttr) in self.ttr_vec.iter().enumerate() {
+                trace!("TOL           ttr: {ttr}  *** end_period: {end_period}");
+                if ttr.time >= end_period_ms {
+                    // This can never happen the first time through the loop
+                    // because the first_dt was used to initialize start_period and end_period
+                    assert!(idx != 0);
+
+                    if consolidated_quantity > dec!(0) {
+                        // Push consolidate and record
+                        let cttr = self.consolidate(&cur_ttr, &start_period, consolidated_quantity);
+                        trace!("End Period       Q {consolidated_quantity} push {cttr}");
+                        self.consolidated_ttr_vec.push(cttr);
+                        // The following causes E0502 see: https://github.com/winksaville/expr-cannot-borrow-mutable-e0502
+                        //self.consolidate_push(&cur_ttr, &start_period, quantity);
+                    }
+
+                    start_period =
+                        DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_month();
+                    end_period = start_period.beginning_of_next_month();
+                    end_period_ms = end_period.time_ms();
+                    consolidated_quantity = dec!(0);
+                    trace!(
+                        "New  period      Q {consolidated_quantity} start_period:  {start_period} end_period: {end_period}"
+                    );
+                }
+
+                if ttr.type_txs == TypeTxs::Income {
+                    if cur_ttr.type_txs != TypeTxs::Income {
+                        cur_ttr = ttr.clone();
+                        consolidated_quantity = dec!(0);
+                        trace!("First Income     Q {consolidated_quantity}");
+                    }
+                    consolidated_quantity += ttr.buy_amount.unwrap();
+                    trace!("Income           Q {consolidated_quantity}");
+                } else {
+                    trace!("Not Income");
+                    self.consolidated_ttr_vec.push(ttr.clone());
+                    //self.push_to_consolidated_ttr_vec(&ttr); // Causes E0502 compile error :(
+                }
+            }
+            if (consolidated_quantity > dec!(0)) {
+                self.consolidate_push_to_consolidated_ttr_vec(
+                    &cur_ttr,
+                    &start_period,
+                    consolidated_quantity,
+                );
+            }
+        }
+
+        trace!("consolidate_income:-");
+        Ok(())
     }
 }
 
@@ -196,7 +384,9 @@ impl AssetRecMap {
             .bt
             .entry(asset.to_owned())
             .or_insert_with(|| AssetRec::new(asset));
-        entry.ttr_vec.push(ttr);
+
+        entry.ttr_vec.push(ttr.clone());
+        //println!("AssetRecMap.push_rec: asset: {asset} ttr_vec.len: {} ttr: {ttr:?}", entry.ttr_vec.len());
     }
 
     fn _add_or_update(&mut self, asset: &str, quantity: Decimal, value_usd: Decimal) {
@@ -227,9 +417,8 @@ impl AssetRecMap {
 #[derive(Debug)]
 struct TokenTaxData {
     ttr_vec: Vec<TokenTaxRec>,
-    //consolidated_ttr_vec: Vec<TokenTaxRec>,
+    consolidated_ttr_vec: Vec<TokenTaxRec>,
     asset_rec_map: AssetRecMap,
-    //others_rec_map: AssetRecMap,
     total_count: u64,
     type_txs_unknown_count: u64,
     type_txs_trade_count: u64,
@@ -241,55 +430,14 @@ struct TokenTaxData {
     type_txs_stolen_count: u64,
     type_txs_mining_count: u64,
     type_txs_gift_count: u64,
-    //distribution_operation_referral_commission_value_usd: Decimal,
-    //distribution_operation_staking_rewards_value_usd: Decimal,
-    //distribution_operation_others_value_usd: Decimal,
-    //distribution_category_count: u64,
-    //distribution_operation_referral_commission_count: u64,
-    //distribution_operation_staking_reward_count: u64,
-    //distribution_operation_others_count: u64,
-    //distribution_operation_unknown_count: u64,
-    //quick_category_count: u64,
-    //quick_buy_operation_buy_count: u64,
-    //quick_buy_base_asset_in_usd_value: Decimal,
-    //quick_buy_operation_buy_fee_in_usd_value: Decimal,
-    //quick_sell_operation_sell_count: u64,
-    //quick_sell_base_asset_in_usd_value: Decimal,
-    //quick_sell_operation_sell_fee_in_usd_value: Decimal,
-    //quick_operation_unknown_count: u64,
-    //spot_trading_category_count: u64,
-    //spot_trading_operation_unknown_count: u64,
-    //spot_trading_operation_buy_count: u64,
-    //spot_trading_operation_buy_base_asset_in_usd_value: Decimal,
-    //spot_trading_operation_buy_fee_in_usd_value: Decimal,
-    //spot_trading_operation_sell_count: u64,
-    //spot_trading_operation_sell_base_asset_in_usd_value: Decimal,
-    //spot_trading_operation_sell_fee_in_usd_value: Decimal,
-    //withdrawal_category_count: u64,
-    //withdrawal_operation_crypto_withdrawal_count: u64,
-    //withdrawal_operation_crypto_withdrawal_usd_value: Decimal,
-    //withdrawal_operation_crypto_withdrawal_fee_count: u64,
-    //withdrawal_operation_crypto_withdrawal_fee_in_usd_value: Decimal,
-    //withdrawal_operation_unknown_count: u64,
-    //deposit_category_count: u64,
-    //deposit_operation_crypto_deposit_count: u64,
-    //deposit_operation_crypto_deposit_usd_value: Decimal,
-    //deposit_operation_crypto_deposit_fee_count: u64,
-    //deposit_operation_usd_deposit_count: u64,
-    //deposit_operation_usd_deposit_usd_value: Decimal,
-    //deposit_operaiton_usd_deposit_fee_count: u64,
-    //deposit_operation_usd_deposit_fee_usd_value: Decimal,
-    //deposit_operation_unknown_count: u64,
-    //unprocessed_category_count: u64,
 }
 
 impl TokenTaxData {
     fn new() -> TokenTaxData {
         TokenTaxData {
             ttr_vec: Vec::new(),
-            //consolidated_dist_rec_vec: Vec::new(),
+            consolidated_ttr_vec: Vec::new(),
             asset_rec_map: AssetRecMap::new(),
-            //others_rec_map: AssetRecMap::new(),
             total_count: 0u64,
             type_txs_unknown_count: 0u64,
             type_txs_trade_count: 0u64,
@@ -301,46 +449,6 @@ impl TokenTaxData {
             type_txs_stolen_count: 0u64,
             type_txs_mining_count: 0u64,
             type_txs_gift_count: 0u64,
-            //distribution_operation_referral_commission_value_usd: dec!(0),
-            //distribution_operation_staking_rewards_value_usd: dec!(0),
-            //distribution_operation_others_value_usd: dec!(0),
-            //distribution_category_count: 0u64,
-            //distribution_operation_referral_commission_count: 0u64,
-            //distribution_operation_staking_reward_count: 0u64,
-            //distribution_operation_others_count: 0u64,
-            //distribution_operation_unknown_count: 0u64,
-            //quick_category_count: 0u64,
-            //quick_buy_operation_buy_count: 0u64,
-            //quick_buy_base_asset_in_usd_value: dec!(0),
-            //quick_buy_operation_buy_fee_in_usd_value: dec!(0),
-            //quick_sell_operation_sell_count: 0u64,
-            //quick_sell_base_asset_in_usd_value: dec!(0),
-            //quick_sell_operation_sell_fee_in_usd_value: dec!(0),
-            //quick_operation_unknown_count: 0u64,
-            //spot_trading_category_count: 0u64,
-            //spot_trading_operation_unknown_count: 0u64,
-            //spot_trading_operation_buy_count: 0u64,
-            //spot_trading_operation_buy_base_asset_in_usd_value: dec!(0),
-            //spot_trading_operation_buy_fee_in_usd_value: dec!(0),
-            //spot_trading_operation_sell_count: 0u64,
-            //spot_trading_operation_sell_base_asset_in_usd_value: dec!(0),
-            //spot_trading_operation_sell_fee_in_usd_value: dec!(0),
-            //withdrawal_category_count: 0u64,
-            //withdrawal_operation_crypto_withdrawal_count: 0u64,
-            //withdrawal_operation_crypto_withdrawal_usd_value: dec!(0),
-            //withdrawal_operation_crypto_withdrawal_fee_count: 0u64,
-            //withdrawal_operation_crypto_withdrawal_fee_in_usd_value: dec!(0),
-            //withdrawal_operation_unknown_count: 0u64,
-            //deposit_category_count: 0u64,
-            //deposit_operation_crypto_deposit_count: 0u64,
-            //deposit_operation_crypto_deposit_usd_value: dec!(0),
-            //deposit_operation_crypto_deposit_fee_count: 0u64,
-            //deposit_operation_usd_deposit_count: 0u64,
-            //deposit_operation_usd_deposit_usd_value: dec!(0),
-            //deposit_operaiton_usd_deposit_fee_count: 0u64,
-            //deposit_operation_usd_deposit_fee_usd_value: dec!(0),
-            //deposit_operation_unknown_count: 0u64,
-            //unprocessed_category_count: 0u64,
         }
     }
 }
@@ -521,11 +629,11 @@ pub async fn process_token_tax_files(
 
             if config.verbose {
                 let asset = ttr.get_asset();
-                print!("Processing {line_number} {asset}                        \r",);
+                //print!("Processing {line_number} {asset}                        \r",);
 
                 // Using eprint is slower, 30secs vs 90secs, but nicer as this output doesn't
                 // show up in stdout thus making command line redirection to file nicer.
-                //eprint!("Processing {line_number} {asset}                        \r",);
+                eprint!("Processing {line_number} {asset}                        \r",);
             }
 
             process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
@@ -541,23 +649,45 @@ pub async fn process_token_tax_files(
 
     if config.verbose {
         let mut total_value_usd = dec!(0);
+        let mut total_quantity = dec!(0);
+
+        let ten_minutes_ago = utc_now_to_time_ms() - (10 * 60 * 1000);
+        let convert_time = if let Some(last_rec) = data.ttr_vec.last() {
+            // The beginning of the next_day
+            let last_time = DateTimeUtc::from_utc_time_ms(last_rec.time);
+            let next_day = last_time.beginning_of_this_day();
+            let time_ms = next_day.time_ms();
+            //let min_next_day_and_time_ms = time_ms.min(ten_minutes_ago);
+            //println!("last_time: {last_time} next_day: {next_day} time_ms: {time_ms} min: {min_next_day_and_time_ms}");
+            //min_next_day_and_time_ms
+
+            time_ms.min(ten_minutes_ago)
+        } else {
+            ten_minutes_ago
+        };
 
         let col_1_width = 10;
         let col_2_width = 20;
         let col_3_width = 10;
         let col_4_width = 14;
         println!(
-            "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
-            "Asset", "Quantity", "Txs count", "USD value today",
+            "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}{}",
+            "Asset",
+            "Quantity",
+            "Txs count",
+            "USD value as of ",
+            time_ms_to_utc(convert_time)
         );
 
         #[allow(clippy::for_kv_map)]
         for (_, ar) in &mut asset_rec_map.bt {
+            //println!("TOL {ar:?}");
             let value_usd_string = if let Ok(value_usd) =
-                convert(config, utc_now_to_time_ms(), &ar.asset, ar.quantity, "USD").await
+                convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
             {
                 ar.value_usd = value_usd;
                 total_value_usd += ar.value_usd;
+                total_quantity += ar.quantity;
 
                 dec_to_money_string(ar.value_usd)
             } else {
@@ -575,7 +705,8 @@ pub async fn process_token_tax_files(
 
         println!();
         println!(
-            "Total account value: {}",
+            "Total quantity: {} account value: {}",
+            dec_to_separated_string(total_quantity, 8),
             dec_to_money_string(total_value_usd)
         );
     }
@@ -585,6 +716,126 @@ pub async fn process_token_tax_files(
         dec_to_separated_string(Decimal::from(data.total_count), 0)
     );
 
+    Ok(())
+}
+
+pub async fn consolidate_token_tax_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!("consolidate_token_tax_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let mut data = TokenTaxData::new();
+    //let mut asset_rec_map = AssetRecMap::new();
+
+    let in_tt_file_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+
+    // Clippy suggests:
+    //    let out_tt_file_path = sc_matches.value_of("OUT_FILE").map(|r| r);
+    // I feel that is "obtuse", so for me I'm using this more obvious style
+    #[allow(clippy::manual_map)]
+    let out_tt_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
+        Some(r)
+    } else {
+        None
+    };
+
+    trace!("in_tt_file_path: {in_tt_file_paths:?}");
+    trace!("out_tt_file_path: {out_tt_file_path:?}");
+
+    // Verify all input files exist
+    verify_input_files_exist(&in_tt_file_paths)?;
+
+    // Create csv::Writer if out_file_path exists
+    let mut csv_ttr_writer = if let Some(out_file_path) = out_tt_file_path {
+        let writer = create_buf_writer(out_file_path)?;
+        Some(csv::Writer::from_writer(writer))
+    } else {
+        None
+    };
+
+    for f in in_tt_file_paths {
+        trace!("top loop: f: {f}");
+        let reader = create_buf_reader(f)?;
+
+        // Create reader
+        let mut rdr = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in rdr.deserialize().enumerate() {
+            let line_number = rec_index + 2;
+            let ttr: TokenTaxRec = result?;
+
+            //println!("{line_number}: {ttr}");
+
+            if config.verbose {
+                let asset = ttr.get_asset();
+                print!("Processing {line_number} {asset}                        \r",);
+
+                // Using eprint is slower, 30secs vs 90secs, but nicer as this output doesn't
+                // show up in stdout thus making command line redirection to file nicer.
+                //eprint!("Processing {line_number} {asset}                        \r",);
+            }
+
+            // process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
+
+            data.ttr_vec.push(ttr.clone());
+            data.asset_rec_map.push_rec(ttr.clone());
+        }
+    }
+
+    let col_1 = 7;
+    let col_2 = 15;
+    let col_3 = 15;
+
+    let mut total_pre_len = 0usize;
+    let mut total_post_len = 0usize;
+    println!("Consolidate");
+    println!(
+        "{:<col_1$} {:>col_2$} {:>col_3$}",
+        "Asset", "pre count", "post count"
+    );
+
+    for (asset, ar) in &mut data.asset_rec_map.bt {
+        //trace!("consolidating: {asset}");
+        let pre_len = ar.ttr_vec.len();
+        total_pre_len += pre_len;
+
+        ar.consolidate_income(config)?;
+
+        let post_len = ar.consolidated_ttr_vec.len();
+        total_post_len += post_len;
+
+        // Append the ar.consolidated_ttr_vec to end of data.consolidated_ttr_vec
+        for x in &ar.consolidated_ttr_vec {
+            data.consolidated_ttr_vec.push(x.clone());
+        }
+
+        println!(
+            "{:<col_1$} {:>col_2$} {:>col_3$}",
+            asset,
+            dec_to_separated_string(Decimal::from_f64(pre_len as f64).unwrap(), 0),
+            dec_to_separated_string(Decimal::from_f64(post_len as f64).unwrap(), 0),
+        );
+    }
+    println!("Consolidated from {} to {}", total_pre_len, total_post_len);
+
+    data.consolidated_ttr_vec.sort();
+    //println!("consolidate_tt_files:");
+    //for ttr in &data.consolidated_ttr_vec {
+    //    println!("{ttr}");
+    //}
+
+    if let Some(w) = &mut csv_ttr_writer {
+        println!("Writing consolidated data to {}", out_tt_file_path.unwrap());
+        for ttr in &data.consolidated_ttr_vec {
+            w.serialize(&ttr)?;
+        }
+    }
+
+    println!("Done");
     Ok(())
 }
 

@@ -249,10 +249,17 @@ fn default_confirmation_required() -> bool {
     true
 }
 
+fn default_keys() -> Keys {
+    Keys {
+        secret_key: Some("secret-key".to_owned()),
+        api_key: Some("api-key".to_owned()),
+    }
+}
+
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
-            keys: Keys::default(),
+            keys: default_keys(),
             order_log_path: None,
             default_quote_asset: default_quote_asset(),
             test: default_test(),
@@ -401,8 +408,8 @@ mod test {
     fn test_config_default() {
         let config = Configuration::default();
         // println!("{:#?}", config);
-        assert_eq!(config.keys.api_key, None);
-        assert_eq!(config.keys.secret_key, None);
+        assert_eq!(config.keys.api_key, Some("api-key".to_owned()));
+        assert_eq!(config.keys.secret_key, Some("secret-key".to_owned()));
         assert!(config.order_log_path.is_none());
         assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(config.scheme, "https");

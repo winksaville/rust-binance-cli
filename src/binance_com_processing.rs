@@ -17,8 +17,8 @@ use crate::{
     },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
-    token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER2},
+    token_tax_processing::{TokenTaxRec, TypeTxs},
 };
 use clap::ArgMatches;
 use rust_decimal::prelude::*;
@@ -1027,7 +1027,7 @@ fn write_tr_vec(
 mod test {
 
     use super::*;
-    use crate::token_tax::{TokenTaxRec, TypeTxs};
+    use crate::token_tax_processing::{TokenTaxRec, TypeTxs};
     use rust_decimal_macros::dec;
 
     #[test]
