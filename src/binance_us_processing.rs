@@ -110,17 +110,19 @@ struct DistRec {
 impl DistRec {
     // Return a tuple of (asset, quantity and usd_value)
     fn get_asset_quantity_usd_value(&self, line_number: Option<usize>) -> (&str, Decimal, Decimal) {
+        let ln_str = if let Some(ln) = line_number {
+            format!("{ln}")
+        } else {
+            "?".to_string()
+        };
         let result = if !self.primary_asset.is_empty() {
             assert!(self.base_asset.is_empty());
             (
                 self.primary_asset.as_str(),
-                self.realized_amount_for_primary_asset.unwrap_or_else(|| {
-                    panic!("No realized_amount_for_primary_asset at {line_number:?}")
-                }),
+                self.realized_amount_for_primary_asset
+                    .unwrap_or_else(|| panic!("No realized_amount_for_primary_asset at {ln_str}")),
                 self.realized_amount_for_primary_asset_in_usd_value
-                    .unwrap_or_else(|| {
-                        panic!("No realized_amount_for_primary_asset at {line_number:?}")
-                    }),
+                    .unwrap_or_else(|| panic!("No realized_amount_for_primary_asset at {ln_str}")),
             )
         } else {
             match self.category.as_str() {
@@ -128,21 +130,21 @@ impl DistRec {
                     "Buy" => (
                         self.base_asset.as_str(),
                         self.realized_amount_for_base_asset.unwrap_or_else(|| {
-                            panic!("No realized_amount_for_base_asset at {line_number:?}")
+                            panic!("No realized_amount_for_base_asset at {ln_str}")
                         }),
                         self.realized_amount_for_base_asset_in_usd_value
                             .unwrap_or_else(|| {
-                                panic!("No realized_amount_for_base_asset at {line_number:?}")
+                                panic!("No realized_amount_for_base_asset at {ln_str}")
                             }),
                     ),
                     "Sell" => (
                         self.quote_asset.as_str(),
                         self.realized_amount_for_quote_asset.unwrap_or_else(|| {
-                            panic!("No realized_amount_for_primary_asset at {line_number:?}")
+                            panic!("No realized_amount_for_primary_asset at {ln_str}")
                         }),
                         self.realized_amount_for_quote_asset_in_usd_value
                             .unwrap_or_else(|| {
-                                panic!("No realized_amount_for_primary_asset at {line_number:?}")
+                                panic!("No realized_amount_for_primary_asset at {ln_str}")
                             }),
                     ),
                     _ => {
@@ -152,18 +154,21 @@ impl DistRec {
                 },
                 _ => (
                     self.base_asset.as_str(),
-                    self.realized_amount_for_base_asset.unwrap_or_else(|| {
-                        panic!("No realized_amount_for_base_asset at {line_number:?}")
-                    }),
+                    self.realized_amount_for_base_asset
+                        .unwrap_or_else(|| panic!("No realized_amount_for_base_asset at {ln_str}")),
                     self.realized_amount_for_base_asset_in_usd_value
-                        .unwrap_or_else(|| {
-                            panic!("No realized_amount_for_base_asset at {line_number:?}")
-                        }),
+                        .unwrap_or_else(|| panic!("No realized_amount_for_base_asset at {ln_str}")),
                 ),
             }
         };
 
         result
+    }
+
+    fn get_asset_with_line_number(&self, line_number: Option<usize>) -> &str {
+        let (asset, _, _) = self.get_asset_quantity_usd_value(line_number);
+
+        asset
     }
 
     fn get_asset(&self) -> &str {
@@ -1078,7 +1083,9 @@ pub async fn process_binance_us_dist_files(
         None
     };
 
+    print!("Read files");
     for f in in_dist_file_paths {
+        println!("\nfile: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create reader
@@ -1089,7 +1096,7 @@ pub async fn process_binance_us_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = dr.get_asset();
+                let asset = dr.get_asset_with_line_number(Some(line_number));
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
@@ -1496,7 +1503,7 @@ pub async fn consolidate_binance_us_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = dr.get_asset();
+                let asset = dr.get_asset_with_line_number(Some(line_number));
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
@@ -1588,8 +1595,9 @@ pub async fn tt_file_from_binance_us_dist_files(
 
     let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
-    println!("Read files");
+    print!("Read files");
     for f in &in_dist_paths {
+        println!("\nfile: {f}");
         let in_file = if let Ok(in_f) = File::open(*f) {
             in_f
         } else {
@@ -1606,7 +1614,7 @@ pub async fn tt_file_from_binance_us_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = dr.get_asset();
+                let asset = dr.get_asset_with_line_number(Some(line_number));
                 print!("Processing {line_number} {asset}                        \r",);
             }
 

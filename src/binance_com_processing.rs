@@ -784,7 +784,9 @@ pub async fn process_binance_com_trade_history_files(
 
     let mut data = BcData::new();
 
+    print!("Read files");
     for f in in_th_file_paths {
+        println!("\nfile: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create csv reader
@@ -906,8 +908,9 @@ pub async fn consolidate_binance_com_trade_history_files(
     //let f = File::create(out_token_tax_path)?;
     //let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
-    println!("Read files");
+    print!("Read files");
     for f in in_th_paths {
+        println!("\nfile: {f}");
         let reader = create_buf_reader(f)?;
 
         // DataRec reader

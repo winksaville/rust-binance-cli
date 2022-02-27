@@ -617,7 +617,9 @@ pub async fn process_token_tax_files(
         None
     };
 
+    print!("Read files");
     for f in in_tt_file_paths {
+        println!("\nfile: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create reader
@@ -757,7 +759,9 @@ pub async fn consolidate_token_tax_files(
         None
     };
 
+    print!("Read files");
     for f in in_tt_file_paths {
+        println!("\nfile: {f}");
         trace!("top loop: f: {f}");
         let reader = create_buf_reader(f)?;
 
