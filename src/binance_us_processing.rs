@@ -45,11 +45,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
-    binance_klines::get_kline_of_primary_asset_for_value_asset,
+    binance_trade::convert,
     common::{
         create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_money_string,
         dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms, verify_input_files_exist,
-        VALUE_ASSETS,
     },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
@@ -165,10 +164,25 @@ impl DistRec {
         result
     }
 
-    fn get_asset_with_line_number(&self, line_number: Option<usize>) -> &str {
-        let (asset, _, _) = self.get_asset_quantity_usd_value(line_number);
+    fn get_asset_only(&self, line_number: usize) -> &str {
+        let result = if !self.primary_asset.is_empty() {
+            assert!(self.base_asset.is_empty());
+            self.primary_asset.as_str()
+        } else {
+            match self.category.as_str() {
+                "Quick Buy" | "Quick Sell" | "Spot Trading" => match self.operation.as_str() {
+                    "Buy" => self.base_asset.as_str(),
+                    "Sell" => self.quote_asset.as_str(),
+                    _ => {
+                        panic!("Unsupported {} category with operation {}, expected operation to be Buy or Sell at line_number {line_number}",
+                                self.category, self.operation);
+                    }
+                },
+                _ => self.base_asset.as_str(),
+            }
+        };
 
-        asset
+        result
     }
 
     fn get_asset(&self) -> &str {
@@ -623,19 +637,19 @@ async fn get_asset_in_usd_value_update_if_none(
     line_number: usize,
     time: i64,
     asset: &str,
-    asset_value: Option<Decimal>,
+    quantity: Option<Decimal>,
     usd_value: &mut Option<Decimal>,
     verbose: bool,
 ) -> Result<Decimal, Box<dyn std::error::Error>> {
     if asset == "USD" {
-        *usd_value = asset_value;
-        let v = asset_value.unwrap();
+        *usd_value = quantity;
+        let v = quantity.unwrap();
         return Ok(v);
     }
 
     // Error if there is no asset_value
     let leading_nl = if config.verbose { "\n" } else { "" };
-    let asset_value = if let Some(value) = asset_value {
+    let quantity = if let Some(value) = quantity {
         value
     } else {
         return Err(format!(
@@ -654,34 +668,23 @@ async fn get_asset_in_usd_value_update_if_none(
             v
         }
         None => {
-            let (sym_name, kr) = match get_kline_of_primary_asset_for_value_asset(
-                config,
-                time,
-                asset,
-                &VALUE_ASSETS,
-            )
-            .await
-            {
-                Some(r) => r,
-                None => {
+            let value_usd = match convert(config, time, asset, quantity, "USD").await {
+                Ok(r) => r,
+                Err(_) => {
                     return Err(
-                        format!("{leading_nl}Unable to convert {asset} to {VALUE_ASSETS:?} at line_number: {line_number} time: {time_utc}").into()
+                        format!("{leading_nl}Unable to convert {asset} to USD at line_number: {line_number} time: {time_utc}").into()
                     );
                 }
             };
 
-            // Calculate the value in usd using the closing price of the kline, other
-            // options could be avg of kr open, close, high and low ...
-            let value = kr.close * asset_value;
-
             // Update the passed in value
-            *usd_value = Some(value);
+            *usd_value = Some(value_usd);
 
             if verbose {
-                println!("{leading_nl}Updating {sym_name} value to {value} for line_number: {line_number} time: {time_utc}");
+                println!("{leading_nl}Updating {asset} value to ${value_usd} for line_number: {line_number} time: {time_utc}");
             }
 
-            value
+            value_usd
         }
     };
 
@@ -1096,7 +1099,7 @@ pub async fn process_binance_us_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = dr.get_asset_with_line_number(Some(line_number));
+                let asset = dr.get_asset_only(line_number);
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
@@ -1107,19 +1110,29 @@ pub async fn process_binance_us_dist_files(
                 }
             }
 
-            if let Some(w) = &mut wdr {
-                w.serialize(&dr)?;
-            }
+            data.dist_rec_vec.push(dr);
         }
     }
+    println!();
+
+    println!("Sorting");
+    data.dist_rec_vec.sort();
+    println!("Sorting done");
+
+    println!("dist_rec_vec: len: {}", data.dist_rec_vec.len());
+
+    if let Some(w) = &mut wdr {
+        println!("Writing");
+        for dr in data.dist_rec_vec {
+            w.serialize(&dr)?;
+        }
+        println!("Writing done");
+    }
+    println!();
 
     match process_type {
-        ProcessType::Update => println!("\nDone"),
+        ProcessType::Update => println!("Done"),
         ProcessType::Process => {
-            if config.verbose {
-                println!("\n");
-            }
-
             if config.verbose {
                 let mut total_value_usd = dec!(0);
 
@@ -1134,20 +1147,12 @@ pub async fn process_binance_us_dist_files(
 
                 #[allow(clippy::for_kv_map)]
                 for (_, ar) in &mut asset_rec_map.bt {
-                    let mut _usd_value: Option<Decimal> = None;
-                    ar.value_usd = match get_asset_in_usd_value_update_if_none(
-                        config,
-                        0,
-                        utc_now_to_time_ms(),
-                        &ar.asset.clone(),
-                        Some(ar.quantity),
-                        &mut _usd_value,
-                        false,
-                    )
-                    .await
+                    ar.value_usd = if let Ok(usd) =
+                        convert(config, utc_now_to_time_ms(), &ar.asset, ar.quantity, "USD").await
                     {
-                        Ok(v) => v,
-                        Err(_) => dec!(0),
+                        usd
+                    } else {
+                        dec!(0)
                     };
 
                     total_value_usd += ar.value_usd;
@@ -1503,7 +1508,7 @@ pub async fn consolidate_binance_us_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = dr.get_asset_with_line_number(Some(line_number));
+                let asset = dr.get_asset_only(line_number);
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
@@ -1614,7 +1619,7 @@ pub async fn tt_file_from_binance_us_dist_files(
             let mut dr: DistRec = result?;
 
             if config.verbose {
-                let asset = dr.get_asset_with_line_number(Some(line_number));
+                let asset = dr.get_asset_only(line_number);
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
