@@ -638,12 +638,24 @@ pub async fn process_token_tax_files(
 
             data.ttr_vec.push(ttr.clone());
             data.asset_rec_map.push_rec(ttr.clone());
-
-            if let Some(w) = &mut csv_ttr_writer {
-                w.serialize(&ttr)?;
-            }
         }
     }
+    println!();
+
+    println!("Sorting");
+    data.ttr_vec.sort();
+    println!("Sorting done");
+
+    println!("ttr_vec: len: {}", data.ttr_vec.len());
+
+    if let Some(w) = &mut csv_ttr_writer {
+        println!("Writing");
+        for dr in &data.ttr_vec {
+            w.serialize(dr)?;
+        }
+        println!("Writing done");
+    }
+    println!();
 
     if config.verbose {
         let mut total_value_usd = dec!(0);
@@ -655,9 +667,6 @@ pub async fn process_token_tax_files(
             let last_time = DateTimeUtc::from_utc_time_ms(last_rec.time);
             let next_day = last_time.beginning_of_this_day();
             let time_ms = next_day.time_ms();
-            //let min_next_day_and_time_ms = time_ms.min(ten_minutes_ago);
-            //println!("last_time: {last_time} next_day: {next_day} time_ms: {time_ms} min: {min_next_day_and_time_ms}");
-            //min_next_day_and_time_ms
 
             time_ms.min(ten_minutes_ago)
         } else {
