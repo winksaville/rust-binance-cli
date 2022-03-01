@@ -304,7 +304,7 @@ impl AssetRec {
             let first_dt = DateTimeUtc::from_utc_time_ms(first_ttr.time);
             let mut start_period = first_dt.beginning_of_this_month();
             let mut end_period = start_period.beginning_of_next_month();
-            let mut end_period_ms = end_period.signed_duration_since_in_secs(&start_period) * 1_000;
+            let mut end_period_ms = end_period.time_ms();
             let mut consolidated_quantity = dec!(0);
             let mut cur_ttr = first_ttr.clone();
             trace!("first_dt: {first_dt} start_period: {start_period} end_period: {end_period} cur_ttr: {cur_ttr}");
