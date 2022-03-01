@@ -649,7 +649,7 @@ async fn get_asset_in_usd_value_update_if_none(
     }
 
     // Error if there is no asset_value
-    let leading_nl = if config.verbose { "\n" } else { "" };
+    let leading_nl = if config.progress_info { "\n" } else { "" };
     let quantity = if let Some(value) = quantity {
         value
     } else {
@@ -810,6 +810,8 @@ fn process_entry(
     dr: &DistRec,
     line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     data.total_count += 1;
 
     // The get the asset is always either primary_asset or base_asset
@@ -837,8 +839,6 @@ fn process_entry(
     }
 
     arm.inc_transaction_count(asset);
-
-    let leading_nl = if config.verbose { "\n" } else { "" };
 
     // TODO: For all the category and operations we need to save asset_value_usd as "usd_cost_basis"
     match dr.category.as_ref() {
@@ -1053,6 +1053,8 @@ pub async fn process_binance_us_dist_files(
     sc_matches: &ArgMatches,
     process_type: ProcessType,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     //println!("process_binance_us_dist_filesg:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let mut data = BuData::new();
@@ -1089,7 +1091,7 @@ pub async fn process_binance_us_dist_files(
 
     print!("Read files");
     for f in in_dist_file_paths {
-        println!("\nfile: {f}");
+        println!("{leading_nl}file: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create reader

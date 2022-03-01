@@ -463,6 +463,8 @@ fn process_entry(
     ttr: &TokenTaxRec,
     line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     data.total_count += 1;
 
     let asset = ttr.get_asset();
@@ -499,8 +501,6 @@ fn process_entry(
     }
 
     arm.inc_transaction_count(asset);
-
-    let leading_nl = if config.verbose { "\n" } else { "" };
 
     if let Some(buy_amount) = ttr.buy_amount {
         assert!(buy_amount >= dec!(0));
@@ -583,6 +583,7 @@ pub async fn process_token_tax_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let leading_nl = if config.progress_info { "\n" } else { "" };
     //println!("process_token_tax_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let mut data = TokenTaxData::new();
@@ -619,7 +620,7 @@ pub async fn process_token_tax_files(
 
     print!("Read files");
     for f in in_tt_file_paths {
-        println!("\nfile: {f}");
+        println!("{leading_nl}file: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create reader
