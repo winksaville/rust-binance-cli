@@ -87,6 +87,14 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .global(true)
         .long("no-verbose")
         .help("Disable verbose mode");
+    let progress_info_arg = Arg::new("progress-info")
+        .global(true)
+        .long("progress-info")
+        .help("Enable progress info");
+    let no_progress_info_arg = Arg::new("no-progress-info")
+        .global(true)
+        .long("no-progress-info")
+        .help("Disable progress info");
     let confirmation_required_arg = Arg::new("confirmation-required")
         .global(true)
         .long("confirmation-required")
@@ -126,6 +134,8 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .arg(no_test_arg.clone())
         .arg(verbose_arg.clone())
         .arg(no_verbose_arg.clone())
+        .arg(progress_info_arg.clone())
+        .arg(no_progress_info_arg.clone())
         .arg(confirmation_required_arg.clone())
         .arg(no_confirmation_required_arg.clone())
         .arg(scheme_arg.clone())

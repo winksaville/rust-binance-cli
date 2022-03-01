@@ -629,13 +629,9 @@ pub async fn process_token_tax_files(
             let line_number = rec_index + 2;
             let ttr: TokenTaxRec = result?;
 
-            if config.verbose {
+            if config.progress_info {
                 let asset = ttr.get_asset();
-                //print!("Processing {line_number} {asset}                        \r",);
-
-                // Using eprint is slower, 30secs vs 90secs, but nicer as this output doesn't
-                // show up in stdout thus making command line redirection to file nicer.
-                eprint!("Processing {line_number} {asset}                        \r",);
+                print!("Processing {line_number} {asset}                        \r",);
             }
 
             process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
@@ -774,13 +770,9 @@ pub async fn consolidate_token_tax_files(
 
             //println!("{line_number}: {ttr}");
 
-            if config.verbose {
+            if config.progress_info {
                 let asset = ttr.get_asset();
                 print!("Processing {line_number} {asset}                        \r",);
-
-                // Using eprint is slower, 30secs vs 90secs, but nicer as this output doesn't
-                // show up in stdout thus making command line redirection to file nicer.
-                //eprint!("Processing {line_number} {asset}                        \r",);
             }
 
             // process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;

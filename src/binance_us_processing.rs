@@ -1098,7 +1098,7 @@ pub async fn process_binance_us_dist_files(
             let line_number = rec_index + 2;
             let mut dr: DistRec = result?;
 
-            if config.verbose {
+            if config.progress_info {
                 let asset = dr.get_asset_only(line_number);
                 print!("Processing {line_number} {asset}                        \r",);
             }
@@ -1507,7 +1507,7 @@ pub async fn consolidate_binance_us_dist_files(
             let line_number = rec_index + 2;
             let mut dr: DistRec = result?;
 
-            if config.verbose {
+            if config.progress_info {
                 let asset = dr.get_asset_only(line_number);
                 print!("Processing {line_number} {asset}                        \r",);
             }
@@ -1618,7 +1618,7 @@ pub async fn tt_file_from_binance_us_dist_files(
             let line_number = rec_index + 2;
             let mut dr: DistRec = result?;
 
-            if config.verbose {
+            if config.progress_info {
                 let asset = dr.get_asset_only(line_number);
                 print!("Processing {line_number} {asset}                        \r",);
             }

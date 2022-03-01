@@ -797,7 +797,7 @@ pub async fn process_binance_com_trade_history_files(
             let line_number = rec_index + 2;
             let tr: TradeRec = result?;
 
-            if config.verbose {
+            if config.progress_info {
                 print!(
                     "Processing {line_number} {} {}                     \r",
                     tr.operation, tr.coin
@@ -924,7 +924,7 @@ pub async fn consolidate_binance_com_trade_history_files(
             let line_number = rec_index + 2;
             let mut tr: TradeRec = result?;
 
-            if config.verbose {
+            if config.progress_info {
                 let asset = &tr.coin;
                 print!("Processing {line_number} {asset}                        \r",);
             }

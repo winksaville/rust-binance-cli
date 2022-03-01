@@ -70,6 +70,7 @@ impl DateTimeUtc {
         DateTimeUtc::from_utc_ymd_hmsn(year, month, day, 0, 0, 0, 0)
     }
 
+    #[allow(unused)]
     pub fn signed_duration_since_in_secs(&self, rhs: &DateTimeUtc) -> i64 {
         self.get_dt()
             .signed_duration_since(rhs.get_dt())

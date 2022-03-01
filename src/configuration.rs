@@ -201,9 +201,12 @@ pub struct Configuration {
     pub test: bool,
 
     // Used to enable/disable verbose output, currently
-    // it's used when calling AccountInfo::update_values_in_usd
     #[serde(default = "default_verbose")]
     pub verbose: bool,
+
+    // Used to enable/disable progress_info output
+    #[serde(default = "default_progress_info")]
+    pub progress_info: bool,
 
     #[serde(default = "default_confirmation_required")]
     pub confirmation_required: bool,
@@ -245,6 +248,10 @@ fn default_verbose() -> bool {
     true
 }
 
+fn default_progress_info() -> bool {
+    true
+}
+
 fn default_confirmation_required() -> bool {
     true
 }
@@ -264,6 +271,7 @@ impl Default for Configuration {
             default_quote_asset: default_quote_asset(),
             test: default_test(),
             verbose: default_verbose(),
+            progress_info: default_progress_info(),
             confirmation_required: default_confirmation_required(),
             scheme: default_scheme(),
             domain: default_domain(),
@@ -358,6 +366,14 @@ impl Configuration {
 
         if matches.is_present("no-verbose") {
             self.verbose = false;
+        }
+
+        if matches.is_present("progress-info") {
+            self.progress_info = true;
+        }
+
+        if matches.is_present("no-progress-info") {
+            self.progress_info = false;
         }
 
         if matches.is_present("confirmation-required") {
