@@ -663,12 +663,16 @@ async fn get_asset_in_usd_value_update_if_none(
     let usd = match *usd_value {
         Some(v) => {
             //if verbose {
-            //    println!("{leading_nl}USD value for {asset} is {v} for line_number: {line_number} time: {time_utc}");
+            //    println!("{leading_nl}{line_number}: USD value for {quantity} of {asset} is {v} time: {time_utc}");
             //}
 
             v
         }
         None => {
+            if verbose {
+                print!("{leading_nl}{line_number}: Updating {asset} time: {time_utc}                           \r");
+            }
+
             let value_usd = match convert(config, time, asset, quantity, "USD").await {
                 Ok(r) => r,
                 Err(_) => {
@@ -678,12 +682,11 @@ async fn get_asset_in_usd_value_update_if_none(
                 }
             };
 
+            if verbose {
+                println!("{line_number}: Updating {asset} time: {time_utc} value USD: {value_usd}");
+            }
             // Update the passed in value
             *usd_value = Some(value_usd);
-
-            if verbose {
-                println!("{leading_nl}Updating {asset} value to ${value_usd} for line_number: {line_number} time: {time_utc}");
-            }
 
             value_usd
         }
