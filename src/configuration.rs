@@ -208,6 +208,9 @@ pub struct Configuration {
     #[serde(default = "default_progress_info")]
     pub progress_info: bool,
 
+    #[serde(default = "default_throttle_rate_ms")]
+    pub throttle_rate_ms: u64,
+
     #[serde(default = "default_confirmation_required")]
     pub confirmation_required: bool,
 
@@ -252,6 +255,10 @@ fn default_progress_info() -> bool {
     true
 }
 
+fn default_throttle_rate_ms() -> u64 {
+    500
+}
+
 fn default_confirmation_required() -> bool {
     true
 }
@@ -272,6 +279,7 @@ impl Default for Configuration {
             test: default_test(),
             verbose: default_verbose(),
             progress_info: default_progress_info(),
+            throttle_rate_ms: default_throttle_rate_ms(),
             confirmation_required: default_confirmation_required(),
             scheme: default_scheme(),
             domain: default_domain(),
@@ -376,10 +384,13 @@ impl Configuration {
             self.progress_info = false;
         }
 
+        if let Some(value) = matches.value_of("throttle-rate-ms") {
+            self.throttle_rate_ms = value.parse().unwrap();
+        }
+
         if matches.is_present("confirmation-required") {
             self.confirmation_required = true;
         }
-
         if matches.is_present("no-confirmation-required") {
             self.confirmation_required = false;
         }

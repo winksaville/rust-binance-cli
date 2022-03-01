@@ -95,6 +95,13 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .global(true)
         .long("no-progress-info")
         .help("Disable progress info");
+    let throttle_rate_ms_arg = Arg::new("throttle-rate-ms")
+        .global(true)
+        .long("throttle-rate-ms")
+        .help("Throttle some requests, such as converting.")
+        .default_value("500")
+        .value_name("IN_MILLISECS")
+        .takes_value(true);
     let confirmation_required_arg = Arg::new("confirmation-required")
         .global(true)
         .long("confirmation-required")
@@ -136,6 +143,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .arg(no_verbose_arg.clone())
         .arg(progress_info_arg.clone())
         .arg(no_progress_info_arg.clone())
+        .arg(throttle_rate_ms_arg.clone())
         .arg(confirmation_required_arg.clone())
         .arg(no_confirmation_required_arg.clone())
         .arg(scheme_arg.clone())

@@ -7,6 +7,8 @@ use std::{
     fs::{File, OpenOptions},
     io::Write,
     path::Path,
+    thread::sleep,
+    time::Duration,
 };
 
 use crate::{
@@ -119,6 +121,10 @@ pub async fn convert(
 
         // Try to directly convert it
         let cvrt_asset_name = lhs.to_string() + rhs;
+        // TODO: Consider moving the throttling lower in the stack either to get_line or requests themselves
+        if config.throttle_rate_ms > 0 {
+            sleep(Duration::from_millis(config.throttle_rate_ms));
+        }
         let result = match get_kline(config, &cvrt_asset_name, time_ms).await {
             Ok(kr) => {
                 let direct_result = if invert_result {
@@ -145,12 +151,18 @@ pub async fn convert(
             }
             Err(_) => {
                 trace!("{cvrt_asset_name} failed: try getting kline of {lhs} in {VALUE_ASSETS:?}");
+                if config.throttle_rate_ms > 0 {
+                    sleep(Duration::from_millis(config.throttle_rate_ms));
+                }
                 let indirect_result = if let Some((sym_name, kr)) =
                     get_kline_of_primary_asset_for_value_asset(config, time_ms, lhs, &VALUE_ASSETS)
                         .await
                 {
                     let one_lhs_value_in_usd = kr.close;
                     trace!("{sym_name}: one_lhs_value_in_usd: {one_lhs_value_in_usd} try getting kline of {rhs} in {VALUE_ASSETS:?}");
+                    if config.throttle_rate_ms > 0 {
+                        sleep(Duration::from_millis(config.throttle_rate_ms));
+                    }
                     let indirect_result = if let Some((sym_name, kr)) =
                         get_kline_of_primary_asset_for_value_asset(
                             config,
@@ -456,6 +468,7 @@ mod test {
         let mut config = Configuration::default();
         config.keys.api_key = Some("a_key".to_string());
         config.keys.secret_key = Some("a_secret_key".to_string());
+        assert!(config.throttle_rate_ms >= 250);
 
         // Use a time 10 minutes earlier than "now" otherwise the kline
         // changes as it's being actively being updated by binance.
