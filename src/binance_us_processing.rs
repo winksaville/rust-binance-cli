@@ -51,6 +51,7 @@ use crate::{
         dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms, verify_input_files_exist,
     },
     configuration::Configuration,
+    date_time_utc::DateTimeUtc,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     token_tax_comment_vers::TT_CMT_VER0,
     token_tax_processing::{TokenTaxRec, TypeTxs},
@@ -1123,8 +1124,8 @@ pub async fn process_binance_us_dist_files(
 
     if let Some(w) = &mut wdr {
         println!("Writing");
-        for dr in data.dist_rec_vec {
-            w.serialize(&dr)?;
+        for dr in &data.dist_rec_vec {
+            w.serialize(dr)?;
         }
         println!("Writing done");
     }
@@ -1135,6 +1136,18 @@ pub async fn process_binance_us_dist_files(
         ProcessType::Process => {
             if config.verbose {
                 let mut total_value_usd = dec!(0);
+
+                let ten_minutes_ago = utc_now_to_time_ms() - (10 * 60 * 1000);
+                let convert_time = if let Some(last_rec) = data.dist_rec_vec.last() {
+                    // The beginning of the next_day
+                    let last_time = DateTimeUtc::from_utc_time_ms(last_rec.time);
+                    let next_day = last_time.beginning_of_this_day();
+                    let time_ms = next_day.time_ms();
+
+                    time_ms.min(ten_minutes_ago)
+                } else {
+                    ten_minutes_ago
+                };
 
                 let col_1_width = 10;
                 let col_2_width = 20;
@@ -1148,7 +1161,7 @@ pub async fn process_binance_us_dist_files(
                 #[allow(clippy::for_kv_map)]
                 for (_, ar) in &mut asset_rec_map.bt {
                     ar.value_usd = if let Ok(usd) =
-                        convert(config, utc_now_to_time_ms(), &ar.asset, ar.quantity, "USD").await
+                        convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
                     {
                         usd
                     } else {
