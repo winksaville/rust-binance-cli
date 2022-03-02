@@ -618,7 +618,7 @@ pub async fn process_token_tax_files(
         None
     };
 
-    print!("Read files");
+    println!("Read files");
     for f in in_tt_file_paths {
         println!("{leading_nl}file: {f}");
         let reader = create_buf_reader(f)?;
@@ -666,7 +666,7 @@ pub async fn process_token_tax_files(
         let convert_time = if let Some(last_rec) = data.ttr_vec.last() {
             // The beginning of the next_day
             let last_time = DateTimeUtc::from_utc_time_ms(last_rec.time);
-            let next_day = last_time.beginning_of_this_day();
+            let next_day = last_time.beginning_of_next_day();
             let time_ms = next_day.time_ms();
 
             time_ms.min(ten_minutes_ago)
@@ -679,11 +679,11 @@ pub async fn process_token_tax_files(
         let col_3_width = 10;
         let col_4_width = 14;
         println!(
-            "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}{}",
+            "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$} {}",
             "Asset",
             "Quantity",
             "Txs count",
-            "USD value as of ",
+            "USD value",
             time_ms_to_utc(convert_time)
         );
 
@@ -694,14 +694,14 @@ pub async fn process_token_tax_files(
                 convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
             {
                 ar.value_usd = value_usd;
-                total_value_usd += ar.value_usd;
-                total_quantity += ar.quantity;
-
                 dec_to_money_string(ar.value_usd)
             } else {
-                // If an error display a ?
+                ar.value_usd = dec!(0);
                 "?".to_owned()
             };
+            total_value_usd += ar.value_usd;
+            total_quantity += ar.quantity;
+
             println!(
                 "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
                 ar.asset,
@@ -717,12 +717,12 @@ pub async fn process_token_tax_files(
             dec_to_separated_string(total_quantity, 8),
             dec_to_money_string(total_value_usd)
         );
-    }
 
-    println!(
-        "total txs count: {}",
-        dec_to_separated_string(Decimal::from(data.total_count), 0)
-    );
+        println!(
+            "total txs count: {}",
+            dec_to_separated_string(Decimal::from(data.total_count), 0)
+        );
+    }
 
     Ok(())
 }

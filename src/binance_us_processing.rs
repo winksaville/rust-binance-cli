@@ -1092,7 +1092,7 @@ pub async fn process_binance_us_dist_files(
         None
     };
 
-    print!("Read files");
+    println!("Read files");
     for f in in_dist_file_paths {
         println!("{leading_nl}file: {f}");
         let reader = create_buf_reader(f)?;
@@ -1141,12 +1141,13 @@ pub async fn process_binance_us_dist_files(
         ProcessType::Process => {
             if config.verbose {
                 let mut total_value_usd = dec!(0);
+                let mut total_quantity = dec!(0);
 
                 let ten_minutes_ago = utc_now_to_time_ms() - (10 * 60 * 1000);
                 let convert_time = if let Some(last_rec) = data.dist_rec_vec.last() {
                     // The beginning of the next_day
                     let last_time = DateTimeUtc::from_utc_time_ms(last_rec.time);
-                    let next_day = last_time.beginning_of_this_day();
+                    let next_day = last_time.beginning_of_next_day();
                     let time_ms = next_day.time_ms();
 
                     time_ms.min(ten_minutes_ago)
@@ -1159,36 +1160,50 @@ pub async fn process_binance_us_dist_files(
                 let col_3_width = 10;
                 let col_4_width = 14;
                 println!(
-                    "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
-                    "Asset", "Quantity", "Txs count", "USD value today",
+                    "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$} {}",
+                    "Asset",
+                    "Quantity",
+                    "Txs count",
+                    "USD value",
+                    time_ms_to_utc(convert_time),
                 );
 
                 #[allow(clippy::for_kv_map)]
                 for (_, ar) in &mut asset_rec_map.bt {
-                    ar.value_usd = if let Ok(usd) =
+                    let value_usd_string = if let Ok(usd) =
                         convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
                     {
-                        usd
+                        ar.value_usd = usd;
+                        dec_to_money_string(ar.value_usd)
                     } else {
-                        dec!(0)
+                        ar.value_usd = dec!(0);
+                        "?".to_owned()
                     };
-
+                    total_quantity += ar.quantity;
                     total_value_usd += ar.value_usd;
+
                     println!(
                         "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
                         ar.asset,
                         dec_to_separated_string(ar.quantity, 8),
                         dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
-                        dec_to_money_string(ar.value_usd)
+                        value_usd_string
                     );
                 }
 
                 println!();
                 println!(
-                    "Total account value: {}",
+                    "Total quantity: {} account value: {}",
+                    dec_to_separated_string(total_quantity, 8),
                     dec_to_money_string(total_value_usd)
                 );
+
+                println!(
+                    "total txs count: {}",
+                    dec_to_separated_string(Decimal::from(data.total_count), 0)
+                );
             }
+            println!();
 
             let lbl_width = 45;
             let cnt_width = 10;
