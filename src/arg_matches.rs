@@ -128,6 +128,10 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .long("time-offset")
         .help("Add the time-offset parameter to each transaction, time-offset may be positive or negative.")
         .takes_value(true);
+    let no_usd_value_needed_arg = Arg::new("no-usd-value-needed")
+        .global(false)
+        .long("no-usd-value-needed")
+        .help("No USD value needed");
 
     let matches = App::new(APP_NAME.as_str())
         .version(APP_VERSION.as_str())
@@ -517,6 +521,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                         .help("The optional output file")
                         .takes_value(true),
                 )
+                .arg(&no_usd_value_needed_arg)
         )
         .subcommand(
             App::new("cbudf")

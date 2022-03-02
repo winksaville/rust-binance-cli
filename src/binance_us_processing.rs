@@ -109,7 +109,11 @@ struct DistRec {
 #[allow(unused)]
 impl DistRec {
     // Return a tuple of (asset, quantity and usd_value)
-    fn get_asset_quantity_usd_value(&self, line_number: Option<usize>) -> (&str, Decimal, Decimal) {
+    fn get_asset_quantity_usd_value(
+        &self,
+        usd_value_needed: bool,
+        line_number: Option<usize>,
+    ) -> (&str, Decimal, Decimal) {
         let ln_str = if let Some(ln) = line_number {
             format!("{ln}")
         } else {
@@ -122,7 +126,13 @@ impl DistRec {
                 self.realized_amount_for_primary_asset
                     .unwrap_or_else(|| panic!("No realized_amount_for_primary_asset at {ln_str}")),
                 self.realized_amount_for_primary_asset_in_usd_value
-                    .unwrap_or_else(|| panic!("No realized_amount_for_primary_asset at {ln_str}")),
+                    .unwrap_or_else(|| {
+                        if usd_value_needed {
+                            panic!("No realized_amount_for_primary_asset_usd_value at {ln_str}")
+                        } else {
+                            dec!(0)
+                        }
+                    }),
             )
         } else {
             match self.category.as_str() {
@@ -133,9 +143,12 @@ impl DistRec {
                             panic!("No realized_amount_for_base_asset at {ln_str}")
                         }),
                         self.realized_amount_for_base_asset_in_usd_value
-                            .unwrap_or_else(|| {
-                                panic!("No realized_amount_for_base_asset at {ln_str}")
-                            }),
+                            .unwrap_or_else(||
+                                if usd_value_needed {
+                                    panic!("No realized_amount_for_base_asset_usd_value at {ln_str}")
+                                } else {
+                                     dec!(0)
+                                }),
                     ),
                     "Sell" => (
                         self.quote_asset.as_str(),
@@ -143,8 +156,10 @@ impl DistRec {
                             panic!("No realized_amount_for_primary_asset at {ln_str}")
                         }),
                         self.realized_amount_for_quote_asset_in_usd_value
-                            .unwrap_or_else(|| {
-                                panic!("No realized_amount_for_primary_asset at {ln_str}")
+                            .unwrap_or_else(|| if usd_value_needed {
+                                panic!("No realized_amount_for_primary_asset_usd_value at {ln_str}")
+                            } else {
+                                dec!(0)
                             }),
                     ),
                     _ => {
@@ -157,7 +172,11 @@ impl DistRec {
                     self.realized_amount_for_base_asset
                         .unwrap_or_else(|| panic!("No realized_amount_for_base_asset at {ln_str}")),
                     self.realized_amount_for_base_asset_in_usd_value
-                        .unwrap_or_else(|| panic!("No realized_amount_for_base_asset at {ln_str}")),
+                        .unwrap_or_else(|| if usd_value_needed {
+                            panic!("No realized_amount_for_base_asset_usd_value at {ln_str}")
+                        } else {
+                            dec!(0)
+                        }),
                 ),
             }
         };
@@ -187,19 +206,19 @@ impl DistRec {
     }
 
     fn get_asset(&self) -> &str {
-        let (asset, _, _) = self.get_asset_quantity_usd_value(None);
+        let (asset, _, _) = self.get_asset_quantity_usd_value(false, None);
 
         asset
     }
 
     fn get_value(&self) -> Decimal {
-        let (_, quantity, _) = self.get_asset_quantity_usd_value(None);
+        let (_, quantity, _) = self.get_asset_quantity_usd_value(false, None);
 
         quantity
     }
 
     fn get_value_usd(&self) -> Decimal {
-        let (_, _, usd_value) = self.get_asset_quantity_usd_value(None);
+        let (_, _, usd_value) = self.get_asset_quantity_usd_value(true, None);
 
         usd_value
     }
@@ -811,6 +830,7 @@ fn process_entry(
     data: &mut BuData,
     arm: &mut AssetRecMap,
     dr: &DistRec,
+    usd_value_needed: bool,
     line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let leading_nl = if config.progress_info { "\n" } else { "" };
@@ -818,7 +838,8 @@ fn process_entry(
     data.total_count += 1;
 
     // The get the asset is always either primary_asset or base_asset
-    let (asset, quantity, value_usd) = dr.get_asset_quantity_usd_value(Some(line_number));
+    let (asset, quantity, value_usd) =
+        dr.get_asset_quantity_usd_value(usd_value_needed, Some(line_number));
 
     // Add missing AssetRecMap entries that might be needed
     // Adding them here means less surprises later and we can
@@ -894,7 +915,13 @@ fn process_entry(
                     data.quick_buy_operation_buy_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
-                            panic!("Quick Buy of {asset} has no fee at line {line_number}")
+                            if usd_value_needed {
+                                panic!(
+                                    "Quick Buy of {asset} has no fee in USD at line {line_number}"
+                                )
+                            } else {
+                                dec!(0)
+                            }
                         });
                 }
                 "Sell" => {
@@ -905,7 +932,13 @@ fn process_entry(
                     data.quick_sell_operation_sell_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
-                            panic!("Quick Sell of {asset} has no fee at line {line_number}")
+                            if usd_value_needed {
+                                panic!(
+                                    "Quick Sell of {asset} has no fee in USD at line {line_number}"
+                                )
+                            } else {
+                                dec!(0)
+                            }
                         });
                 }
                 _ => {
@@ -927,8 +960,10 @@ fn process_entry(
                     data.spot_trading_operation_buy_base_asset_in_usd_value += value_usd;
                     data.spot_trading_operation_buy_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
-                        .unwrap_or_else(|| {
-                            panic!("Spot Trading Buy of {asset} has no fee at line {line_number}")
+                        .unwrap_or_else(|| if usd_value_needed {
+                            panic!("Spot Trading Buy of {asset} has no fee in USD at line {line_number}")
+                        } else {
+                            dec!(0)
                         });
                 }
                 "Sell" => {
@@ -938,8 +973,10 @@ fn process_entry(
                     data.spot_trading_operation_sell_base_asset_in_usd_value += value_usd;
                     data.spot_trading_operation_sell_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
-                        .unwrap_or_else(|| {
-                            panic!("Spot Trading Sell of {asset} has no fee at line {line_number}")
+                        .unwrap_or_else(|| if usd_value_needed {
+                            panic!("Spot Trading Sell of {asset} has no fee in USD at line {line_number}")
+                        } else {
+                            dec!(0)
                         });
                 }
                 _ => {
@@ -962,7 +999,12 @@ fn process_entry(
                         arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
                         data.withdrawal_operation_crypto_withdrawal_fee_count += 1;
                         data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value +=
-                            dr.realized_amount_for_fee_asset_in_usd_value.unwrap();
+                            dr.realized_amount_for_fee_asset_in_usd_value
+                            .unwrap_or_else(|| if usd_value_needed {
+                                panic!("Crypto Withdrawal of {asset} has no fee in USD at line {line_number}")
+                            } else {
+                                dec!(0)
+                            });
                     }
 
                     data.withdrawal_operation_crypto_withdrawal_count += 1;
@@ -1078,6 +1120,9 @@ pub async fn process_binance_us_dist_files(
         None
     };
 
+    // usd_value_need is true unless --no-usd-value-need is present
+    let usd_value_needed = !sc_matches.is_present("no-usd-value-needed");
+
     //println!("in_dist_file_paths: {in_dist_file_paths:?}");
     //println!("out_dist_file_path: {out_dist_file_path:?}");
 
@@ -1112,7 +1157,14 @@ pub async fn process_binance_us_dist_files(
             match process_type {
                 ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
                 ProcessType::Process => {
-                    process_entry(config, &mut data, &mut asset_rec_map, &dr, line_number)?;
+                    process_entry(
+                        config,
+                        &mut data,
+                        &mut asset_rec_map,
+                        &dr,
+                        usd_value_needed,
+                        line_number,
+                    )?;
                 }
             }
 
@@ -1132,6 +1184,7 @@ pub async fn process_binance_us_dist_files(
         for dr in &data.dist_rec_vec {
             w.serialize(dr)?;
         }
+        w.flush()?;
         println!("Writing done");
     }
     println!();
@@ -1203,141 +1256,155 @@ pub async fn process_binance_us_dist_files(
                     dec_to_separated_string(Decimal::from(data.total_count), 0)
                 );
             }
-            println!();
 
-            let lbl_width = 45;
-            let cnt_width = 10;
-            let val_width = 14;
-            let fee_width = 14;
-            println!(
-                "{:>lbl_width$}  {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Operation", "Count", "USD Value", "Fee USD Value",
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Distribution Referral Commission USD value",
-                dec_to_separated_string(
-                    Decimal::from(data.distribution_operation_referral_commission_count),
-                    0
-                ),
-                dec_to_money_string(data.distribution_operation_referral_commission_value_usd),
-                "",
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Distribution Staking Reward USD value",
-                dec_to_separated_string(
-                    Decimal::from(data.distribution_operation_staking_reward_count),
-                    0
-                ),
-                dec_to_money_string(data.distribution_operation_staking_rewards_value_usd),
-                "",
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "* Distribution Others USD value",
-                dec_to_separated_string(Decimal::from(data.distribution_operation_others_count), 0),
-                dec_to_money_string(data.distribution_operation_others_value_usd),
-                "",
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Quick Buy",
-                dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0),
-                dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
-                dec_to_money_string(data.quick_buy_operation_buy_fee_in_usd_value)
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Quick Sell",
-                dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0),
-                dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
-                dec_to_money_string(data.quick_sell_operation_sell_fee_in_usd_value)
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Spot Trading Buy",
-                dec_to_separated_string(Decimal::from(data.spot_trading_operation_buy_count), 0),
-                dec_to_money_string(data.spot_trading_operation_buy_base_asset_in_usd_value),
-                dec_to_money_string(data.spot_trading_operation_buy_fee_in_usd_value)
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Spot Trading Sell",
-                dec_to_separated_string(Decimal::from(data.spot_trading_operation_sell_count), 0),
-                dec_to_money_string(data.spot_trading_operation_sell_base_asset_in_usd_value),
-                dec_to_money_string(data.spot_trading_operation_sell_fee_in_usd_value)
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Withdrawal crypto",
-                dec_to_separated_string(
-                    Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
-                    0
-                ),
-                dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_usd_value),
-                dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value)
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Deposit crypto",
-                dec_to_separated_string(
-                    Decimal::from(data.deposit_operation_crypto_deposit_count),
-                    0
-                ),
-                dec_to_money_string(data.deposit_operation_crypto_deposit_usd_value),
-                "",
-            );
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Deposit USD",
-                dec_to_separated_string(
-                    Decimal::from(data.deposit_operation_crypto_deposit_count),
-                    0
-                ),
-                dec_to_money_string(data.deposit_operation_usd_deposit_usd_value),
-                dec_to_money_string(data.deposit_operation_usd_deposit_fee_usd_value)
-            );
-            let fees_usd_value = data.quick_buy_operation_buy_fee_in_usd_value
-                + data.quick_sell_operation_sell_fee_in_usd_value
-                + data.spot_trading_operation_buy_fee_in_usd_value
-                + data.spot_trading_operation_sell_fee_in_usd_value
-                + data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value
-                + data.deposit_operation_usd_deposit_fee_usd_value;
-            println!(
-                "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
-                "Totals",
-                dec_to_separated_string(Decimal::from(data.total_count), 0),
-                "",
-                dec_to_money_string(fees_usd_value),
-            );
+            if usd_value_needed {
+                println!();
 
-            println!();
-            println!("* Distribution Others:");
-            // Output others
-            let col_1_width = 10;
-            let col_2_width = 20;
-            let col_3_width = 10;
-            let col_4_width = 14;
-            println!(
-                "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
-                "Asset", "Quantity", "Txs count", "USD value",
-            );
+                let lbl_width = 45;
+                let cnt_width = 10;
+                let val_width = 14;
+                let fee_width = 14;
+                println!(
+                    "{:>lbl_width$}  {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Operation", "Count", "USD Value", "Fee USD Value",
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Distribution Referral Commission USD value",
+                    dec_to_separated_string(
+                        Decimal::from(data.distribution_operation_referral_commission_count),
+                        0
+                    ),
+                    dec_to_money_string(data.distribution_operation_referral_commission_value_usd),
+                    "",
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Distribution Staking Reward USD value",
+                    dec_to_separated_string(
+                        Decimal::from(data.distribution_operation_staking_reward_count),
+                        0
+                    ),
+                    dec_to_money_string(data.distribution_operation_staking_rewards_value_usd),
+                    "",
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "* Distribution Others USD value",
+                    dec_to_separated_string(
+                        Decimal::from(data.distribution_operation_others_count),
+                        0
+                    ),
+                    dec_to_money_string(data.distribution_operation_others_value_usd),
+                    "",
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Quick Buy",
+                    dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0),
+                    dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
+                    dec_to_money_string(data.quick_buy_operation_buy_fee_in_usd_value)
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Quick Sell",
+                    dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0),
+                    dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
+                    dec_to_money_string(data.quick_sell_operation_sell_fee_in_usd_value)
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Spot Trading Buy",
+                    dec_to_separated_string(
+                        Decimal::from(data.spot_trading_operation_buy_count),
+                        0
+                    ),
+                    dec_to_money_string(data.spot_trading_operation_buy_base_asset_in_usd_value),
+                    dec_to_money_string(data.spot_trading_operation_buy_fee_in_usd_value)
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Spot Trading Sell",
+                    dec_to_separated_string(
+                        Decimal::from(data.spot_trading_operation_sell_count),
+                        0
+                    ),
+                    dec_to_money_string(data.spot_trading_operation_sell_base_asset_in_usd_value),
+                    dec_to_money_string(data.spot_trading_operation_sell_fee_in_usd_value)
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Withdrawal crypto",
+                    dec_to_separated_string(
+                        Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
+                        0
+                    ),
+                    dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_usd_value),
+                    dec_to_money_string(
+                        data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value
+                    )
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Deposit crypto",
+                    dec_to_separated_string(
+                        Decimal::from(data.deposit_operation_crypto_deposit_count),
+                        0
+                    ),
+                    dec_to_money_string(data.deposit_operation_crypto_deposit_usd_value),
+                    "",
+                );
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Deposit USD",
+                    dec_to_separated_string(
+                        Decimal::from(data.deposit_operation_crypto_deposit_count),
+                        0
+                    ),
+                    dec_to_money_string(data.deposit_operation_usd_deposit_usd_value),
+                    dec_to_money_string(data.deposit_operation_usd_deposit_fee_usd_value)
+                );
+                let fees_usd_value = data.quick_buy_operation_buy_fee_in_usd_value
+                    + data.quick_sell_operation_sell_fee_in_usd_value
+                    + data.spot_trading_operation_buy_fee_in_usd_value
+                    + data.spot_trading_operation_sell_fee_in_usd_value
+                    + data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value
+                    + data.deposit_operation_usd_deposit_fee_usd_value;
+                println!(
+                    "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
+                    "Totals",
+                    dec_to_separated_string(Decimal::from(data.total_count), 0),
+                    "",
+                    dec_to_money_string(fees_usd_value),
+                );
 
-            let mut others_value = dec!(0);
-
-            #[allow(clippy::for_kv_map)]
-            for (_, entry) in &data.others_rec_map.bt {
-                others_value += entry.value_usd;
+                println!();
+                println!("* Distribution Others:");
+                // Output others
+                let col_1_width = 10;
+                let col_2_width = 20;
+                let col_3_width = 10;
+                let col_4_width = 14;
                 println!(
                     "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
-                    entry.asset,
-                    entry.quantity,
-                    entry.transaction_count,
-                    dec_to_money_string(entry.value_usd),
+                    "Asset", "Quantity", "Txs count", "USD value",
                 );
+
+                let mut others_value = dec!(0);
+
+                #[allow(clippy::for_kv_map)]
+                for (_, entry) in &data.others_rec_map.bt {
+                    others_value += entry.value_usd;
+                    println!(
+                        "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
+                        entry.asset,
+                        entry.quantity,
+                        entry.transaction_count,
+                        dec_to_money_string(entry.value_usd),
+                    );
+                }
+                assert_eq!(others_value, data.distribution_operation_others_value_usd);
             }
-            assert_eq!(others_value, data.distribution_operation_others_value_usd);
 
             // Assertions!
             assert_eq!(std::mem::size_of::<usize>(), std::mem::size_of::<u64>());
