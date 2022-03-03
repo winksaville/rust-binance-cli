@@ -17,8 +17,8 @@ use crate::{
     },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
-    token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER2},
     process_token_tax::{TokenTaxRec, TypeTxs},
+    token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER2},
 };
 use clap::ArgMatches;
 use rust_decimal::prelude::*;
@@ -769,6 +769,8 @@ pub async fn process_binance_com_trade_history_files(
     config: &Configuration,
     sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     //println!("process_trade_history_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
     let in_th_file_paths: Vec<&str> = sc_matches
@@ -779,14 +781,19 @@ pub async fn process_binance_com_trade_history_files(
     // Verify all input files exist
     verify_input_files_exist(&in_th_file_paths)?;
 
-    // Create out_tr_path if there was one, if not it'll be None
-    let out_tr_path_str = sc_matches.value_of("OUT_FILE");
+    // Create csv::Writer if out_file_path exists
+    let mut wdr = if let Some(out_file_path) = sc_matches.value_of("OUT_FILE") {
+        let writer = create_buf_writer(out_file_path)?;
+        Some(csv::Writer::from_writer(writer))
+    } else {
+        None
+    };
 
     let mut data = BcData::new();
 
     print!("Read files");
     for f in in_th_file_paths {
-        println!("\nfile: {f}");
+        println!("{leading_nl}file: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create csv reader
@@ -816,27 +823,62 @@ pub async fn process_binance_com_trade_history_files(
             data.total_count += 1;
         }
     }
+    println!();
 
-    let mut total_quantity = dec!(0);
-    let mut total_transaction_count = 0usize;
-    for ar in data.bc_asset_rec_map.bt.values() {
-        total_quantity += ar.quantity;
-        total_transaction_count += ar.tr_vec.len();
+    println!("Sorting");
+    data.tr_vec.sort();
+    println!("Sorting done");
 
-        println!("{ar}");
+    println!("tr_vec: len: {}", data.tr_vec.len());
+
+    if let Some(w) = &mut wdr {
+        println!("Writing");
+        for dr in &data.tr_vec {
+            w.serialize(dr)?;
+        }
+        w.flush()?;
+        println!("Writing done");
     }
+    println!();
 
-    println!(
-        "{:<16}           {:>20}                      {:>10}",
-        data.bc_asset_rec_map.bt.len(),
-        dec_to_separated_string(total_quantity, 4),
-        dec_to_separated_string(Decimal::from(total_transaction_count), 0)
-    );
+    if config.verbose {
+        let col_1_width = 10;
+        let col_2_width = 20;
+        let col_3_width = 10;
+        println!(
+            "{:<col_1_width$} {:>col_2_width$} {:>col_3_width$}",
+            "Asset", "Quantity", "Txs count",
+        );
 
-    if let Some(otp) = out_tr_path_str {
-        println!("Writing trade records to {otp}");
-        let writer = create_buf_writer(otp)?;
-        write_tr_vec(writer, &data.tr_vec)?;
+        let mut total_quantity = dec!(0);
+        let mut total_transaction_count = 0usize;
+
+        for (_, ar) in &mut data.bc_asset_rec_map.bt {
+            total_quantity += ar.quantity;
+            total_transaction_count += ar.transaction_count;
+
+            println!(
+                "{:<col_1_width$} {:>col_2_width$} {:>col_3_width$}",
+                ar.asset,
+                dec_to_separated_string(ar.quantity, 4),
+                dec_to_separated_string(Decimal::from(ar.transaction_count), 0)
+            );
+        }
+
+        assert_eq!(data.total_count as usize, total_transaction_count);
+        println!();
+        println!(
+            "Total quantity: {} ",
+            dec_to_separated_string(total_quantity, 8)
+        );
+        println!(
+            "Total txs count: {}",
+            dec_to_separated_string(Decimal::from(total_transaction_count), 0)
+        );
+        println!(
+            "Total asset count: {}",
+            dec_to_separated_string(Decimal::from(data.bc_asset_rec_map.bt.len()), 0)
+        );
     }
 
     Ok(())
