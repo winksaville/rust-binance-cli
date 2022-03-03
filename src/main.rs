@@ -3,7 +3,7 @@ mod binance_account_info;
 mod binance_auto_buy;
 mod binance_auto_sell;
 mod binance_avg_price;
-mod binance_com_processing;
+mod process_binance_com;
 mod binance_exchange_info;
 mod binance_get_klines_cmd;
 mod binance_history;
@@ -14,7 +14,7 @@ mod binance_order_response;
 mod binance_orders;
 mod binance_signature;
 mod binance_trade;
-mod binance_us_processing;
+mod process_binance_us;
 mod binance_verify_order;
 mod binance_withdraw_cmd;
 mod common;
@@ -24,7 +24,7 @@ mod de_string_or_number;
 mod de_string_to_utc_time_ms;
 mod serde_header_map;
 mod token_tax_comment_vers;
-mod token_tax_processing;
+mod process_token_tax;
 
 use clap::ArgMatches;
 use log::trace;
@@ -41,7 +41,7 @@ use rust_decimal_macros::dec;
 use crate::{
     binance_account_info::get_account_info,
     binance_avg_price::{get_avg_price, AvgPrice},
-    binance_com_processing::{
+    process_binance_com::{
         consolidate_binance_com_trade_history_files, process_binance_com_trade_history_files,
     },
     binance_exchange_info::get_exchange_info,
@@ -56,7 +56,7 @@ use crate::{
     binance_order_response::{display_order_log, process_order_log},
     binance_orders::{get_all_orders, get_open_orders, Orders},
     binance_trade::{MarketQuantityType, TradeOrderType},
-    binance_us_processing::{
+    process_binance_us::{
         consolidate_binance_us_dist_files, process_binance_us_dist_files,
         tt_file_from_binance_us_dist_files, ProcessDistSubCommand, ProcessType,
     },
@@ -65,7 +65,7 @@ use crate::{
         dec_to_money_string, dec_to_separated_string, time_ms_to_utc, utc_now_to_time_ms,
         InternalErrorRec, APP_VERSION,
     },
-    token_tax_processing::{consolidate_token_tax_files, process_token_tax_files},
+    process_token_tax::{consolidate_token_tax_files, process_token_tax_files},
 };
 
 fn get_sym_qty_or_val(
