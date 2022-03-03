@@ -5,8 +5,12 @@ use std::process::Command;
 
 const APP_NAME: &str = "binance-cli";
 
+// For some reason these tests are unreliable on tarpaulin when
+// executed via github Actions. The cfg(not(tarpaulin)) causes
+// them to be skipped.
+
 #[test]
-#[cfg(not(tarpaulin_include))]
+#[cfg(not(tarpaulin))]
 fn test_no_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
 
@@ -17,8 +21,9 @@ fn test_no_params() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// For some reason this is unreliable on tarpaulin, this should completely skip it.
 #[test]
-#[cfg(not(tarpaulin_include))]
+#[cfg(not(tarpaulin))]
 fn test_help() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
     cmd.arg("-h");
@@ -31,7 +36,7 @@ fn test_help() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[cfg(not(tarpaulin_include))]
+#[cfg(not(tarpaulin))]
 fn test_params() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
     cmd.arg("check-params");
@@ -47,7 +52,7 @@ fn test_params() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[cfg(not(tarpaulin_include))]
+#[cfg(not(tarpaulin))]
 fn test_params_as_env_vars() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
     cmd.arg("check-params");
@@ -63,7 +68,7 @@ fn test_params_as_env_vars() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[cfg(not(tarpaulin_include))]
+#[cfg(not(tarpaulin))]
 fn test_params_failure() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin(APP_NAME)?;
     cmd.arg("check-params");
