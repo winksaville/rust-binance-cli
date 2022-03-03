@@ -53,8 +53,8 @@ use crate::{
     configuration::Configuration,
     date_time_utc::DateTimeUtc,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
-    token_tax_comment_vers::TT_CMT_VER0,
     process_token_tax::{TokenTaxRec, TypeTxs},
+    token_tax_comment_vers::TT_CMT_VER0,
 };
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
@@ -1252,7 +1252,7 @@ pub async fn process_binance_us_dist_files(
                 );
 
                 println!(
-                    "total txs count: {}",
+                    "Total txs count: {}",
                     dec_to_separated_string(Decimal::from(data.total_count), 0)
                 );
             }
