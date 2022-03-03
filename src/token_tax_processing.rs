@@ -151,14 +151,14 @@ impl Eq for TokenTaxRec {}
 // Manually imiplement PartialEq so time is sorted first
 impl PartialEq for TokenTaxRec {
     fn eq(&self, other: &Self) -> bool {
-        self.type_txs == other.type_txs
-            && self.time == other.time
-            && self.buy_amount == other.buy_amount
+        self.time == other.time
+            && self.type_txs == other.type_txs
             && self.buy_currency == other.buy_currency
-            && self.sell_amount == other.sell_amount
             && self.sell_currency == other.sell_currency
-            && self.fee_amount == other.fee_amount
             && self.fee_currency == other.fee_currency
+            && self.buy_amount == other.buy_amount
+            && self.sell_amount == other.sell_amount
+            && self.fee_amount == other.fee_amount
             && self.exchange == other.exchange
             && self.group == other.group
             && self.comment == other.comment
@@ -175,15 +175,7 @@ impl PartialOrd for TokenTaxRec {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
-        match self.buy_amount.partial_cmp(&other.buy_amount) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
         match self.buy_currency.partial_cmp(&other.buy_currency) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
-        match self.sell_amount.partial_cmp(&other.sell_amount) {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
@@ -191,11 +183,19 @@ impl PartialOrd for TokenTaxRec {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
-        match self.fee_amount.partial_cmp(&other.fee_amount) {
+        match self.fee_currency.partial_cmp(&other.fee_currency) {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
-        match self.fee_currency.partial_cmp(&other.fee_currency) {
+        match self.buy_amount.partial_cmp(&other.buy_amount) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.sell_amount.partial_cmp(&other.sell_amount) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.fee_amount.partial_cmp(&other.fee_amount) {
             Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
