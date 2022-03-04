@@ -674,9 +674,25 @@ impl TokenTaxRec {
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                 }
                 "Small assets exchange BNB" => {
-                    //??
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.ui3g3olz647l
+                    if bctr.coin != "BNB" {
+                        // Assert the change is negative
+                        assert!(bctr.change < dec!(0));
+                        ttr.type_txs = TypeTxs::Spend;
+                        ttr.buy_amount = Some(dec!(0));
+                        ttr.buy_currency = "".to_owned();
+                        ttr.sell_amount = Some(-bctr.change);
+                        ttr.sell_currency = bctr.coin.clone();
+                    } else {
+                        // Assert the change is positive and coin is BNB
+                        assert!(bctr.coin == "BNB"); // This is redundant but just incase!!
+                        assert!(bctr.change > dec!(0));
+                        ttr.type_txs = TypeTxs::Income;
+                        ttr.buy_amount = Some(bctr.change);
+                        ttr.buy_currency = bctr.coin.clone();
+                        ttr.sell_amount = Some(dec!(0));
+                        ttr.sell_currency = "".to_owned();
+                    }
                 }
                 "transfer_in" | "transfer_out" => return Ok(None),
                 "Withdraw" => {
@@ -853,7 +869,7 @@ pub async fn process_binance_com_trade_history_files(
         let mut total_quantity = dec!(0);
         let mut total_transaction_count = 0usize;
 
-        for (_, ar) in &mut data.bc_asset_rec_map.bt {
+        for ar in data.bc_asset_rec_map.bt.values_mut() {
             total_quantity += ar.quantity;
             total_transaction_count += ar.transaction_count;
 
@@ -1206,7 +1222,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
     }
 
     #[test]
-    fn test_trade_to_tt() {
+    fn test_tr_commission_history_to_tt() {
         let bctr = TradeRec {
             user_id: "123456789".to_string(),
             time: 1609459231000,
@@ -1232,6 +1248,86 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         assert_eq!(ttr.group, None);
         assert_eq!(ttr.comment, "v2,1,123456789,Spot,Commission History");
         assert_eq!(ttr.time, 1609459231000);
+    }
+
+    #[test]
+    fn test_tr_small_assets_exchange_bnb_to_tt() {
+        let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,ANKR,-0.6765,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,DOGE,-1.39892,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,ENJ,-0.34686,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,GRS,-0.14514,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,GXS,-0.04182,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,HBAR,-0.041,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,LEND,-4.09221,
+12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,RVN,-9.219219,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,ALGO,-1.3555789,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,BAND,-0.30012,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,BAT,-0.10004,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,BCH,-0.00247263,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,BTG,-0.0008651,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,CND,-3.56167,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,COCOS,-406.392,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,COS,-8.783143,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,EDO,-0.11316,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,ETC,-0.0553295,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,FUN,-8.14137,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,HOT,-22.796,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,MBL,-36.2276,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,MCO,-0.03184306,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,NANO,-0.0031816,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,QTUM,-0.02939659,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,REN,-0.27142,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,SNT,-7.25085,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,TNT,-7.57188,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,TOMO,-0.09553,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,TRX,-0.62405378,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,VIA,-6.39108,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,XRP,-0.575435,
+12345678,2020-05-11T21:41:12.000+00:00,Spot,Small assets exchange BNB,ZRX,-2.4887,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,APPC,-0.58179,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,ARPA,-1.59408,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,BNB,0.37247015,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,BUSD,-0.03237096,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,ELF,-0.02911,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,RCN,-0.23042,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,REP,-0.00166009,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,USDC,-0.23266911,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,XMR,-0.00108827,
+12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,ZIL,-2.71379,
+"#;
+
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+        for (idx, entry) in reader.deserialize().enumerate() {
+            let line_number = idx + 2;
+            //println!("{idx}: entry: {:?}", entry);
+            match entry {
+                Ok(bctr) => {
+                    let bctr: TradeRec = bctr;
+                    //println!("bcr: {:?}", bctr);
+                    let ttr = TokenTaxRec::from_trade_rec(line_number, &bctr)
+                        .unwrap()
+                        .unwrap();
+                    if bctr.coin != "BNB" {
+                        assert_ne!(line_number, 36);
+                        assert_eq!(ttr.type_txs, TypeTxs::Spend);
+                        assert_eq!("", ttr.buy_currency);
+                        assert_eq!(Some(dec!(0)), ttr.buy_amount);
+                        assert_eq!(bctr.coin, ttr.sell_currency);
+                        assert_eq!(Some(-bctr.change), ttr.sell_amount);
+                    } else {
+                        assert_eq!(line_number, 36);
+                        assert_eq!(ttr.type_txs, TypeTxs::Income);
+                        assert_eq!(bctr.coin, ttr.buy_currency);
+                        assert_eq!(Some(bctr.change), ttr.buy_amount);
+                        assert_eq!("", ttr.sell_currency);
+                        assert_eq!(Some(dec!(0)), ttr.sell_amount);
+                    }
+                }
+                Err(e) => panic!("Error: {e}"),
+            }
+        }
     }
 
     #[test]
