@@ -464,16 +464,27 @@ impl TokenTaxRec {
         ttr.buy_amount = Some(bctr.change);
         ttr.buy_currency = bctr.coin.clone();
 
-        match bctr.account.as_str() {
+        // Income should have no seller or fee information
+        assert_eq!(ttr.sell_amount, Some(dec!(0)));
+        assert_eq!(ttr.sell_currency, "");
+        assert_eq!(ttr.fee_amount, Some(dec!(0)));
+        assert_eq!(ttr.fee_currency, "");
+
+        let result = match bctr.account.as_str() {
             "Coin-Futures" => match bctr.operation.as_str() {
                 "Referrer rebates" => {
-                    // Income nothing more to do:
+                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.2kugk142pi0
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 02:33:56,Coin-Futures,Referrer rebates,BNB,0.00066774,""
+                    Some(ttr)
                 }
-                "transfer_in" | "transfer_out" => {
-                    // Ignore
-                    return Ok(None);
+                "transfer_out" => {
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
+                    None
+                }
+                "transfer_in" => {
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
+                    None
                 }
                 _ => {
                     return Err(format!(
@@ -488,22 +499,29 @@ impl TokenTaxRec {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 00:00:38,USDT-Futures,Referrer rebates,BNB,0.00237605,""
+                    Some(ttr)
                 }
-                "transfer_in" | "transer_out" => {
-                    // Ignore
-                    return Ok(None);
+                "transfer_out" => {
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
+                    None
+                }
+                "transfer_in" => {
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
+                    None
                 }
                 _ => {
                     return Err(format!(
                         "Unknown bctr acccount: {} operation: {}",
                         bctr.account, bctr.operation
                     )
-                    .into())
+                    .into());
                 }
             },
             "Pool" => match bctr.operation.as_str() {
                 "Pool Distribution" => {
                     ttr.type_txs = TypeTxs::Income;
+
+                    Some(ttr)
                 }
                 _ => {
                     return Err(format!(
@@ -615,6 +633,9 @@ impl TokenTaxRec {
                     //  123456789,2020-05-09 05:12:24,Spot,Buy,BTC,0.00357700,""
                     //  123456789,2020-05-09 05:12:29,Spot,Commission History,BNB,0.00023283,""
                     //
+
+                    // TODO:
+                    Some(ttr)
                 }
                 "Fee" | "Transaction Related" => {
                     // 123456789,2021-01-24 21:41:09,Spot,Fee,BNB,-0.00409488,""
@@ -632,46 +653,59 @@ impl TokenTaxRec {
                         )
                         .into());
                     }
+
+                    Some(ttr)
                 }
                 "Commission History" => {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
+
+                    Some(ttr)
                 }
                 "Commission Rebate" => {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
+                    Some(ttr)
                 }
                 "Deposit" => {
-                    //??
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    // Deposit: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9q4kesdhtivv
+                    ttr.type_txs = TypeTxs::Deposit;
+                    assert_eq!(ttr.buy_amount, Some(bctr.change));
+                    assert_eq!(ttr.buy_currency, bctr.coin);
+                    assert_eq!(ttr.sell_amount, Some(dec!(0)));
+                    assert_eq!(ttr.sell_currency, "");
+                    assert_eq!(ttr.fee_amount, Some(dec!(0)));
+                    assert_eq!(ttr.fee_currency, "");
+
+                    Some(ttr)
                 }
                 "Distribution" => {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //  123456789,2020-01-03 05:58:34,Spot,Distribution,ALGO,0.08716713,""
+
+                    Some(ttr)
                 }
                 "ETH 2.0 Staking Rewards" => {
                     //??
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+
+                    Some(ttr)
                 }
                 "Savings Interest" => {
-                    //??
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.b5b1syp9wm44
+                    Some(ttr)
                 }
                 "Savings Principal redemption" => {
-                    //??
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.qcstrov9fmvj
+                    None
                 }
                 "Savings purchase" => {
-                    //??
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.joyiqsumphny
+                    None
                 }
                 "Small assets exchange BNB" => {
                     // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.ui3g3olz647l
@@ -693,8 +727,17 @@ impl TokenTaxRec {
                         ttr.sell_amount = Some(dec!(0));
                         ttr.sell_currency = "".to_owned();
                     }
+
+                    Some(ttr)
                 }
-                "transfer_in" | "transfer_out" => return Ok(None),
+                "transfer_out" => {
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
+                    None
+                }
+                "transfer_in" => {
+                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
+                    None
+                }
                 "Withdraw" => {
                     // 123456789,2021-01-24 22:24:15,Spot,Withdraw,USDT,-2179.39975800,Withdraw fee is included
                     ttr.type_txs = TypeTxs::Withdrawal;
@@ -710,6 +753,8 @@ impl TokenTaxRec {
                         )
                         .into());
                     }
+
+                    Some(ttr)
                 }
                 _ => {
                     return Err(format!(
@@ -723,7 +768,7 @@ impl TokenTaxRec {
             _ => return Err(format!("Unknown bctr acccount: {}", bctr.account).into()),
         };
 
-        Ok(Some(ttr))
+        Ok(result)
     }
 }
 // From bctr_buy, _sell and _fee records create a TokenTax trade record
@@ -763,6 +808,8 @@ struct BcData {
     tr_vec: Vec<TradeRec>,
     bc_asset_rec_map: BcAssetRecMap,
     bc_consolidated_tr_vec: Vec<TradeRec>,
+    transfer_in_count: u64,
+    transfer_out_count: u64,
     total_count: u64,
 }
 
@@ -772,6 +819,8 @@ impl BcData {
             tr_vec: Vec::new(),
             bc_asset_rec_map: BcAssetRecMap::new(),
             bc_consolidated_tr_vec: Vec::new(),
+            transfer_in_count: 0u64,
+            transfer_out_count: 0u64,
             total_count: 0u64,
         }
     }
@@ -805,7 +854,7 @@ pub async fn process_binance_com_trade_history_files(
         None
     };
 
-    let mut data = BcData::new();
+    let mut bc_data = BcData::new();
 
     print!("Read files");
     for f in in_th_file_paths {
@@ -827,29 +876,41 @@ pub async fn process_binance_com_trade_history_files(
                 );
             }
 
-            // Guarantee the user_id is always the same
-            if first_tr.user_id.is_empty() {
-                first_tr = tr.clone();
+            // Process entry
+            {
+                // Guarantee the user_id is always the same
+                if first_tr.user_id.is_empty() {
+                    first_tr = tr.clone();
+                }
+                assert_eq!(first_tr.user_id, tr.user_id);
+
+                // Increment the transfer_in and _out in the end they must be equal
+                if tr.operation == "transfer_in" {
+                    bc_data.transfer_in_count += 1;
+                }
+
+                if tr.operation == "transfer_out" {
+                    bc_data.transfer_out_count += 1;
+                }
+
+                bc_data.tr_vec.push(tr.clone());
+                bc_data.bc_asset_rec_map.add_tr(tr.clone());
             }
-            assert_eq!(first_tr.user_id, tr.user_id);
 
-            data.tr_vec.push(tr.clone());
-            data.bc_asset_rec_map.add_tr(tr.clone());
-
-            data.total_count += 1;
+            bc_data.total_count += 1;
         }
     }
     println!();
 
     println!("Sorting");
-    data.tr_vec.sort();
+    bc_data.tr_vec.sort();
     println!("Sorting done");
 
-    println!("tr_vec: len: {}", data.tr_vec.len());
+    println!("tr_vec: len: {}", bc_data.tr_vec.len());
 
     if let Some(w) = &mut wdr {
         println!("Writing");
-        for dr in &data.tr_vec {
+        for dr in &bc_data.tr_vec {
             w.serialize(dr)?;
         }
         w.flush()?;
@@ -869,7 +930,7 @@ pub async fn process_binance_com_trade_history_files(
         let mut total_quantity = dec!(0);
         let mut total_transaction_count = 0usize;
 
-        for ar in data.bc_asset_rec_map.bt.values_mut() {
+        for ar in bc_data.bc_asset_rec_map.bt.values_mut() {
             total_quantity += ar.quantity;
             total_transaction_count += ar.transaction_count;
 
@@ -881,7 +942,7 @@ pub async fn process_binance_com_trade_history_files(
             );
         }
 
-        assert_eq!(data.total_count as usize, total_transaction_count);
+        assert_eq!(bc_data.total_count as usize, total_transaction_count);
         println!();
         println!(
             "Total quantity: {} ",
@@ -893,9 +954,12 @@ pub async fn process_binance_com_trade_history_files(
         );
         println!(
             "Total asset count: {}",
-            dec_to_separated_string(Decimal::from(data.bc_asset_rec_map.bt.len()), 0)
+            dec_to_separated_string(Decimal::from(bc_data.bc_asset_rec_map.bt.len()), 0)
         );
     }
+
+    // Asserts
+    assert_eq!(bc_data.transfer_in_count, bc_data.transfer_out_count);
 
     Ok(())
 }
