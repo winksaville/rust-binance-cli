@@ -822,6 +822,60 @@ fn trade_asset(
     Ok(())
 }
 
+fn write_dist_rec_vec(
+    writer: BufWriter<File>,
+    dist_rec_vec: &[DistRec],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a data record writer
+    let mut dist_rec_writer = csv::Writer::from_writer(writer);
+
+    // Output the data
+    println!("Output dist recs: len={}", dist_rec_vec.len());
+    for dr in dist_rec_vec {
+        dist_rec_writer.serialize(dr)?;
+    }
+    println!("Output dist recs: Done");
+
+    Ok(())
+}
+
+fn write_dist_rec_vec_as_token_tax(
+    writer: BufWriter<File>,
+    dist_rec_vec: &[DistRec],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a token tax writer
+    let mut token_tax_writer = csv::Writer::from_writer(writer);
+
+    // Output the data
+    println!("Output token tax recs: len={}", dist_rec_vec.len());
+    for (idx, dr) in dist_rec_vec.iter().enumerate() {
+        let line_number = idx + 2;
+        let dr: &DistRec = dr;
+        let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(line_number, dr);
+        token_tax_writer.serialize(ttr)?;
+    }
+    println!("Output token tax recs: Done");
+
+    Ok(())
+}
+
+// Write the dist_rec's for an asset, used for debugging
+#[allow(unused)]
+fn write_dist_rec_vec_for_asset(
+    data: &BuData,
+    asset: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let ar = if let Some(v) = data.asset_rec_map.bt.get(asset) {
+        v
+    } else {
+        panic!("No USD asset record");
+    };
+    let usd_wtr = create_buf_writer(format!("{asset}_dr.csv").as_str())?;
+    write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
+
+    Ok(())
+}
+
 // We assume that update_all_usd_values has been run prior
 // to calling process_entry and thus can use unwrap() on
 // the Option<Decimal> fields.
@@ -1468,62 +1522,6 @@ pub async fn process_binance_us_dist_files(
     }
 
     //println!("process_binance_us_dist_filesg:-");
-    Ok(())
-}
-
-#[allow(unused)]
-fn write_dist_rec_vec(
-    writer: BufWriter<File>,
-    dist_rec_vec: &[DistRec],
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Create a data record writer
-    let mut dist_rec_writer = csv::Writer::from_writer(writer);
-
-    // Output the data
-    println!("Output dist recs: len={}", dist_rec_vec.len());
-    for dr in dist_rec_vec {
-        dist_rec_writer.serialize(dr)?;
-    }
-    println!("Output dist recs: Done");
-
-    Ok(())
-}
-
-#[allow(unused)]
-fn write_dist_rec_vec_as_token_tax(
-    writer: BufWriter<File>,
-    dist_rec_vec: &[DistRec],
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Create a token tax writer
-    let mut token_tax_writer = csv::Writer::from_writer(writer);
-
-    // Output the data
-    println!("Output token tax recs: len={}", dist_rec_vec.len());
-    for (idx, dr) in dist_rec_vec.iter().enumerate() {
-        let line_number = idx + 2;
-        let dr: &DistRec = dr;
-        let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(line_number, dr);
-        token_tax_writer.serialize(ttr)?;
-    }
-    println!("Output token tax recs: Done");
-
-    Ok(())
-}
-
-// Write the dist_rec's for an asset, used for debugging
-#[allow(unused)]
-fn write_dist_rec_vec_for_asset(
-    data: &BuData,
-    asset: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let ar = if let Some(v) = data.asset_rec_map.bt.get(asset) {
-        v
-    } else {
-        panic!("No USD asset record");
-    };
-    let usd_wtr = create_buf_writer(format!("{asset}_dr.csv").as_str())?;
-    write_dist_rec_vec(usd_wtr, &ar.dist_rec_vec)?;
-
     Ok(())
 }
 

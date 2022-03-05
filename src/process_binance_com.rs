@@ -828,6 +828,21 @@ impl BcData {
     }
 }
 
+fn write_tr_vec(
+    writer: BufWriter<File>,
+    tr_vec: &[TradeRec],
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a data record writer
+    let mut tr_writer = csv::Writer::from_writer(writer);
+
+    // Output the data
+    for dr in tr_vec {
+        tr_writer.serialize(dr)?;
+    }
+
+    Ok(())
+}
+
 fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn std::error::Error>> {
     let ar = bc_data
         .bc_asset_rec_map
@@ -1275,21 +1290,6 @@ pub async fn consolidate_binance_com_trade_history_files(
             "Total asset count: {}",
             dec_to_separated_string(Decimal::from(bc_data.bc_asset_rec_map.bt.len()), 0)
         );
-    }
-
-    Ok(())
-}
-
-fn write_tr_vec(
-    writer: BufWriter<File>,
-    tr_vec: &[TradeRec],
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Create a data record writer
-    let mut tr_writer = csv::Writer::from_writer(writer);
-
-    // Output the data
-    for dr in tr_vec {
-        tr_writer.serialize(dr)?;
     }
 
     Ok(())
