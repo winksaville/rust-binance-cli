@@ -60,6 +60,7 @@ use crate::{
     },
     process_binance_com::{
         consolidate_binance_com_trade_history_files, process_binance_com_trade_history_files,
+        tt_file_from_binance_com_trade_history_files,
     },
     process_binance_us::{
         consolidate_binance_us_dist_files, process_binance_us_dist_files,
@@ -435,13 +436,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await?;
             }
             "cbudf" => consolidate_binance_us_dist_files(&config, sc_matches).await?,
+            "ttffbudf" => tt_file_from_binance_us_dist_files(&config, sc_matches).await?,
             "pbcthf" => {
                 process_binance_com_trade_history_files(&config, sc_matches).await?;
             }
             "cbcthf" => {
                 consolidate_binance_com_trade_history_files(&config, sc_matches).await?;
             }
-            "ttffbudf" => tt_file_from_binance_us_dist_files(&config, sc_matches).await?,
+            "ttffbcthf" => {
+                tt_file_from_binance_com_trade_history_files(&config, sc_matches).await?
+            }
             "pttf" => process_token_tax_files(&config, sc_matches).await?,
             "cttf" => consolidate_token_tax_files(&config, sc_matches).await?,
             _ => println!("Unknown subcommand: {}", sc_name),

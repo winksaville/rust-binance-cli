@@ -5,7 +5,7 @@ use std::{
     ffi::OsString,
     fmt::Display,
     fs::File,
-    io::BufWriter,
+    io::{BufReader, BufWriter},
     path::{Path, PathBuf},
 };
 
@@ -61,7 +61,8 @@ struct CommissionRec {
     referral_id: String,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
+//#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
 struct TradeRec {
@@ -87,6 +88,78 @@ struct TradeRec {
 
     #[serde(rename = "Remark")]
     remark: String,
+}
+
+impl Eq for TradeRec {}
+
+impl PartialEq for TradeRec {
+    fn eq(&self, other: &Self) -> bool {
+        self.user_id == other.user_id
+            && self.time == other.time
+            && self.account == other.account
+            && self.operation == other.operation
+            && self.coin == other.coin
+            && self.change == other.change
+            && self.remark == other.remark
+    }
+}
+
+impl PartialOrd for TradeRec {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.user_id.partial_cmp(&other.user_id) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.time.partial_cmp(&other.time) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.account.partial_cmp(&other.account) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.operation.partial_cmp(&other.operation) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.coin.partial_cmp(&other.coin) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        // I may not want to do this here and instead do it when converting?
+        // Or maybe do it both places although this would be "unnecessary"
+        // for correctly converting the Spot "Buy, Fee and Transaction Related"
+        // records into a single token_tax::TypeTxs::Trade record.
+        match (self.account.as_str(), self.operation.as_str()) {
+            ("Spot", "Fee") | ("Spot", "Transaction Related") => {
+                // Sort using absolute value so negative values sort like
+                // positive numbers and closer to 0 is considered smaller.
+                // This allows Buy, Fee and Transaction Related operation
+                // to be sorted in the same order.
+                match self.change.abs().partial_cmp(&other.change.abs()) {
+                    Some(core::cmp::Ordering::Equal) => {}
+                    ord => return ord,
+                }
+            }
+            _ => {
+                // Sort normally
+                match self.change.partial_cmp(&other.change) {
+                    Some(core::cmp::Ordering::Equal) => {}
+                    ord => return ord,
+                }
+            }
+        }
+        self.remark.partial_cmp(&other.remark)
+    }
+}
+
+impl Ord for TradeRec {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.partial_cmp(other) {
+            Some(ord) => ord,
+            None => panic!("WTF"),
+        }
+    }
 }
 
 impl TradeRec {
@@ -334,6 +407,26 @@ impl BcAssetRecMap {
     //}
 }
 
+#[derive(Debug, Clone)]
+#[allow(unused)]
+struct StateFromTradeRec {
+    line_number: usize,
+    spot_buy_tr_vec: Vec<TradeRec>,
+    spot_fee_tr_vec: Vec<TradeRec>,
+    spot_related_tr_vec: Vec<TradeRec>,
+}
+
+impl StateFromTradeRec {
+    fn new() -> StateFromTradeRec {
+        StateFromTradeRec {
+            line_number: 0,
+            spot_buy_tr_vec: Vec::<TradeRec>::new(),
+            spot_fee_tr_vec: Vec::<TradeRec>::new(),
+            spot_related_tr_vec: Vec::<TradeRec>::new(),
+        }
+    }
+}
+
 impl TokenTaxRec {
     fn format_tt_cmt_ver1(line_number: usize, bccr: &CommissionRec) -> String {
         let ver = TT_CMT_VER1.as_str();
@@ -377,9 +470,9 @@ impl TokenTaxRec {
     //          Err if an error typically the account,operation pair were Unknown
     #[allow(unused)]
     fn from_trade_rec(
-        line_number: usize,
+        state: &mut StateFromTradeRec,
         bctr: &TradeRec,
-    ) -> Result<Option<TokenTaxRec>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
         // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
         // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
         //
@@ -448,6 +541,8 @@ impl TokenTaxRec {
         //       1 USDT-Futures,transfer_in
         //      69 USDT-Futures,transfer_out
 
+        let line_number = state.line_number;
+
         // TODO: Handle the all of the above "Account,Operations".
         let mut ttr = TokenTaxRec::new();
 
@@ -468,25 +563,25 @@ impl TokenTaxRec {
         assert_eq!(ttr.fee_amount, None);
         assert_eq!(ttr.fee_currency, "");
 
-        let result = match bctr.account.as_str() {
+        let mut result_a = Vec::<TokenTaxRec>::new();
+
+        match bctr.account.as_str() {
             "Coin-Futures" => match bctr.operation.as_str() {
                 "Referrer rebates" => {
                     // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.2kugk142pi0
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 02:33:56,Coin-Futures,Referrer rebates,BNB,0.00066774,""
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "transfer_out" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
-                    None
                 }
                 "transfer_in" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
-                    None
                 }
                 _ => {
                     return Err(format!(
-                        "Unknown bctr acccount: {} operation: {}",
+                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
                         bctr.account, bctr.operation
                     )
                     .into())
@@ -494,22 +589,20 @@ impl TokenTaxRec {
             },
             "USDT-Futures" => match bctr.operation.as_str() {
                 "Referrer rebates" => {
-                    // Income nothing more to do:
+                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.2kugk142pi0
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 00:00:38,USDT-Futures,Referrer rebates,BNB,0.00237605,""
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "transfer_out" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
-                    None
                 }
                 "transfer_in" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
-                    None
                 }
                 _ => {
                     return Err(format!(
-                        "Unknown bctr acccount: {} operation: {}",
+                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
                         bctr.account, bctr.operation
                     )
                     .into());
@@ -517,13 +610,12 @@ impl TokenTaxRec {
             },
             "Pool" => match bctr.operation.as_str() {
                 "Pool Distribution" => {
-                    ttr.type_txs = TypeTxs::Income;
-
-                    Some(ttr)
+                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.stb79yhrplx
+                    result_a.push(ttr);
                 }
                 _ => {
                     return Err(format!(
-                        "Unknown bctr acccount: {} operation: {}",
+                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
                         bctr.account, bctr.operation
                     )
                     .into())
@@ -584,7 +676,7 @@ impl TokenTaxRec {
                     //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
                     //
                     // How to match Buy, Transaction Related and Fee:
-                    //  if there re 3 less transactions {
+                    //  if there are 3 transactions {
                     //    use them as the transaction
                     //  } else {
                     //     Convert all transactions to a common asset, USD or USDT.
@@ -633,7 +725,7 @@ impl TokenTaxRec {
                     //
 
                     // TODO:
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Fee" | "Transaction Related" => {
                     // 123456789,2021-01-24 21:41:09,Spot,Fee,BNB,-0.00409488,""
@@ -646,64 +738,71 @@ impl TokenTaxRec {
                         ttr.buy_currency = "".to_owned();
                     } else {
                         return Err(format!(
-                            "{line_number}: account: {} operation: {} the change: {} was expected to be negative",
+                            "line_number: {line_number}, account: {}, operation: {}, change: {} was expected to be negative",
                             bctr.account, bctr.operation, bctr.change,
                         )
                         .into());
                     }
-
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Commission History" => {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
 
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Commission Rebate" => {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Deposit" => {
                     // Deposit: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9q4kesdhtivv
                     ttr.type_txs = TypeTxs::Deposit;
                     assert_eq!(ttr.buy_amount, Some(bctr.change));
                     assert_eq!(ttr.buy_currency, bctr.coin);
-                    assert_eq!(ttr.sell_amount, Some(dec!(0)));
+                    assert_eq!(ttr.sell_amount, None);
                     assert_eq!(ttr.sell_currency, "");
-                    assert_eq!(ttr.fee_amount, Some(dec!(0)));
+                    assert_eq!(ttr.fee_amount, None);
                     assert_eq!(ttr.fee_currency, "");
-
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Distribution" => {
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //  123456789,2020-01-03 05:58:34,Spot,Distribution,ALGO,0.08716713,""
-
-                    Some(ttr)
+                    // See: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j4szkclrlz9h
+                    if bctr.change > dec!(0) {
+                        // Income nothing more to do:
+                        //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                        //  123456789,2020-01-03 05:58:34,Spot,Distribution,ALGO,0.08716713,""
+                        result_a.push(ttr);
+                    } else {
+                        // bctr.change < 0 so this is a Spend
+                        //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                        //   12345678,2019-12-12T08:08:18.000+00:00,Spot,Distribution,BCHABC,-0.00505836,
+                        ttr.type_txs = TypeTxs::Spend;
+                        ttr.sell_amount = Some(-bctr.change);
+                        ttr.sell_currency = bctr.coin.clone();
+                        ttr.buy_amount = None;
+                        ttr.buy_currency = "".to_owned();
+                        result_a.push(ttr);
+                    }
                 }
                 "ETH 2.0 Staking Rewards" => {
                     //??
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Savings Interest" => {
                     // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.b5b1syp9wm44
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "Savings Principal redemption" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.qcstrov9fmvj
-                    None
                 }
                 "Savings purchase" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.joyiqsumphny
-                    None
                 }
                 "Small assets exchange BNB" => {
                     // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.ui3g3olz647l
@@ -711,7 +810,7 @@ impl TokenTaxRec {
                         // Assert the change is negative
                         assert!(bctr.change < dec!(0));
                         ttr.type_txs = TypeTxs::Spend;
-                        ttr.buy_amount = Some(dec!(0));
+                        ttr.buy_amount = None;
                         ttr.buy_currency = "".to_owned();
                         ttr.sell_amount = Some(-bctr.change);
                         ttr.sell_currency = bctr.coin.clone();
@@ -722,19 +821,17 @@ impl TokenTaxRec {
                         ttr.type_txs = TypeTxs::Income;
                         ttr.buy_amount = Some(bctr.change);
                         ttr.buy_currency = bctr.coin.clone();
-                        ttr.sell_amount = Some(dec!(0));
+                        ttr.sell_amount = None;
                         ttr.sell_currency = "".to_owned();
                     }
 
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 "transfer_out" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
-                    None
                 }
                 "transfer_in" => {
                     // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
-                    None
                 }
                 "Withdraw" => {
                     // 123456789,2021-01-24 22:24:15,Spot,Withdraw,USDT,-2179.39975800,Withdraw fee is included
@@ -746,26 +843,32 @@ impl TokenTaxRec {
                         ttr.buy_currency = "".to_owned();
                     } else {
                         return Err(format!(
-                            "{line_number}: account: {} operation: {} the change: {} was expected to be negative",
+                            "line_number: {line_number}, account: {}, operation: {}, change: {} expected to be negative",
                             bctr.account, bctr.operation, bctr.change,
                         )
                         .into());
                     }
 
-                    Some(ttr)
+                    result_a.push(ttr);
                 }
                 _ => {
                     return Err(format!(
-                        "Unknown bctr acccount: {} operation: {}",
+                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
                         bctr.account, bctr.operation
                     )
                     .into());
                 }
             },
-            _ => return Err(format!("Unknown bctr acccount: {}", bctr.account).into()),
+            _ => {
+                return Err(format!(
+                    "line_number: {line_number}, bctr acccount: {} unknown",
+                    bctr.account
+                )
+                .into())
+            }
         };
 
-        Ok(result)
+        Ok(result_a)
     }
 }
 
@@ -828,6 +931,35 @@ impl BcData {
     }
 }
 
+// Write token tax record from tr_vec
+//
+// Returns number of records written
+fn write_tr_vec_as_token_tax(
+    writer: BufWriter<File>,
+    tr_vec: &[TradeRec],
+) -> Result<usize, Box<dyn std::error::Error>> {
+    // Create a token tax writer
+    let mut token_tax_writer = csv::Writer::from_writer(writer);
+
+    let mut state = StateFromTradeRec::new();
+
+    let mut count_written = 0usize;
+    // Output the data
+    for (idx, bctr) in tr_vec.iter().enumerate() {
+        state.line_number = idx + 2;
+        let ttr_a = TokenTaxRec::from_trade_rec(&mut state, bctr)?;
+
+        for ttr in &ttr_a {
+            count_written += 1;
+            token_tax_writer.serialize(ttr)?;
+        }
+    }
+
+    token_tax_writer.flush()?;
+
+    Ok(count_written)
+}
+
 fn write_tr_vec(
     writer: BufWriter<File>,
     tr_vec: &[TradeRec],
@@ -839,6 +971,8 @@ fn write_tr_vec(
     for dr in tr_vec {
         tr_writer.serialize(dr)?;
     }
+
+    tr_writer.flush()?;
 
     Ok(())
 }
@@ -1295,15 +1429,83 @@ pub async fn consolidate_binance_com_trade_history_files(
     Ok(())
 }
 
+pub async fn tt_file_from_binance_com_trade_history_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //println!("tt_file_from_binance_com_trade_history_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let mut bc_data = BcData::new();
+
+    let in_file_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+    verify_input_files_exist(&in_file_paths)?;
+
+    // Create out_dist_path
+    let out_token_tax_path_str = sc_matches
+        .value_of("OUT_FILE")
+        .unwrap_or_else(|| panic!("out-file option is missing"));
+    let out_token_tax_path = Path::new(out_token_tax_path_str);
+
+    let time_ms_offset = time_offset_days_to_time_ms_offset(sc_matches)?;
+
+    let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
+
+    print!("Read files");
+    for f in &in_file_paths {
+        println!("\nfile: {f}");
+        let in_file = if let Ok(in_f) = File::open(*f) {
+            in_f
+        } else {
+            return Err(format!("Unable to open {f}").into());
+        };
+        let reader = BufReader::new(in_file);
+
+        // DataRec reader
+        let mut data_rec_reader = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+            //println!("{rec_index}: {result:?}");
+            let line_number = rec_index + 2;
+            let mut bctr: TradeRec = result?;
+
+            if config.progress_info {
+                let asset = bctr.coin.as_str();
+                print!("Processing {line_number} {asset}                        \r",);
+            }
+
+            if let Some(offset) = time_ms_offset {
+                bctr.time += offset;
+            }
+
+            bc_data.tr_vec.push(bctr.clone());
+        }
+    }
+
+    println!("Writing token tax records to {out_token_tax_path_str}");
+    let written = write_tr_vec_as_token_tax(token_tax_rec_writer, &bc_data.tr_vec)?;
+    println!("Writing token tax records: Done; records written: {written}");
+
+    println!();
+    println!("Done");
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
 
     use super::*;
-    use crate::process_token_tax::{TokenTaxRec, TypeTxs};
+    use crate::{
+        common::dt_str_to_utc_time_ms,
+        process_token_tax::{TokenTaxRec, TypeTxs},
+    };
     use rust_decimal_macros::dec;
 
     #[test]
-    fn test_create_tt_trade_rec() {
+    fn test_create_token_tax_trade() {
         let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
 123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
@@ -1322,20 +1524,24 @@ mod test {
 123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
 "#;
         //println!("csv: {csv:?}");
-        let mut bctr_a = Vec::<TradeRec>::new();
+        let mut bctr_a = csv_str_to_trade_rec_array(csv);
+        println!("before sort:");
+        bctr_a.iter().for_each(|tr| println!("{tr}"));
+        bctr_a.sort();
+        println!("after  sort:");
+        bctr_a.iter().for_each(|tr| println!("{tr}"));
 
-        let rdr = csv.as_bytes();
-        let mut reader = csv::Reader::from_reader(rdr);
-        //let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for (_idx, entry) in reader.deserialize().enumerate() {
-            //println!("{_idx}: entry: {:?}", entry);
-            match entry {
-                Ok(bctr) => {
-                    bctr_a.push(bctr);
-                }
-                Err(e) => panic!("Error: {e}"),
-            }
+        let mut state = StateFromTradeRec::new();
+
+        let mut ttr_a = Vec::<TokenTaxRec>::new();
+        for (idx, bctr) in bctr_a.iter().enumerate() {
+            state.line_number = idx + 2;
+            let ttr_returned_a = TokenTaxRec::from_trade_rec(&mut state, &bctr).unwrap();
+            ttr_returned_a
+                .iter()
+                .for_each(|ttr| ttr_a.push(ttr.clone()));
         }
+
         //println!("bctr_a: {bctr_a:?}");
 
         //TODO: implement create_tt_trade_rec
@@ -1343,29 +1549,74 @@ mod test {
     }
 
     #[test]
-    fn test_deserialize_commission_from_csv() {
+    fn test_create_spot_buy_transaction_related_sorting() {
+        let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014356,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014357,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00195765,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00445039,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00465885,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00267651,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0025559,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00112574,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.57,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.41,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-1.5,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+"#;
+        //println!("csv: {csv:?}");
+        let mut bctr_a = csv_str_to_trade_rec_array(csv);
+        println!("bctr_a before sort");
+        bctr_a.iter().for_each(|tr| println!("{tr}"));
+
+        bctr_a.sort();
+        println!("bctr_a after sort:");
+        bctr_a.iter().for_each(|tr| println!("{tr}"));
+
+        // This is the expected sorted order
+        let expected_csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014356,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014357,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00195765,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00445039,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00465885,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00112574,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0025559,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00267651,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-1.5,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.41,
+123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.57,
+"#;
+        let expected_bctr_a = csv_str_to_trade_rec_array(expected_csv);
+        println!("expected_bctr_a:");
+        expected_bctr_a.iter().for_each(|tr| println!("{tr}"));
+
+        assert_eq!(bctr_a, expected_bctr_a);
+    }
+
+    #[test]
+    fn test_deserialize_commission_rec_from_csv() {
         let csv = r#"Order Type,Friend's ID(Spot),Friend's sub ID (Spot),Commission Asset,Commission Earned,Commission Earned (USDT),Commission Time,Registration Time,Referral ID
 USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-31 21:58:24,bpcode
 "#;
-        let rdr = csv.as_bytes();
-        let mut reader = csv::Reader::from_reader(rdr);
-        //let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for (idx, entry) in reader.deserialize().enumerate() {
+
+        let bccr_a = csv_str_to_commission_rec_array(csv);
+        for (idx, bccr) in bccr_a.iter().enumerate() {
             //println!("{idx}: entry: {:?}", entry);
-            match entry {
-                Ok(bccr) => {
-                    let bccr: CommissionRec = bccr;
-                    //println!("bcr: {:?}", bccr);
-                    match idx {
-                        0 => {
-                            assert_eq!(bccr.order_type, "USDT-futures");
-                            assert_eq!(bccr.friends_id_spot, 42254326);
-                            assert!(bccr.friends_sub_id_spot.is_empty());
-                        }
-                        _ => panic!("Unexpected idx"),
-                    }
+            match idx {
+                0 => {
+                    assert_eq!(bccr.order_type, "USDT-futures");
+                    assert_eq!(bccr.friends_id_spot, 42254326);
+                    assert!(bccr.friends_sub_id_spot.is_empty());
                 }
-                Err(e) => panic!("Error: {e}"),
+                _ => panic!("Unexpected idx"),
             }
         }
     }
@@ -1405,29 +1656,28 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
 "#;
-        let rdr = csv.as_bytes();
-        let mut reader = csv::Reader::from_reader(rdr);
-        //let mut reader = csv::Reader::from_reader(csv.as_bytes());
-        for (idx, entry) in reader.deserialize().enumerate() {
+
+        let bctr_a = csv_str_to_trade_rec_array(csv);
+        for (idx, bctr) in bctr_a.iter().enumerate() {
             //println!("{idx}: entry: {:?}", entry);
-            match entry {
-                Ok(bctr) => {
-                    let bctr: TradeRec = bctr;
-                    //println!("bcr: {:?}", bctr);
-                    match idx {
-                        0 => {
-                            assert_eq!(bctr.user_id, "123456789");
-                            assert_eq!(bctr.time, 1609459231000);
-                            assert_eq!(bctr.account, "Spot");
-                            assert_eq!(bctr.operation, "Commission History");
-                            assert_eq!(bctr.coin, "DOT");
-                            assert_eq!(bctr.change, dec!(0.00505120));
-                            assert!(bctr.remark.is_empty());
-                        }
-                        _ => panic!("Unexpected idx"),
-                    }
+            match idx {
+                0 => {
+                    assert_eq!(bctr.user_id, "123456789");
+                    assert_eq!(
+                        bctr.time,
+                        dt_str_to_utc_time_ms(
+                            "2021-01-01 00:00:31",
+                            crate::common::TzMassaging::CondAddTzUtc
+                        )
+                        .unwrap()
+                    );
+                    assert_eq!(bctr.account, "Spot");
+                    assert_eq!(bctr.operation, "Commission History");
+                    assert_eq!(bctr.coin, "DOT");
+                    assert_eq!(bctr.change, dec!(0.00505120));
+                    assert_eq!(bctr.remark, "");
                 }
-                Err(e) => panic!("Error: {e}"),
+                _ => panic!("Unexpected idx"),
             }
         }
     }
@@ -1445,7 +1695,11 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         };
         //println!("bctr: {bctr:?}");
 
-        let ttr = TokenTaxRec::from_trade_rec(1, &bctr).unwrap().unwrap();
+        let mut state = StateFromTradeRec::new();
+        state.line_number = 1;
+        let ttr_a = TokenTaxRec::from_trade_rec(&mut state, &bctr).unwrap();
+        let ttr = &ttr_a[0];
+
         //println!("ttr: {ttr:?}");
         assert!(bctr.remark.is_empty());
         assert_eq!(ttr.type_txs, TypeTxs::Income);
@@ -1463,7 +1717,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
 
     #[test]
     fn test_tr_small_assets_exchange_bnb_to_tt() {
-        let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+        let csv_str = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,ANKR,-0.6765,
 12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,DOGE,-1.39892,
 12345678,2020-05-11T21:41:11.000+00:00,Spot,Small assets exchange BNB,ENJ,-0.34686,
@@ -1508,35 +1762,28 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
 12345678,2020-05-11T21:41:13.000+00:00,Spot,Small assets exchange BNB,ZIL,-2.71379,
 "#;
 
-        let rdr = csv.as_bytes();
-        let mut reader = csv::Reader::from_reader(rdr);
-        for (idx, entry) in reader.deserialize().enumerate() {
-            let line_number = idx + 2;
-            //println!("{idx}: entry: {:?}", entry);
-            match entry {
-                Ok(bctr) => {
-                    let bctr: TradeRec = bctr;
-                    //println!("bcr: {:?}", bctr);
-                    let ttr = TokenTaxRec::from_trade_rec(line_number, &bctr)
-                        .unwrap()
-                        .unwrap();
-                    if bctr.coin != "BNB" {
-                        assert_ne!(line_number, 36);
-                        assert_eq!(ttr.type_txs, TypeTxs::Spend);
-                        assert_eq!("", ttr.buy_currency);
-                        assert_eq!(Some(dec!(0)), ttr.buy_amount);
-                        assert_eq!(bctr.coin, ttr.sell_currency);
-                        assert_eq!(Some(-bctr.change), ttr.sell_amount);
-                    } else {
-                        assert_eq!(line_number, 36);
-                        assert_eq!(ttr.type_txs, TypeTxs::Income);
-                        assert_eq!(bctr.coin, ttr.buy_currency);
-                        assert_eq!(Some(bctr.change), ttr.buy_amount);
-                        assert_eq!("", ttr.sell_currency);
-                        assert_eq!(Some(dec!(0)), ttr.sell_amount);
-                    }
-                }
-                Err(e) => panic!("Error: {e}"),
+        let bctr_a = csv_str_to_trade_rec_array(csv_str);
+
+        let mut state = StateFromTradeRec::new();
+        for (idx, bctr) in bctr_a.iter().enumerate() {
+            state.line_number = idx + 2;
+            //println!("bcr: {:?}", bctr);
+            let ttr_a = TokenTaxRec::from_trade_rec(&mut state, bctr).unwrap();
+            let ttr = &ttr_a[0];
+            if bctr.coin != "BNB" {
+                assert_ne!(state.line_number, 36);
+                assert_eq!(ttr.type_txs, TypeTxs::Spend);
+                assert_eq!("", ttr.buy_currency);
+                assert_eq!(None, ttr.buy_amount);
+                assert_eq!(bctr.coin, ttr.sell_currency);
+                assert_eq!(Some(-bctr.change), ttr.sell_amount);
+            } else {
+                assert_eq!(state.line_number, 36);
+                assert_eq!(ttr.type_txs, TypeTxs::Income);
+                assert_eq!(bctr.coin, ttr.buy_currency);
+                assert_eq!(Some(bctr.change), ttr.buy_amount);
+                assert_eq!("", ttr.sell_currency);
+                assert_eq!(None, ttr.sell_amount);
             }
         }
     }
@@ -1613,5 +1860,39 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         ttr2.user_id = "1".to_owned();
 
         assert!(ttr1 != ttr2);
+    }
+
+    fn csv_str_to_trade_rec_array(csv_str: &str) -> Vec<TradeRec> {
+        let mut tr_a = Vec::<TradeRec>::new();
+        let rdr = csv_str.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+        for entry in reader.deserialize() {
+            //println!("{_idx}: entry: {:?}", entry);
+            match entry {
+                Ok(bctr) => {
+                    tr_a.push(bctr);
+                }
+                Err(e) => panic!("Error: {e}"),
+            }
+        }
+
+        tr_a
+    }
+
+    fn csv_str_to_commission_rec_array(csv_str: &str) -> Vec<CommissionRec> {
+        let mut cr_a = Vec::<CommissionRec>::new();
+        let rdr = csv_str.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+        for entry in reader.deserialize() {
+            //println!("{_idx}: entry: {:?}", entry);
+            match entry {
+                Ok(cr) => {
+                    cr_a.push(cr);
+                }
+                Err(e) => panic!("Error: {e}"),
+            }
+        }
+
+        cr_a
     }
 }

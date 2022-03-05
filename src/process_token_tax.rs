@@ -34,6 +34,12 @@ pub enum TypeTxs {
     Unknown,
 }
 
+impl Display for TypeTxs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, Ord, PartialEq, PartialOrd)]
 pub enum GroupType {
     #[serde(rename = "margin")]
@@ -129,7 +135,7 @@ impl Display for TokenTaxRec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "time: {} type_txs: {:?} buy_amount: {:?} buy_currency {} sell_amount: {:?} sell_currency: {} fee_amount: {:?} fee_currency: {} exchange: {} group: {:?} comment: {}",
+            "time: {} type_txs: {} buy_amount: {:?} buy_currency {} sell_amount: {:?} sell_currency: {} fee_amount: {:?} fee_currency: {} exchange: {} group: {:?} comment: {}",
             time_ms_to_utc_string(self.time),
             self.type_txs,
             self.buy_amount,
@@ -503,8 +509,16 @@ fn process_entry(
     arm.inc_transaction_count(asset);
 
     if let Some(buy_amount) = ttr.buy_amount {
-        assert!(buy_amount >= dec!(0));
-        assert!(!ttr.buy_currency.is_empty());
+        assert!(
+            !ttr.buy_currency.is_empty(),
+            "{}",
+            format!("line_number {line_number}: type_txs: {}, buy_currency: is_empty(), buy_amount: {buy_amount}, comment: {}", ttr.type_txs, ttr.comment)
+        );
+        assert!(
+            buy_amount >= dec!(0),
+            "{}",
+            format!("Expected buy_amount: {buy_amount} >= dec!(0) at line_number: {line_number}")
+        );
         arm.add_quantity(&ttr.buy_currency, buy_amount);
     }
 
