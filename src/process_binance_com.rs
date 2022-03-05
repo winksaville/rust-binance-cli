@@ -270,8 +270,6 @@ impl BcAssetRec {
         // tr_vec is no longer has valid data, clear it
         self.tr_vec.clear();
 
-        //println!("Consolidatation Updated       len: {}", self.consolidated_tr_vec.len());
-
         self.consolidated_tr_vec
             .sort_by(ttr_cmp_no_change_no_remark);
 
@@ -465,9 +463,9 @@ impl TokenTaxRec {
         ttr.buy_currency = bctr.coin.clone();
 
         // Income should have no seller or fee information
-        assert_eq!(ttr.sell_amount, Some(dec!(0)));
+        assert_eq!(ttr.sell_amount, None);
         assert_eq!(ttr.sell_currency, "");
-        assert_eq!(ttr.fee_amount, Some(dec!(0)));
+        assert_eq!(ttr.fee_amount, None);
         assert_eq!(ttr.fee_currency, "");
 
         let result = match bctr.account.as_str() {
@@ -764,13 +762,13 @@ impl TokenTaxRec {
                     .into());
                 }
             },
-            _ => panic!("Unknown bctr.account: {}", bctr.account),
             _ => return Err(format!("Unknown bctr acccount: {}", bctr.account).into()),
         };
 
         Ok(result)
     }
 }
+
 // From bctr_buy, _sell and _fee records create a TokenTax trade record
 #[allow(unused)]
 async fn to_tt_trade_rec(
@@ -810,6 +808,8 @@ struct BcData {
     bc_consolidated_tr_vec: Vec<TradeRec>,
     transfer_in_count: u64,
     transfer_out_count: u64,
+    savings_principal: Decimal,
+    savings_principal_redemption_of_ldbtc: u64,
     total_count: u64,
 }
 
@@ -821,9 +821,156 @@ impl BcData {
             bc_consolidated_tr_vec: Vec::new(),
             transfer_in_count: 0u64,
             transfer_out_count: 0u64,
+            savings_principal: dec!(0),
+            savings_principal_redemption_of_ldbtc: 0u64,
             total_count: 0u64,
         }
     }
+}
+
+fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn std::error::Error>> {
+    let ar = bc_data
+        .bc_asset_rec_map
+        .bt
+        .entry(bctr.coin.clone())
+        .or_insert_with(|| {
+            // This happens the first time an asset is seen and is not unusual
+            //println!("Adding missing asset: {}", asset);
+            BcAssetRec::new(&bctr.coin)
+        });
+
+    bc_data.tr_vec.push(bctr.clone());
+
+    ar.transaction_count += 1;
+    ar.quantity += bctr.change;
+
+    match bctr.account.as_str() {
+        "Coin-Futures" => match bctr.operation.as_str() {
+            "Referrer rebates" => {
+                // ?
+            }
+            "transfer_out" => {
+                assert!(bctr.change <= dec!(0));
+                bc_data.transfer_out_count += 1;
+            }
+            "transfer_in" => {
+                assert!(bctr.change >= dec!(0));
+                bc_data.transfer_in_count += 1;
+            }
+            _ => {
+                return Err(format!(
+                    "Unknown bctr acccount: {} operation: {}",
+                    bctr.account, bctr.operation
+                )
+                .into())
+            }
+        },
+        "USDT-Futures" => match bctr.operation.as_str() {
+            "Referrer rebates" => {
+                // ?
+            }
+            "transfer_out" => {
+                assert!(bctr.change <= dec!(0));
+                bc_data.transfer_out_count += 1;
+            }
+            "transfer_in" => {
+                assert!(bctr.change >= dec!(0));
+                bc_data.transfer_in_count += 1;
+            }
+            _ => {
+                return Err(format!(
+                    "Unknown bctr acccount: {} operation: {}",
+                    bctr.account, bctr.operation
+                )
+                .into());
+            }
+        },
+        "Pool" => match bctr.operation.as_str() {
+            "Pool Distribution" => {
+                // ?
+            }
+            _ => {
+                return Err(format!(
+                    "Unknown bctr acccount: {} operation: {}",
+                    bctr.account, bctr.operation
+                )
+                .into())
+            }
+        },
+        "Spot" => match bctr.operation.as_str() {
+            "Buy" => {
+                // ?
+            }
+            "Fee" | "Transaction Related" => {
+                // ?
+            }
+            "Commission History" => {
+                // ?
+            }
+            "Commission Rebate" => {
+                // ?
+            }
+            "Deposit" => {
+                // ?
+            }
+            "Distribution" => {
+                // ?
+            }
+            "ETH 2.0 Staking Rewards" => {
+                // ?
+            }
+            "Savings Interest" => {
+                assert!(bctr.coin == "BTC");
+                assert!(bctr.change >= dec!(0));
+            }
+            "Savings Principal redemption" => {
+                // maybe either positive or negative
+                match bctr.coin.as_str() {
+                    "BTC" => {
+                        bc_data.savings_principal += bctr.change;
+                    }
+                    "LDBTC" => {
+                        bc_data.savings_principal_redemption_of_ldbtc += 1;
+                    }
+                    _ => {
+                        return Err(format!(
+                            "Unexpected coin {}, in {}",
+                            bctr.account, bctr.operation
+                        )
+                        .into());
+                    }
+                }
+            }
+            "Savings purchase" => {
+                assert!(bctr.change <= dec!(0));
+                bc_data.savings_principal += bctr.change;
+            }
+            "Small assets exchange BNB" => {
+                // ?
+            }
+            "transfer_out" => {
+                assert!(bctr.change <= dec!(0));
+                bc_data.transfer_out_count += 1;
+            }
+            "transfer_in" => {
+                assert!(bctr.change >= dec!(0));
+                bc_data.transfer_in_count += 1;
+            }
+            "Withdraw" => {
+                assert!(bctr.change < dec!(0));
+            }
+            _ => {
+                return Err(format!(
+                    "Unknown bctr acccount: {} operation: {}",
+                    bctr.account, bctr.operation
+                )
+                .into());
+            }
+        },
+        _ => return Err(format!("Unknown bctr acccount: {}", bctr.account).into()),
+    };
+
+    Ok(())
 }
 
 // Process binance.com trade history files.
@@ -847,8 +994,9 @@ pub async fn process_binance_com_trade_history_files(
     verify_input_files_exist(&in_th_file_paths)?;
 
     // Create csv::Writer if out_file_path exists
-    let mut wdr = if let Some(out_file_path) = sc_matches.value_of("OUT_FILE") {
-        let writer = create_buf_writer(out_file_path)?;
+    let out_file_path = sc_matches.value_of("OUT_FILE");
+    let mut wdr = if let Some(fp) = out_file_path {
+        let writer = create_buf_writer(fp)?;
         Some(csv::Writer::from_writer(writer))
     } else {
         None
@@ -876,26 +1024,13 @@ pub async fn process_binance_com_trade_history_files(
                 );
             }
 
-            // Process entry
-            {
-                // Guarantee the user_id is always the same
-                if first_tr.user_id.is_empty() {
-                    first_tr = tr.clone();
-                }
-                assert_eq!(first_tr.user_id, tr.user_id);
-
-                // Increment the transfer_in and _out in the end they must be equal
-                if tr.operation == "transfer_in" {
-                    bc_data.transfer_in_count += 1;
-                }
-
-                if tr.operation == "transfer_out" {
-                    bc_data.transfer_out_count += 1;
-                }
-
-                bc_data.tr_vec.push(tr.clone());
-                bc_data.bc_asset_rec_map.add_tr(tr.clone());
+            // Guarantee the user_id is always the same
+            if first_tr.user_id.is_empty() {
+                first_tr = tr.clone();
             }
+            assert_eq!(first_tr.user_id, tr.user_id);
+
+            process_entry(&mut bc_data, &tr)?;
 
             bc_data.total_count += 1;
         }
@@ -909,7 +1044,7 @@ pub async fn process_binance_com_trade_history_files(
     println!("tr_vec: len: {}", bc_data.tr_vec.len());
 
     if let Some(w) = &mut wdr {
-        println!("Writing");
+        println!("Writing to {}", out_file_path.unwrap());
         for dr in &bc_data.tr_vec {
             w.serialize(dr)?;
         }
@@ -956,10 +1091,20 @@ pub async fn process_binance_com_trade_history_files(
             "Total asset count: {}",
             dec_to_separated_string(Decimal::from(bc_data.bc_asset_rec_map.bt.len()), 0)
         );
+        println!(
+            "Total savings principal: {}",
+            dec_to_separated_string(bc_data.savings_principal, 0)
+        );
     }
 
     // Asserts
     assert_eq!(bc_data.transfer_in_count, bc_data.transfer_out_count);
+
+    // This may need to be approximately == 0
+    assert_eq!(bc_data.savings_principal, dec!(0));
+
+    // At most one odd redemption ?
+    assert!(bc_data.savings_principal_redemption_of_ldbtc <= 1);
 
     Ok(())
 }
@@ -974,7 +1119,7 @@ pub async fn consolidate_binance_com_trade_history_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("consoldiate_binance_com_trade_history:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
-    let mut data = BcData::new();
+    let mut bc_data = BcData::new();
 
     let in_th_paths: Vec<&str> = sc_matches
         .values_of("IN_FILES")
@@ -1027,9 +1172,6 @@ pub async fn consolidate_binance_com_trade_history_files(
 
     let tr_writer = create_buf_writer_from_path(out_tr_path)?;
 
-    //let f = File::create(out_token_tax_path)?;
-    //let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
-
     print!("Read files");
     for f in in_th_paths {
         println!("\nfile: {f}");
@@ -1062,71 +1204,78 @@ pub async fn consolidate_binance_com_trade_history_files(
                 tr.time += offset;
             }
 
-            data.tr_vec.push(tr.clone());
-            data.bc_asset_rec_map.add_tr(tr);
+            bc_data.tr_vec.push(tr.clone());
+            bc_data.bc_asset_rec_map.add_tr(tr);
+        }
+    }
+    println!();
+    println!("Consolidate");
+
+    // Loop through the asset records and consolidating each
+    // and then append them to consolidated_tr_vec.
+    for ar in bc_data.bc_asset_rec_map.bt.values_mut() {
+        ar.consolidate_trade_recs(config)?;
+
+        // Append the ar.consolidated_tr_vec to end of bc_data.consolidated_tr_vec
+        for tr in &ar.consolidated_tr_vec {
+            bc_data.bc_consolidated_tr_vec.push(tr.clone());
         }
     }
 
-    println!();
-    println!();
-    let col_1 = 10;
-    let col_2 = 15;
-    let col_3 = 15;
+    println!("Sorting");
+    bc_data
+        .bc_consolidated_tr_vec
+        .sort_by(ttr_cmp_no_change_no_remark);
+    println!("Sorting done");
 
-    let mut total_pre_len = 0usize;
-    let mut total_post_len = 0usize;
-    println!("Consolidate");
     println!(
-        "{:<col_1$} {:>col_2$} {:>col_3$}",
-        "Asset", "pre count", "post count"
+        "consolidated_tr_vec: len: {}",
+        bc_data.bc_consolidated_tr_vec.len()
     );
 
-    // ------------------------
-    //DEBUG consolidated AE
-    //let  ae_ar = data.bc_asset_rec_map.bt.get_mut("AE").unwrap();
-    //ae_ar.consolidate_trade_recs(config)?;
-    //println!("{ae_ar}");
-    // ------------------------
+    // Output consolidated data as tr records and token_tax records
+    println!("Writing to {out_tr_path_str}");
+    write_tr_vec(tr_writer, &bc_data.bc_consolidated_tr_vec)?;
+    println!("Writing done");
 
-    // Loop through the asset records and consolidating each.
-    //let mut state = ConsolidateState { prev_dr: Default::default() };
-    for (asset, ar) in &mut data.bc_asset_rec_map.bt {
-        let pre_len = ar.tr_vec.len();
-        total_pre_len += pre_len;
+    if config.verbose {
+        let mut total_quantity = dec!(0);
+        let col_1_width = 10;
+        let col_2_width = 20;
+        let col_3_width = 10;
 
-        ar.consolidate_trade_recs(config)?;
+        println!(
+            "{:<col_1_width$} {:>col_2_width$} {:>col_3_width$}",
+            "Asset", "Quantity", "Tx count"
+        );
 
-        let post_len = ar.consolidated_tr_vec.len();
-        total_post_len += post_len;
+        // Loop through the asset records printing them
+        for (asset, ar) in &bc_data.bc_asset_rec_map.bt {
+            assert_eq!(ar.transaction_count, ar.consolidated_tr_vec.len());
+            total_quantity += ar.quantity;
 
-        // Append the ar.consolidated_tr_vec to end of data.consolidated_tr_vec
-        for tr in &ar.consolidated_tr_vec {
-            data.bc_consolidated_tr_vec.push(tr.clone());
+            println!(
+                "{:<col_1_width$} {:>col_2_width$} {:>col_3_width$}",
+                asset,
+                dec_to_separated_string(ar.quantity, 4),
+                dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
+            );
         }
 
         println!(
-            "{:<col_1$} {:>col_2$} {:>col_3$}",
-            asset,
-            dec_to_separated_string(Decimal::from_f64(pre_len as f64).unwrap(), 0),
-            dec_to_separated_string(Decimal::from_f64(post_len as f64).unwrap(), 0),
+            "Total quantity: {}",
+            dec_to_separated_string(total_quantity, 8),
+        );
+        println!(
+            "Consolidated from {} to {}",
+            dec_to_separated_string(Decimal::from(bc_data.tr_vec.len()), 0),
+            bc_data.bc_consolidated_tr_vec.len()
+        );
+        println!(
+            "Total asset count: {}",
+            dec_to_separated_string(Decimal::from(bc_data.bc_asset_rec_map.bt.len()), 0)
         );
     }
-    println!("Consolidated from {} to {}", total_pre_len, total_post_len);
-
-    data.bc_consolidated_tr_vec
-        .sort_by(ttr_cmp_no_change_no_remark);
-
-    // Output consolidated data as tr records and token_tax records
-    println!("Writing trade records to {out_tr_path_str}");
-    write_tr_vec(tr_writer, &data.bc_consolidated_tr_vec)?;
-    //println!("Writing token tax records");
-    //write_tr_vec_as_token_tax(token_tax_rec_writer, &data.consolidated_tr_vec)?;
-
-    // For debug
-    //write_tr_vec_for_asset(&data, "USD")?;
-
-    println!();
-    println!("Done");
 
     Ok(())
 }
@@ -1139,11 +1288,9 @@ fn write_tr_vec(
     let mut tr_writer = csv::Writer::from_writer(writer);
 
     // Output the data
-    println!("Output trade recs: len={}", tr_vec.len());
     for dr in tr_vec {
         tr_writer.serialize(dr)?;
     }
-    println!("Output trade recs: Done");
 
     Ok(())
 }

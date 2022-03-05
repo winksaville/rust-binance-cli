@@ -1180,7 +1180,7 @@ pub async fn process_binance_us_dist_files(
     println!("dist_rec_vec: len: {}", data.dist_rec_vec.len());
 
     if let Some(w) = &mut wdr {
-        println!("Writing");
+        println!("Writing to {}", out_dist_file_path.unwrap());
         for dr in &data.dist_rec_vec {
             w.serialize(dr)?;
         }
