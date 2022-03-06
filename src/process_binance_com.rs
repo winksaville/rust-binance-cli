@@ -565,304 +565,253 @@ impl TokenTaxRec {
 
         let mut result_a = Vec::<TokenTaxRec>::new();
 
-        match bctr.account.as_str() {
-            "Coin-Futures" => match bctr.operation.as_str() {
-                "Referrer rebates" => {
+        match (bctr.account.as_str(), bctr.operation.as_str()) {
+            ("Coin-Futures", "Referrer rebates")
                     // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.2kugk142pi0
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 02:33:56,Coin-Futures,Referrer rebates,BNB,0.00066774,""
-                    result_a.push(ttr);
-                }
-                "transfer_out" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
-                }
-                "transfer_in" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
-                }
-                _ => {
-                    return Err(format!(
-                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
-                        bctr.account, bctr.operation
-                    )
-                    .into())
-                }
-            },
-            "USDT-Futures" => match bctr.operation.as_str() {
-                "Referrer rebates" => {
+            | ("USDT-Futures", "Referrer rebates")
                     // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.2kugk142pi0
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                     //   123456789,2021-01-01 00:00:38,USDT-Futures,Referrer rebates,BNB,0.00237605,""
-                    result_a.push(ttr);
-                }
-                "transfer_out" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
-                }
-                "transfer_in" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
-                }
-                _ => {
-                    return Err(format!(
-                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
-                        bctr.account, bctr.operation
-                    )
-                    .into());
-                }
-            },
-            "Pool" => match bctr.operation.as_str() {
-                "Pool Distribution" => {
+            | ("Pool", "Pool Distribution")
                     // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.stb79yhrplx
+            | ("Spot", "Commission History")
+                // Income nothing more to do:
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
+            | ("Spot", "Commission Rebate")
+                // Income nothing more to do:
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
+            | ("Spot", "ETH 2.0 Staking Rewards")
+                //??
+                // Income nothing more to do:
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            | ("Spot", "Savings Interest")
+                // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.b5b1syp9wm44
+            => {
                     result_a.push(ttr);
-                }
-                _ => {
+            }
+            ("Coin-Futures", "transfer_out")
+            | ("USDT-Futures", "transfer_out")
+            | ("Spot", "transfer_out")
+             => {
+                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
+            }
+            ("Coin-Futures", "transfer_in")
+            | ("USDT-Futures", "transfer_in")
+            | ("Spot", "transfer_in")
+             => {
+                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
+            }
+            ("Spot", "Savings purchase") => {
+                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.joyiqsumphny
+            }
+            ("Spot", "Buy") => {
+                // Buy, Transaction Related and Fee transactions are part of a "Trade".
+                //
+                // Observations:
+                //  1) All have the same timestamp
+                //  2) Buy and Transaction Related are alway present, Fee was missing once
+                //  3) They are not in in any particular order
+                //  4) There maybe other transactions with the same timestamp
+                //  5) The Fee asset is always BNB
+                //  6) For all Trades with the same timestamp there is a unique Buy asset
+                //     and Transaction Related asset pair thus they maybe consolidated
+                //     into one Buy, Transaction Related and Fee transaction i.e. "Trade"
+                // Prove 6)
+                //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p Operation/Buy | csvcut -K 1,2,3,4 | uniq -c > Buy.csv
+                //    $ head -2 Buy.csv
+                //          1 UTC_Time,Account,Operation,Coin
+                //          1 2020-05-08 01:31:06,Spot,Buy,BTC
+
+                //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p "Operation/Transaction Related" | csvcut -K 1,2,3,4 | uniq -c > TransactionRelated.csv
+                //    $ head -2 TransactionRelated.csv
+                //          1 UTC_Time,Account,Operation,Coin
+                //          1 2020-05-08 01:31:06,Spot,Transaction Related,USDT
+
+                //    $ cat Buy.csv | csvcut -K 0,1 > Buy-count-time.csv
+                //    $ head -2 Buy-count-time.csv
+                //          1 UTC_Time,Account
+                //          1 2020-05-08 01:31:06,Spot
+
+                //    $ cat TransactionRelated.csv | csvcut -K 0,1 > TransactionRelated-count-time.csv
+                //    $ head -2 TransactionRelated-count-time.csv
+                //          1 UTC_Time,Account
+                //          1 2020-05-08 01:31:06,Spot
+
+                //    $ diff -s Buy-count-time.csv TransactionRelated-count-time.csv
+                //    Files Buy-count-time.csv and TransactionRelated-count-time.csv are identical
+
+                // This sequence shows the "unorderness"
+                //   wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
+                //   $ cat b.com.spot.buy.fee.transaction.related.2.csv 
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
+                //   123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
+                //   123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
+                //   123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014356,""
+                //   123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
+                //   123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
+                //   123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
+                //   123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
+                //   123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00465885,""
+                //   123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00445039,""
+                //   123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00112574,""
+                //   123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.41000000,""
+                //   123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
+                //   123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
+                //   123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
+                //
+                // Sort the above with pbcthf using abs value on Fee and Transactions Related, see PartialOrd::partial_cmp. 
+                //   $ cargo run --release pbcthf --no-progress-info -f b.com.spot.buy.fee.transaction.related.2.csv -o b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
+                // Yields this.
+                //   $ cat b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014356,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014357,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00195765,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00445039,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00465885,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00112574,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0025559,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00267651,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-1.5,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.41,
+                //   123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.57,
+                //
+                // If you then place "Buy", "Fee" and "Transaction Related" records in three
+                // separate arrays and then the "front" of each array will be part of of a Trade.
+                // ....
+                //
+                // Here is an example of non-Trade transaction being interspersed in a Trade.
+                // This is handled by buy ("Spot", "Commission History") so isn't a problem:
+                //  123456789,2020-05-09 20:42:56,Spot,Fee,BNB,-0.00123363,""
+                //  123456789,2020-05-09 20:42:56,Spot,Transaction Related,USDT,-27.99945000,""
+                //  123456789,2020-05-09 20:42:56,Spot,Commission History,BNB,0.00021562,""
+                //  123456789,2020-05-09 20:42:56,Spot,Buy,BTC,0.00289400,""
+                //
+                // What happens if a Fee is missing???
+                //
+                // Here is the transaction without a fee at 2020-05-09 05:12:24:
+                //  123456789,2020-05-09 05:02:32,Spot,Commission History,BNB,0.00028619,""
+                //  123456789,2020-05-09 05:08:29,Spot,Fee,BNB,-0.00109485,""
+                //  123456789,2020-05-09 05:08:29,Spot,Transaction Related,ETC,-3.52000000,""
+                //  123456789,2020-05-09 05:08:29,Spot,Buy,BTC,0.00256960,""
+                //  123456789,2020-05-09 05:09:31,Spot,Commission History,VET,1.71544000,""
+                //  123456789,2020-05-09 05:11:01,Spot,Buy,BTC,0.00418506,""
+                //  123456789,2020-05-09 05:11:01,Spot,Transaction Related,XRP,-187.00000000,""
+                //  123456789,2020-05-09 05:11:01,Spot,Fee,BNB,-0.00178794,""
+                //  123456789,2020-05-09 05:12:23,Spot,Fee,BNB,-0.00155840,""
+                //  123456789,2020-05-09 05:12:23,Spot,Transaction Related,USDT,-35.79505902,""
+                //  123456789,2020-05-09 05:12:23,Spot,Buy,BTC,0.00365400,""
+                //  123456789,2020-05-09 05:12:24,Spot,Transaction Related,BUSD,-35.05460000,""
+                //  123456789,2020-05-09 05:12:24,Spot,Buy,BTC,0.00357700,""
+                //  123456789,2020-05-09 05:12:29,Spot,Commission History,BNB,0.00023283,""
+                //
+
+                // TODO:
+                result_a.push(ttr);
+            }
+            ("Spot", "Fee")
+            | ("Spot", "Transaction Related") => {
+                // 123456789,2021-01-24 21:41:09,Spot,Fee,BNB,-0.00409488,""
+                // 123456789,2021-01-24 21:41:09,Spot,Transaction Related,ADA,-648.00000000,""
+                ttr.type_txs = TypeTxs::Spend;
+                if bctr.change < dec!(0) {
+                    ttr.sell_amount = Some(-bctr.change);
+                    ttr.sell_currency = bctr.coin.clone();
+                    ttr.buy_amount = None;
+                    ttr.buy_currency = "".to_owned();
+                } else {
                     return Err(format!(
-                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
-                        bctr.account, bctr.operation
-                    )
-                    .into())
-                }
-            },
-            "Spot" => match bctr.operation.as_str() {
-                "Buy" => {
-                    // Buy, Transaction Related and Fee transactions are part of a "Trade".
-                    //
-                    // Observations:
-                    //  1) All have the same timestamp
-                    //  2) Buy and Transaction Related are alway present, Fee was missing once
-                    //  3) They are not in in any particular order
-                    //  4) There maybe other transactions with the same timestamp
-                    //  5) The Fee asset is always BNB
-                    //  6) For all Trades with the same timestamp there is a unique Buy asset
-                    //     and Transaction Related asset pair thus they maybe consolidated
-                    //     into one Buy, Transaction Related and Fee transaction i.e. "Trade"
-                    // Prove 6)
-                    //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p Operation/Buy | csvcut -K 1,2,3,4 | uniq -c > Buy.csv
-                    //    $ head -2 Buy.csv
-                    //          1 UTC_Time,Account,Operation,Coin
-                    //          1 2020-05-08 01:31:06,Spot,Buy,BTC
-
-                    //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p "Operation/Transaction Related" | csvcut -K 1,2,3,4 | uniq -c > TransactionRelated.csv
-                    //    $ head -2 TransactionRelated.csv
-                    //          1 UTC_Time,Account,Operation,Coin
-                    //          1 2020-05-08 01:31:06,Spot,Transaction Related,USDT
-
-                    //    $ cat Buy.csv | csvcut -K 0,1 > Buy-count-time.csv
-                    //    $ head -2 Buy-count-time.csv
-                    //          1 UTC_Time,Account
-                    //          1 2020-05-08 01:31:06,Spot
-
-                    //    $ cat TransactionRelated.csv | csvcut -K 0,1 > TransactionRelated-count-time.csv
-                    //    $ head -2 TransactionRelated-count-time.csv
-                    //          1 UTC_Time,Account
-                    //          1 2020-05-08 01:31:06,Spot
-
-                    //    $ diff -s Buy-count-time.csv TransactionRelated-count-time.csv
-                    //    Files Buy-count-time.csv and TransactionRelated-count-time.csv are identical
-
-                    // This sequence shows the "unorderness"
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014356,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00465885,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00445039,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00112574,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.41000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-                    //
-                    // How to match Buy, Transaction Related and Fee:
-                    //  if there are 3 transactions {
-                    //    use them as the transaction
-                    //  } else {
-                    //     Convert all transactions to a common asset, USD or USDT.
-                    //     Sort each the Operations based on value of the common asset.
-                    //     Merge sort them into trades (Note: Fee could be absent)
-                    //  }
-                    // Merge sort the resulting Operations into a Trade.
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014356,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.41000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00465885,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00112574,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00445039,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-                    //  123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
-                    //
-                    //
-                    // Here is an example of non-Trade transaction being interspersed in a Trade:
-                    //  123456789,2020-05-09 20:42:56,Spot,Fee,BNB,-0.00123363,""
-                    //  123456789,2020-05-09 20:42:56,Spot,Transaction Related,USDT,-27.99945000,""
-                    //  123456789,2020-05-09 20:42:56,Spot,Commission History,BNB,0.00021562,""
-                    //  123456789,2020-05-09 20:42:56,Spot,Buy,BTC,0.00289400,""
-                    //
-                    // Here is the transaction without a fee at 2020-05-09 05:12:24:
-                    //  123456789,2020-05-09 05:02:32,Spot,Commission History,BNB,0.00028619,""
-                    //  123456789,2020-05-09 05:08:29,Spot,Fee,BNB,-0.00109485,""
-                    //  123456789,2020-05-09 05:08:29,Spot,Transaction Related,ETC,-3.52000000,""
-                    //  123456789,2020-05-09 05:08:29,Spot,Buy,BTC,0.00256960,""
-                    //  123456789,2020-05-09 05:09:31,Spot,Commission History,VET,1.71544000,""
-                    //  123456789,2020-05-09 05:11:01,Spot,Buy,BTC,0.00418506,""
-                    //  123456789,2020-05-09 05:11:01,Spot,Transaction Related,XRP,-187.00000000,""
-                    //  123456789,2020-05-09 05:11:01,Spot,Fee,BNB,-0.00178794,""
-                    //  123456789,2020-05-09 05:12:23,Spot,Fee,BNB,-0.00155840,""
-                    //  123456789,2020-05-09 05:12:23,Spot,Transaction Related,USDT,-35.79505902,""
-                    //  123456789,2020-05-09 05:12:23,Spot,Buy,BTC,0.00365400,""
-                    //  123456789,2020-05-09 05:12:24,Spot,Transaction Related,BUSD,-35.05460000,""
-                    //  123456789,2020-05-09 05:12:24,Spot,Buy,BTC,0.00357700,""
-                    //  123456789,2020-05-09 05:12:29,Spot,Commission History,BNB,0.00023283,""
-                    //
-
-                    // TODO:
-                    result_a.push(ttr);
-                }
-                "Fee" | "Transaction Related" => {
-                    // 123456789,2021-01-24 21:41:09,Spot,Fee,BNB,-0.00409488,""
-                    // 123456789,2021-01-24 21:41:09,Spot,Transaction Related,ADA,-648.00000000,""
-                    ttr.type_txs = TypeTxs::Spend;
-                    if bctr.change < dec!(0) {
-                        ttr.sell_amount = Some(-bctr.change);
-                        ttr.sell_currency = bctr.coin.clone();
-                        ttr.buy_amount = None;
-                        ttr.buy_currency = "".to_owned();
-                    } else {
-                        return Err(format!(
-                            "line_number: {line_number}, account: {}, operation: {}, change: {} was expected to be negative",
-                            bctr.account, bctr.operation, bctr.change,
-                        )
-                        .into());
-                    }
-                    result_a.push(ttr);
-                }
-                "Commission History" => {
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //   123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
-
-                    result_a.push(ttr);
-                }
-                "Commission Rebate" => {
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
-                    result_a.push(ttr);
-                }
-                "Deposit" => {
-                    // Deposit: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9q4kesdhtivv
-                    ttr.type_txs = TypeTxs::Deposit;
-                    assert_eq!(ttr.buy_amount, Some(bctr.change));
-                    assert_eq!(ttr.buy_currency, bctr.coin);
-                    assert_eq!(ttr.sell_amount, None);
-                    assert_eq!(ttr.sell_currency, "");
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                    result_a.push(ttr);
-                }
-                "Distribution" => {
-                    // See: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j4szkclrlz9h
-                    if bctr.change > dec!(0) {
-                        // Income nothing more to do:
-                        //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                        //  123456789,2020-01-03 05:58:34,Spot,Distribution,ALGO,0.08716713,""
-                        result_a.push(ttr);
-                    } else {
-                        // bctr.change < 0 so this is a Spend
-                        //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                        //   12345678,2019-12-12T08:08:18.000+00:00,Spot,Distribution,BCHABC,-0.00505836,
-                        ttr.type_txs = TypeTxs::Spend;
-                        ttr.sell_amount = Some(-bctr.change);
-                        ttr.sell_currency = bctr.coin.clone();
-                        ttr.buy_amount = None;
-                        ttr.buy_currency = "".to_owned();
-                        result_a.push(ttr);
-                    }
-                }
-                "ETH 2.0 Staking Rewards" => {
-                    //??
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    result_a.push(ttr);
-                }
-                "Savings Interest" => {
-                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.b5b1syp9wm44
-                    result_a.push(ttr);
-                }
-                "Savings Principal redemption" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.qcstrov9fmvj
-                }
-                "Savings purchase" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.joyiqsumphny
-                }
-                "Small assets exchange BNB" => {
-                    // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.ui3g3olz647l
-                    if bctr.coin != "BNB" {
-                        // Assert the change is negative
-                        assert!(bctr.change < dec!(0));
-                        ttr.type_txs = TypeTxs::Spend;
-                        ttr.buy_amount = None;
-                        ttr.buy_currency = "".to_owned();
-                        ttr.sell_amount = Some(-bctr.change);
-                        ttr.sell_currency = bctr.coin.clone();
-                    } else {
-                        // Assert the change is positive and coin is BNB
-                        assert!(bctr.coin == "BNB"); // This is redundant but just incase!!
-                        assert!(bctr.change > dec!(0));
-                        ttr.type_txs = TypeTxs::Income;
-                        ttr.buy_amount = Some(bctr.change);
-                        ttr.buy_currency = bctr.coin.clone();
-                        ttr.sell_amount = None;
-                        ttr.sell_currency = "".to_owned();
-                    }
-
-                    result_a.push(ttr);
-                }
-                "transfer_out" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
-                }
-                "transfer_in" => {
-                    // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
-                }
-                "Withdraw" => {
-                    // 123456789,2021-01-24 22:24:15,Spot,Withdraw,USDT,-2179.39975800,Withdraw fee is included
-                    ttr.type_txs = TypeTxs::Withdrawal;
-                    if bctr.change < dec!(0) {
-                        ttr.sell_amount = Some(-bctr.change);
-                        ttr.sell_currency = bctr.coin.clone();
-                        ttr.buy_amount = None;
-                        ttr.buy_currency = "".to_owned();
-                    } else {
-                        return Err(format!(
-                            "line_number: {line_number}, account: {}, operation: {}, change: {} expected to be negative",
-                            bctr.account, bctr.operation, bctr.change,
-                        )
-                        .into());
-                    }
-
-                    result_a.push(ttr);
-                }
-                _ => {
-                    return Err(format!(
-                        "line_number: {line_number}, bctr acccount: {}, operation: {} unknown",
-                        bctr.account, bctr.operation
+                        "line_number: {line_number}, account: {}, operation: {}, change: {} was expected to be negative",
+                        bctr.account, bctr.operation, bctr.change,
                     )
                     .into());
                 }
-            },
+                result_a.push(ttr);
+            }
+            ("Spot", "Deposit") => {
+                // Deposit: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9q4kesdhtivv
+                ttr.type_txs = TypeTxs::Deposit;
+                assert_eq!(ttr.buy_amount, Some(bctr.change));
+                assert_eq!(ttr.buy_currency, bctr.coin);
+                assert_eq!(ttr.sell_amount, None);
+                assert_eq!(ttr.sell_currency, "");
+                assert_eq!(ttr.fee_amount, None);
+                assert_eq!(ttr.fee_currency, "");
+                result_a.push(ttr);
+            }
+            ("Spot", "Distribution") => {
+                // See: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j4szkclrlz9h
+                if bctr.change > dec!(0) {
+                    // Income nothing more to do:
+                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    //  123456789,2020-01-03 05:58:34,Spot,Distribution,ALGO,0.08716713,""
+                    result_a.push(ttr);
+                } else {
+                    // bctr.change < 0 so this is a Spend
+                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                    //   12345678,2019-12-12T08:08:18.000+00:00,Spot,Distribution,BCHABC,-0.00505836,
+                    ttr.type_txs = TypeTxs::Spend;
+                    ttr.sell_amount = Some(-bctr.change);
+                    ttr.sell_currency = bctr.coin.clone();
+                    ttr.buy_amount = None;
+                    ttr.buy_currency = "".to_owned();
+                    result_a.push(ttr);
+                }
+            }
+            ("Spot", "Small assets exchange BNB") => {
+                // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.ui3g3olz647l
+                if bctr.coin != "BNB" {
+                    // Assert the change is negative
+                    assert!(bctr.change < dec!(0));
+                    ttr.type_txs = TypeTxs::Spend;
+                    ttr.buy_amount = None;
+                    ttr.buy_currency = "".to_owned();
+                    ttr.sell_amount = Some(-bctr.change);
+                    ttr.sell_currency = bctr.coin.clone();
+                } else {
+                    // Assert the change is positive and coin is BNB
+                    assert!(bctr.coin == "BNB"); // This is redundant but just incase!!
+                    assert!(bctr.change > dec!(0));
+                    ttr.type_txs = TypeTxs::Income;
+                    ttr.buy_amount = Some(bctr.change);
+                    ttr.buy_currency = bctr.coin.clone();
+                    ttr.sell_amount = None;
+                    ttr.sell_currency = "".to_owned();
+                }
+
+                result_a.push(ttr);
+            }
+            ("Spot", "Withdraw") => {
+                // 123456789,2021-01-24 22:24:15,Spot,Withdraw,USDT,-2179.39975800,Withdraw fee is included
+                ttr.type_txs = TypeTxs::Withdrawal;
+                if bctr.change < dec!(0) {
+                    ttr.sell_amount = Some(-bctr.change);
+                    ttr.sell_currency = bctr.coin.clone();
+                    ttr.buy_amount = None;
+                    ttr.buy_currency = "".to_owned();
+                } else {
+                    return Err(format!(
+                        "line_number: {line_number}, account: {}, operation: {}, change: {} expected to be negative",
+                        bctr.account, bctr.operation, bctr.change,
+                    )
+                    .into());
+                }
+
+                result_a.push(ttr);
+            }
             _ => {
                 return Err(format!(
-                    "line_number: {line_number}, bctr acccount: {} unknown",
-                    bctr.account
+                    "line_number: {line_number}, bctr acccount: {} operation {} unknown",
+                    bctr.account, bctr.operation
                 )
                 .into())
             }
@@ -977,7 +926,11 @@ fn write_tr_vec(
     Ok(())
 }
 
-fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn std::error::Error>> {
+fn process_entry(
+    line_number: usize,
+    bc_data: &mut BcData,
+    bctr: &TradeRec,
+) -> Result<(), Box<dyn std::error::Error>> {
     let ar = bc_data
         .bc_asset_rec_map
         .bt
@@ -993,130 +946,69 @@ fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn st
     ar.transaction_count += 1;
     ar.quantity += bctr.change;
 
-    match bctr.account.as_str() {
-        "Coin-Futures" => match bctr.operation.as_str() {
-            "Referrer rebates" => {
-                // ?
-            }
-            "transfer_out" => {
-                assert!(bctr.change <= dec!(0));
-                bc_data.transfer_out_count += 1;
-            }
-            "transfer_in" => {
-                assert!(bctr.change >= dec!(0));
-                bc_data.transfer_in_count += 1;
-            }
-            _ => {
-                return Err(format!(
-                    "Unknown bctr acccount: {} operation: {}",
-                    bctr.account, bctr.operation
-                )
-                .into())
-            }
-        },
-        "USDT-Futures" => match bctr.operation.as_str() {
-            "Referrer rebates" => {
-                // ?
-            }
-            "transfer_out" => {
-                assert!(bctr.change <= dec!(0));
-                bc_data.transfer_out_count += 1;
-            }
-            "transfer_in" => {
-                assert!(bctr.change >= dec!(0));
-                bc_data.transfer_in_count += 1;
-            }
-            _ => {
-                return Err(format!(
-                    "Unknown bctr acccount: {} operation: {}",
-                    bctr.account, bctr.operation
-                )
-                .into());
-            }
-        },
-        "Pool" => match bctr.operation.as_str() {
-            "Pool Distribution" => {
-                // ?
-            }
-            _ => {
-                return Err(format!(
-                    "Unknown bctr acccount: {} operation: {}",
-                    bctr.account, bctr.operation
-                )
-                .into())
-            }
-        },
-        "Spot" => match bctr.operation.as_str() {
-            "Buy" => {
-                // ?
-            }
-            "Fee" | "Transaction Related" => {
-                // ?
-            }
-            "Commission History" => {
-                // ?
-            }
-            "Commission Rebate" => {
-                // ?
-            }
-            "Deposit" => {
-                // ?
-            }
-            "Distribution" => {
-                // ?
-            }
-            "ETH 2.0 Staking Rewards" => {
-                // ?
-            }
-            "Savings Interest" => {
-                assert!(bctr.coin == "BTC");
-                assert!(bctr.change >= dec!(0));
-            }
-            "Savings Principal redemption" => {
-                // maybe either positive or negative
-                match bctr.coin.as_str() {
-                    "BTC" => {
-                        bc_data.savings_principal += bctr.change;
-                    }
-                    "LDBTC" => {
-                        bc_data.savings_principal_redemption_of_ldbtc += 1;
-                    }
-                    _ => {
-                        return Err(format!(
-                            "Unexpected coin {}, in {}",
-                            bctr.account, bctr.operation
-                        )
-                        .into());
-                    }
+    match (bctr.account.as_str(), bctr.operation.as_str()) {
+        ("Coin-Futures", "Referrer rebates")
+        | ("USDT-Futures", "Referrer rebates")
+        | ("Pool", "Pool Distribution") => {
+            // ?
+        }
+        ("Coin-Futures", "transfer_out")
+        | ("USDT-Futures", "transfer_out")
+        | ("Spot", "transfer_out") => {
+            assert!(bctr.change <= dec!(0));
+            bc_data.transfer_out_count += 1;
+        }
+        ("Coin-Futures", "transfer_in")
+        | ("USDT-Futures", "transfer_in")
+        | ("Spot", "transfer_in") => {
+            assert!(bctr.change >= dec!(0));
+            bc_data.transfer_in_count += 1;
+        }
+        ("Spot", "Buy") | ("Spot", "Transaction Related") | ("Spot", "Fee") => {
+            // These combined are a "trade"
+        }
+        ("Spot", "Commission History")
+        | ("Spot", "Commission Rebate")
+        | ("Spot", "ETH 2.0 Staking Rewards")
+        | ("Spot", "Deposit")
+        | ("Spot", "Distribution")
+        | ("Spot", "Small assets exchange BNB") => {
+            // ?
+        }
+        ("Spot", "Savings Interest") => {
+            assert!(bctr.coin == "BTC");
+            assert!(bctr.change >= dec!(0));
+        }
+        ("Spot", "Savings Principal redemption") => {
+            // maybe either positive or negative
+            match bctr.coin.as_str() {
+                "BTC" => {
+                    bc_data.savings_principal += bctr.change;
+                }
+                "LDBTC" => {
+                    bc_data.savings_principal_redemption_of_ldbtc += 1;
+                }
+                _ => {
+                    return Err(
+                        format!("Unexpected coin {}, in {}", bctr.account, bctr.operation).into(),
+                    );
                 }
             }
-            "Savings purchase" => {
-                assert!(bctr.change <= dec!(0));
-                bc_data.savings_principal += bctr.change;
-            }
-            "Small assets exchange BNB" => {
-                // ?
-            }
-            "transfer_out" => {
-                assert!(bctr.change <= dec!(0));
-                bc_data.transfer_out_count += 1;
-            }
-            "transfer_in" => {
-                assert!(bctr.change >= dec!(0));
-                bc_data.transfer_in_count += 1;
-            }
-            "Withdraw" => {
-                assert!(bctr.change < dec!(0));
-            }
-            _ => {
-                return Err(format!(
-                    "Unknown bctr acccount: {} operation: {}",
-                    bctr.account, bctr.operation
-                )
-                .into());
-            }
-        },
-        _ => return Err(format!("Unknown bctr acccount: {}", bctr.account).into()),
+        }
+        ("Spot", "Savings purchase") => {
+            assert!(bctr.change <= dec!(0));
+            bc_data.savings_principal += bctr.change;
+        }
+        ("Spot", "Withdraw") => {
+            assert!(bctr.change < dec!(0));
+        }
+        _ => {
+            return Err(format!(
+                "line_number: {line_number}, bctr acccount: {} operation {} unknown",
+                bctr.account, bctr.operation
+            )
+            .into())
+        }
     };
 
     Ok(())
@@ -1179,7 +1071,7 @@ pub async fn process_binance_com_trade_history_files(
             }
             assert_eq!(first_tr.user_id, tr.user_id);
 
-            process_entry(&mut bc_data, &tr)?;
+            process_entry(line_number, &mut bc_data, &tr)?;
 
             bc_data.total_count += 1;
         }
