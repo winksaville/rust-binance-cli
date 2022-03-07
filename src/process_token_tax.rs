@@ -618,6 +618,9 @@ pub async fn process_token_tax_files(
         None
     };
 
+    // usd_value_need is true unless --no-usd-value-need is present
+    let usd_value_needed = !sc_matches.is_present("no-usd-value-needed");
+
     //println!("in_dist_file_path: {in_dist_file_paths:?}");
     //println!("out_dist_file_path: {out_dist_file_path:?}");
 
@@ -664,10 +667,11 @@ pub async fn process_token_tax_files(
     println!("ttr_vec: len: {}", data.ttr_vec.len());
 
     if let Some(w) = &mut csv_ttr_writer {
-        println!("Writing");
+        println!("Writing to {}", out_tt_file_path.unwrap());
         for dr in &data.ttr_vec {
             w.serialize(dr)?;
         }
+        w.flush()?;
         println!("Writing done");
     }
     println!();
@@ -688,39 +692,54 @@ pub async fn process_token_tax_files(
             ten_minutes_ago
         };
 
+        let time_utc_string = if usd_value_needed {
+            let dt_utc = time_ms_to_utc(convert_time);
+            dt_utc.to_string()
+        } else {
+            "".to_owned()
+        };
+
         let col_1_width = 10;
         let col_2_width = 20;
         let col_3_width = 10;
-        let col_4_width = 14;
+        let col_4_width = if usd_value_needed { 14 } else { 0 };
         println!(
-            "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$} {}",
+            "{:col_1_width$} {:>col_2_width$} {:>col_3_width$}{}{:>col_4_width$}{}{}",
             "Asset",
             "Quantity",
             "Txs count",
-            "USD value",
-            time_ms_to_utc(convert_time)
+            if usd_value_needed { " " } else { "" },
+            if usd_value_needed { " USD value" } else { "" },
+            if usd_value_needed { " " } else { "" },
+            time_utc_string,
         );
 
         #[allow(clippy::for_kv_map)]
         for (_, ar) in &mut asset_rec_map.bt {
             //println!("TOL {ar:?}");
-            let value_usd_string = if let Ok(value_usd) =
-                convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
-            {
-                ar.value_usd = value_usd;
-                dec_to_money_string(ar.value_usd)
+            let value_usd_string = if usd_value_needed {
+                if let Ok(value_usd) =
+                    convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
+                {
+                    ar.value_usd = value_usd;
+                    dec_to_money_string(ar.value_usd)
+                } else {
+                    ar.value_usd = dec!(0);
+                    "?".to_owned()
+                }
             } else {
                 ar.value_usd = dec!(0);
-                "?".to_owned()
+                "".to_owned()
             };
             total_value_usd += ar.value_usd;
             total_quantity += ar.quantity;
 
             println!(
-                "{:col_1_width$} {:>col_2_width$} {:>col_3_width$} {:>col_4_width$}",
+                "{:col_1_width$} {:>col_2_width$} {:>col_3_width$}{}{:>col_4_width$}",
                 ar.asset,
                 dec_to_separated_string(ar.quantity, 8),
                 dec_to_separated_string(Decimal::from(ar.transaction_count), 0),
+                if usd_value_needed { " " } else { "" },
                 value_usd_string,
             );
         }
@@ -799,8 +818,6 @@ pub async fn consolidate_token_tax_files(
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
-            // process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
-
             data.ttr_vec.push(ttr.clone());
             data.asset_rec_map.push_rec(ttr.clone());
         }
@@ -853,6 +870,7 @@ pub async fn consolidate_token_tax_files(
         for ttr in &data.consolidated_ttr_vec {
             w.serialize(&ttr)?;
         }
+        w.flush()?;
     }
 
     println!("Done");

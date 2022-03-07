@@ -670,6 +670,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                         .help("The optional output file")
                         .takes_value(true),
                 )
+                .arg(&no_usd_value_needed_arg)
         )
         .subcommand(
             App::new("cttf")
