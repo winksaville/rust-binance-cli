@@ -1472,6 +1472,10 @@ pub async fn tt_file_from_binance_com_trade_history_files(
         }
     }
 
+    println!("Sorting");
+    bc_data.tr_vec.sort();
+    println!("Sorting done");
+
     println!("Writing token tax records to {out_token_tax_path_str}");
     let written = write_tr_vec_as_token_tax(token_tax_rec_writer, &bc_data.tr_vec)?;
     println!("Writing token tax records: Done; records written: {written}");
