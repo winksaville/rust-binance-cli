@@ -273,29 +273,14 @@ impl AssetRec {
     fn consolidate(
         &self,
         ttr: &TokenTaxRec,
-        start_period: &DateTimeUtc,
+        period_time: &DateTimeUtc,
         quantity: Decimal,
     ) -> TokenTaxRec {
         let mut ttr = ttr.clone();
-        ttr.time = start_period.time_ms();
+        ttr.time = period_time.time_ms();
         ttr.buy_amount = Some(quantity);
 
         ttr
-    }
-
-    fn push_to_consolidated_ttr_vec(&mut self, ttr: &TokenTaxRec) {
-        self.consolidated_ttr_vec.push(ttr.clone());
-    }
-
-    fn consolidate_push_to_consolidated_ttr_vec(
-        &mut self,
-        ttr: &TokenTaxRec,
-        start_period: &DateTimeUtc,
-        quantity: Decimal,
-    ) {
-        let cttr = self.consolidate(ttr, start_period, quantity);
-        trace!("End Period       Q {quantity} push {cttr}");
-        self.push_to_consolidated_ttr_vec(&cttr);
     }
 
     fn consolidate_income(
@@ -307,7 +292,7 @@ impl AssetRec {
         self.ttr_vec.sort();
 
         if let Some(first_ttr) = self.ttr_vec.get(0) {
-            let first_dt = DateTimeUtc::from_utc_time_ms(first_ttr.time);
+            let mut first_dt = DateTimeUtc::from_utc_time_ms(first_ttr.time);
             let mut start_period = first_dt.beginning_of_this_month();
             let mut end_period = start_period.beginning_of_next_month();
             let mut end_period_ms = end_period.time_ms();
@@ -323,14 +308,14 @@ impl AssetRec {
                     assert!(idx != 0);
 
                     if consolidated_quantity > dec!(0) {
-                        // Push consolidate and record
-                        let cttr = self.consolidate(&cur_ttr, &start_period, consolidated_quantity);
+                        // Push consolidated record
+                        let cttr = self.consolidate(&cur_ttr, &first_dt, consolidated_quantity);
                         trace!("End Period       Q {consolidated_quantity} push {cttr}");
                         self.consolidated_ttr_vec.push(cttr);
-                        // The following causes E0502 see: https://github.com/winksaville/expr-cannot-borrow-mutable-e0502
-                        //self.consolidate_push(&cur_ttr, &start_period, quantity);
                     }
 
+                    cur_ttr = ttr.clone();
+                    first_dt = DateTimeUtc::from_utc_time_ms(cur_ttr.time);
                     start_period =
                         DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_month();
                     end_period = start_period.beginning_of_next_month();
@@ -342,8 +327,11 @@ impl AssetRec {
                 }
 
                 if ttr.type_txs == TypeTxs::Income {
+                    // Consolidate this entry
                     if cur_ttr.type_txs != TypeTxs::Income {
+                        // And this is the first one
                         cur_ttr = ttr.clone();
+                        first_dt = DateTimeUtc::from_utc_time_ms(cur_ttr.time);
                         consolidated_quantity = dec!(0);
                         trace!("First Income     Q {consolidated_quantity}");
                     }
@@ -352,15 +340,14 @@ impl AssetRec {
                 } else {
                     trace!("Not Income");
                     self.consolidated_ttr_vec.push(ttr.clone());
-                    //self.push_to_consolidated_ttr_vec(&ttr); // Causes E0502 compile error :(
                 }
             }
+            // Do the last entry
             if (consolidated_quantity > dec!(0)) {
-                self.consolidate_push_to_consolidated_ttr_vec(
-                    &cur_ttr,
-                    &start_period,
-                    consolidated_quantity,
-                );
+                // Push consolidated record
+                let cttr = self.consolidate(&cur_ttr, &first_dt, consolidated_quantity);
+                trace!("End Period       Q {consolidated_quantity} push {cttr}");
+                self.consolidated_ttr_vec.push(cttr);
             }
         }
 
@@ -823,8 +810,8 @@ pub async fn consolidate_token_tax_files(
         }
     }
 
-    let col_1 = 7;
-    let col_2 = 15;
+    let col_1 = 10;
+    let col_2 = 20;
     let col_3 = 15;
 
     let mut total_pre_len = 0usize;
