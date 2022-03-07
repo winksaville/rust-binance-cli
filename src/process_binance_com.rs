@@ -567,30 +567,35 @@ impl TokenTaxRec {
 
         match (bctr.account.as_str(), bctr.operation.as_str()) {
             ("Coin-Futures", "Referrer rebates")
-                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.2kugk142pi0
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //   123456789,2021-01-01 02:33:56,Coin-Futures,Referrer rebates,BNB,0.00066774,""
-            | ("USDT-Futures", "Referrer rebates")
-                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.2kugk142pi0
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //   123456789,2021-01-01 00:00:38,USDT-Futures,Referrer rebates,BNB,0.00237605,""
-            | ("Pool", "Pool Distribution")
-                    // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.stb79yhrplx
-            | ("Spot", "Commission History")
-                // Income nothing more to do:
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.wrqv2e8c9ulm
                 //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
+                //   123456789,2020-08-27 17:38:40,Coin-Futures,Referrer rebates,DOT,0.00766144,""
+            | ("USDT-Futures", "Referrer rebates")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.sbvzp8bdk4mj
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-04-30 10:31:50,USDT-Futures,Referrer rebates,USDT,0.04257084,""
+            | ("Pool", "Pool Distribution")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.op3mwkow7pz6
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2021-01-17 02:30:09,Pool,Pool Distribution,ETH,0.00001156,""
+            | ("Spot", "Commission History")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.ibloubix6n52
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2019-05-21 21:39:50,Spot,Commission History,BTT,4.42380000,""
             | ("Spot", "Commission Rebate")
-                // Income nothing more to do:
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.p0d190atx05c
                 //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
                 //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
             | ("Spot", "ETH 2.0 Staking Rewards")
-                //??
-                // Income nothing more to do:
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.nlre4gdfa77x
                 //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2021-02-14 08:07:27,Spot,ETH 2.0 Staking Rewards,BETH,1.0E-7,""
             | ("Spot", "Savings Interest")
-                // Income: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.b5b1syp9wm44
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.gczchzfqcvpz
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-05-19 02:17:24,Spot,Savings Interest,BTC,0.00001818,""
             => {
+                // Income
                 assert_eq!(ttr.type_txs, TypeTxs::Income);
                 assert_eq!(ttr.buy_amount, Some(bctr.change));
                 assert!(ttr.buy_amount.unwrap() > dec!(0));
@@ -602,24 +607,51 @@ impl TokenTaxRec {
                 result_a.push(ttr);
             }
             ("Coin-Futures", "transfer_out")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.yb8hhlgirm3t
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2021-01-24 20:47:46,Coin-Futures,transfer_out,BTC,-0.11231074,""
             | ("USDT-Futures", "transfer_out")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.spkbdpzaf4dl
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-05-13 01:53:36,USDT-Futures,transfer_out,USDT,-121.00000000,""
             | ("Spot", "transfer_out")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.lz8vqxowg1ce
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-09-07 05:25:49,Spot,transfer_out,USDT,-6.06000000,""
              => {
-                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9y3dhg3cp1y8
+                // Ignore non-taxable events
             }
             ("Coin-Futures", "transfer_in")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.adsgh2corfou
+                // There are currently none, but handling just incase
             | ("USDT-Futures", "transfer_in")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.blt7gd2m0h65
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-09-07 05:25:49,USDT-Futures,transfer_in,USDT,6.06000000,""
             | ("Spot", "transfer_in")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.bhqn79b72j6p
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2021-01-01 04:14:16,Spot,transfer_in,USDT,287.03000000,""
              => {
-                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.6ucacaaia5sl
+                // Ignore non-taxable events
             }
             ("Spot", "Savings Principal redemption")
-            | ("Spot", "Savings purchase") => {
-                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=kix.joyiqsumphny
+                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.qcstrov9fmvj
+                //   123456789,2020-06-15 00:01:57,Spot,Savings Principal redemption,BTC,0.88806156,""
+                //   123456789,2020-06-15 00:01:57,Spot,Savings Principal redemption,LDBTC,-0.88806156,""  (THIS is ODD???)
+            | ("Spot", "Savings purchase")
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.3ot6874j2efk
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-05-17 20:37:50,Spot,Savings purchase,BTC,-0.63202511,""
+            => {
+                // Ignore non-taxable events
             }
             ("Spot", "Buy")
             | ("Spot", "Fee")
-            | ("Spot", "Transaction Related") => {
+            | ("Spot", "Transaction Related")
+            => {
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.bsrdqr3abb8y
+
                 // Buy, Transaction Related and Fee transactions are part of a "Trade".
                 //
                 // Observations:
@@ -781,7 +813,8 @@ impl TokenTaxRec {
                 }
             }
             ("Spot", "Deposit") => {
-                // Deposit: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.9q4kesdhtivv
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j1jqei4w718n
+                //   123456789,2021-01-17T02:30:09.000+00:00,Pool,Pool Distribution,ETH,0.00001156,
                 ttr.type_txs = TypeTxs::Deposit;
                 assert_eq!(ttr.buy_amount, Some(bctr.change));
                 assert!(ttr.buy_amount.unwrap() > dec!(0));
@@ -793,11 +826,11 @@ impl TokenTaxRec {
                 result_a.push(ttr);
             }
             ("Spot", "Distribution") => {
-                // See: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j4szkclrlz9h
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.5xbb71swwsil
                 if bctr.change > dec!(0) {
                     // Income nothing more to do:
                     //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //  123456789,2020-01-03 05:58:34,Spot,Distribution,ALGO,0.08716713,""
+                    //   123456789,2019-08-03 01:50:38,Spot,Distribution,GAS,0.00006520,""
                     assert_eq!(ttr.type_txs, TypeTxs::Income);
                     assert_eq!(ttr.buy_amount, Some(bctr.change));
                     assert!(ttr.buy_amount.unwrap() > dec!(0));
@@ -822,7 +855,7 @@ impl TokenTaxRec {
                 }
             }
             ("Spot", "Small assets exchange BNB") => {
-                // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.ui3g3olz647l
+                // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.483hgxq44xrw
                 if bctr.coin != "BNB" {
                     // Assert the change is negative
                     assert!(bctr.change < dec!(0));
@@ -849,7 +882,9 @@ impl TokenTaxRec {
                 result_a.push(ttr);
             }
             ("Spot", "Withdraw") => {
-                // 123456789,2021-01-24 22:24:15,Spot,Withdraw,USDT,-2179.39975800,Withdraw fee is included
+                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.ag5jhhhjgd5x
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2020-06-15 02:09:23,Spot,Withdraw,BTC,-0.89339667,Withdraw fee is included
                 ttr.type_txs = TypeTxs::Withdrawal;
                 if bctr.change < dec!(0) {
                     ttr.sell_amount = Some(-bctr.change);
