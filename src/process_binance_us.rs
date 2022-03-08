@@ -1152,9 +1152,9 @@ pub async fn process_binance_us_dist_files(
     sc_matches: &ArgMatches,
     process_type: ProcessType,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let leading_nl = if config.progress_info { "\n" } else { "" };
-
     //println!("process_binance_us_dist_filesg:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let leading_nl = if config.progress_info { "\n" } else { "" };
 
     let mut data = BuData::new();
     let mut asset_rec_map = AssetRecMap::new();
@@ -1531,6 +1531,8 @@ pub async fn consolidate_binance_us_dist_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("consoldiate_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     let mut data = BuData::new();
 
     let in_dist_paths: Vec<&str> = sc_matches
@@ -1590,6 +1592,7 @@ pub async fn consolidate_binance_us_dist_files(
 
     println!("Read files");
     for f in &in_dist_paths {
+        println!("{leading_nl}file: {f}");
         let in_file = if let Ok(in_f) = File::open(*f) {
             in_f
         } else {
@@ -1657,7 +1660,9 @@ pub async fn consolidate_binance_us_dist_files(
     }
     println!("Consolidated from {} to {}", total_pre_len, total_post_len);
 
+    println!("Sorting");
     data.consolidated_dist_rec_vec.sort();
+    println!("Sorting done");
 
     // Output consolidated data as dist records and token_tax records
     println!("Writing disttribution records");
@@ -1680,6 +1685,8 @@ pub async fn tt_file_from_binance_us_dist_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("tt_file_from_binance_us_dist_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     let mut data = BuData::new();
 
     let in_dist_paths: Vec<&str> = sc_matches
@@ -1698,9 +1705,9 @@ pub async fn tt_file_from_binance_us_dist_files(
 
     let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
-    print!("Read files");
+    println!("Read files");
     for f in &in_dist_paths {
-        println!("\nfile: {f}");
+        println!("{leading_nl}file: {f}");
         let in_file = if let Ok(in_f) = File::open(*f) {
             in_f
         } else {
@@ -1728,6 +1735,10 @@ pub async fn tt_file_from_binance_us_dist_files(
             data.dist_rec_vec.push(dr.clone());
         }
     }
+
+    println!("Sorting");
+    data.dist_rec_vec.sort();
+    println!("Sorting done");
 
     println!("Writing token tax records");
     write_dist_rec_vec_as_token_tax(token_tax_rec_writer, &data.dist_rec_vec)?;
