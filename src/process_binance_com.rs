@@ -61,7 +61,6 @@ struct CommissionRec {
     referral_id: String,
 }
 
-//#[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
@@ -88,6 +87,9 @@ struct TradeRec {
 
     #[serde(rename = "Remark")]
     remark: String,
+
+    #[serde(skip)]
+    line_number: usize,
 }
 
 impl Eq for TradeRec {}
@@ -916,7 +918,6 @@ impl TokenTaxRec {
         for (idx, buy_tr) in state.spot_buy_tr_vec.iter().enumerate() {
             // Ok as len checked above
             let sell_tr = state.spot_sell_tr_vec.get(idx).unwrap();
-            let line_number = idx + 2;
 
             // Fee is "optional" as it's not required in that I've seen
             // it missing in a data set
@@ -939,13 +940,13 @@ impl TokenTaxRec {
                 TypeTxs::Trade,
                 Some(buy_tr.change),
                 buy_tr.coin.clone(),
-                Some(sell_tr.change),
+                Some(-sell_tr.change),
                 sell_tr.coin.clone(),
-                Some(fee_change),
+                Some(-fee_change),
                 fee_coin.clone(),
                 "binance.com".to_owned(),
                 None,
-                TokenTaxRec::format_tt_cmt_ver2(line_number, buy_tr),
+                TokenTaxRec::format_tt_cmt_ver2(buy_tr.line_number, buy_tr),
                 buy_tr.time,
             );
             trade_tt_rec_a.push(ttr);
@@ -1076,12 +1077,14 @@ fn create_token_tax_rec_vec(
             (bctr.account.as_str(), bctr.operation.as_str()),
             account_operation_to_category,
         );
+        let mut tr = bctr.clone();
+        tr.line_number = state.line_number;
         match c {
-            TradeCategories::Buy => state.spot_buy_tr_vec.push(bctr.clone()),
-            TradeCategories::Sell => state.spot_sell_tr_vec.push(bctr.clone()),
-            TradeCategories::Fee => state.spot_fee_tr_vec.push(bctr.clone()),
+            TradeCategories::Buy => state.spot_buy_tr_vec.push(tr),
+            TradeCategories::Sell => state.spot_sell_tr_vec.push(tr),
+            TradeCategories::Fee => state.spot_fee_tr_vec.push(tr),
             TradeCategories::Other => {
-                let ttr_a = TokenTaxRec::from_trade_rec(&mut state, bctr)?;
+                let ttr_a = TokenTaxRec::from_trade_rec(&mut state, &tr)?;
 
                 for ttr in ttr_a {
                     state.ttr_vec.push(ttr);
@@ -1662,26 +1665,26 @@ mod test {
                 TypeTxs::Trade,
                 Some(dec!(0.00014357)),
                 "BTC".to_owned(),
-                Some(dec!(-0.11)),
+                Some(dec!(0.11)),
                 "BNB".to_owned(),
-                Some(dec!(-0.0025559)),
+                Some(dec!(0.0025559)),
                 "BNB".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,2,123456789,Spot,Buy".to_owned(),
+                "v2,3,123456789,Spot,Buy".to_owned(),
                 dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
                 TypeTxs::Trade,
                 Some(dec!(0.00195765)),
                 "BTC".to_owned(),
-                Some(dec!(-1.5)),
+                Some(dec!(1.5)),
                 "BNB".to_owned(),
-                Some(dec!(-0.00267651)),
+                Some(dec!(0.00267651)),
                 "BNB".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,3,123456789,Spot,Buy".to_owned(),
+                "v2,4,123456789,Spot,Buy".to_owned(),
                 dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
             ),
         ];
@@ -1846,6 +1849,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             coin: "DOT".to_string(),
             change: dec!(0.00505120),
             remark: "".to_string(),
+            line_number: 0,
         };
         //println!("bctr: {bctr:?}");
 
