@@ -19,7 +19,7 @@ use crate::{
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     process_token_tax::{TokenTaxRec, TypeTxs},
-    token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER2},
+    token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER3},
 };
 use clap::ArgMatches;
 use rust_decimal::prelude::*;
@@ -60,6 +60,12 @@ struct CommissionRec {
 
     #[serde(rename = "Referral ID")]
     referral_id: String,
+
+    #[serde(skip)]
+    file_idx: usize,
+
+    #[serde(skip)]
+    line_number: usize,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
@@ -88,6 +94,9 @@ struct TradeRec {
 
     #[serde(rename = "Remark")]
     remark: String,
+
+    #[serde(skip)]
+    file_idx: usize,
 
     #[serde(skip)]
     line_number: usize,
@@ -411,10 +420,12 @@ impl BcAssetRecMap {
 }
 
 impl TokenTaxRec {
-    fn format_tt_cmt_ver1(line_number: usize, bccr: &CommissionRec) -> String {
+    fn format_tt_cmt_ver1(bccr: &CommissionRec) -> String {
         let ver = TT_CMT_VER1.as_str();
         format!(
-            "{ver},{line_number},{},{},{},{},{},{}",
+            "{ver},{},{},{},{},{},{},{},{}",
+            bccr.file_idx,
+            bccr.line_number,
             bccr.order_type,
             bccr.friends_id_spot,
             bccr.friends_sub_id_spot,
@@ -424,23 +435,23 @@ impl TokenTaxRec {
         )
     }
 
-    fn format_tt_cmt_ver2(line_number: usize, bctr: &TradeRec) -> String {
-        let ver = TT_CMT_VER2.as_str();
+    fn format_tt_cmt_ver3(bctr: &TradeRec) -> String {
+        let ver = TT_CMT_VER3.as_str();
         format!(
-            "{ver},{line_number},{},{},{}",
-            bctr.user_id, bctr.account, bctr.operation,
+            "{ver},{},{},{},{},{}",
+            bctr.file_idx, bctr.line_number, bctr.user_id, bctr.account, bctr.operation,
         )
     }
 
     #[allow(unused)]
-    fn from_commission_rec(line_number: usize, bccr: &CommissionRec) -> TokenTaxRec {
+    fn from_commission_rec(bccr: &CommissionRec) -> TokenTaxRec {
         let mut ttr = TokenTaxRec::new();
 
         ttr.type_txs = TypeTxs::Income;
         ttr.buy_amount = Some(bccr.commission_earned);
         ttr.buy_currency = bccr.commission_asset.clone();
         ttr.exchange = "binance.com".to_owned();
-        ttr.comment = TokenTaxRec::format_tt_cmt_ver1(line_number, bccr);
+        ttr.comment = TokenTaxRec::format_tt_cmt_ver1(bccr);
         ttr.time = bccr.commission_time;
 
         ttr
@@ -451,10 +462,7 @@ impl TokenTaxRec {
     // Returns: Ok(Some(TokenTaxRec)) if conversion was successful
     //          Ok(None) if the TradeRec::account,operation should be ignored
     //          Err if an error typically the account,operation pair were Unknown
-    fn from_trade_rec(
-        state: &mut StateForTradeRec,
-        bctr: &TradeRec,
-    ) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
+    fn from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
         // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
         // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
         //
@@ -523,14 +531,12 @@ impl TokenTaxRec {
         //       1 USDT-Futures,transfer_in
         //      69 USDT-Futures,transfer_out
 
-        let line_number = state.line_number;
-
         // TODO: Handle the all of the above "Account,Operations".
         let mut ttr = TokenTaxRec::new();
 
         // For all acount/operations these are the same
         ttr.exchange = "binance.com".to_owned();
-        ttr.comment = TokenTaxRec::format_tt_cmt_ver2(line_number, bctr);
+        ttr.comment = TokenTaxRec::format_tt_cmt_ver3(bctr);
         ttr.time = bctr.time;
 
         // Most other account/operations are Income so
@@ -771,8 +777,8 @@ impl TokenTaxRec {
                     assert!(
                         (ttr.type_txs == TypeTxs::Income) && (bctr.account == "Spot") && (bctr.operation == "Buy"),
                         "{}",
-                        format!(r#"{line_number}: Expected operation: "Buy" found "{}", when bctr.change: {} is positive"#,
-                            bctr.operation, bctr.change)
+                        format!(r#"file_idx: {} line_number {}: Expected operation: "Buy" found "{}", when bctr.change: {} is positive"#,
+                            bctr.file_idx, bctr.line_number, bctr.operation, bctr.change)
                     );
                     result_a.push(ttr);
                 } else {
@@ -781,8 +787,8 @@ impl TokenTaxRec {
                     // 123456789,2021-01-24 21:41:09,Spot,Transaction Related,ADA,-648.00000000,""
                     assert!((bctr.operation == "Fee") || (bctr.operation == "Transaction Related"),
                         "{}",
-                        format!(r#"{line_number}: Expected operation: "Fee" or "Transaction Related" found "{}" when bctr.change: {} is negative"#,
-                            bctr.operation, bctr.change)
+                        format!(r#"file_idx: {} line_number {}: Expected operation: "Fee" or "Transaction Related" found "{}" when bctr.change: {} is negative"#,
+                            bctr.file_idx, bctr.line_number, bctr.operation, bctr.change)
                     );
                     ttr.type_txs = TypeTxs::Spend;
                     ttr.sell_amount = Some(-bctr.change);
@@ -877,8 +883,8 @@ impl TokenTaxRec {
                     assert_eq!(ttr.fee_currency, "");
                 } else {
                     return Err(format!(
-                        "line_number: {line_number}, account: {}, operation: {}, change: {} expected to be negative",
-                        bctr.account, bctr.operation, bctr.change,
+                        "file_idx: {} line_number: {}, account: {}, operation: {}, change: {} expected to be negative",
+                        bctr.file_idx, bctr.line_number, bctr.account, bctr.operation, bctr.change,
                     )
                     .into());
                 }
@@ -887,8 +893,8 @@ impl TokenTaxRec {
             }
             _ => {
                 return Err(format!(
-                    "line_number: {line_number}, bctr acccount: {} operation {} unknown",
-                    bctr.account, bctr.operation
+                    "file_idx: {} line_number: {}, bctr acccount: {} operation {} unknown",
+                    bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
                 )
                 .into())
             }
@@ -934,8 +940,8 @@ impl TokenTaxRec {
                         Ordering::Equal => ("".to_owned(), None),
                         Ordering::Greater => {
                             return Err(format!(
-                                r#"Error: fee.change is > 0, line_number: {}, {fee}"#,
-                                fee.line_number
+                                r#"Error: fee.change is > 0, file_idx: {} line_number: {}, {fee}"#,
+                                fee.file_idx, fee.line_number
                             )
                             .into());
                         }
@@ -971,7 +977,7 @@ impl TokenTaxRec {
                 fee_coin.clone(),
                 "binance.com".to_owned(),
                 None,
-                TokenTaxRec::format_tt_cmt_ver2(buy_tr.line_number, buy_tr),
+                TokenTaxRec::format_tt_cmt_ver3(buy_tr),
                 buy_tr.time,
             );
             trade_tt_rec_a.push(ttr);
@@ -1043,7 +1049,6 @@ impl BcData {
 #[derive(Debug, Clone)]
 #[allow(unused)]
 struct StateForTradeRec {
-    line_number: usize,
     ttr_vec: Vec<TokenTaxRec>,
     spot_buy_tr_vec: Vec<TradeRec>,
     spot_sell_tr_vec: Vec<TradeRec>,
@@ -1053,7 +1058,6 @@ struct StateForTradeRec {
 impl StateForTradeRec {
     fn new() -> StateForTradeRec {
         StateForTradeRec {
-            line_number: 0,
             ttr_vec: Vec::<TokenTaxRec>::new(),
             spot_buy_tr_vec: Vec::<TradeRec>::new(),
             spot_sell_tr_vec: Vec::<TradeRec>::new(),
@@ -1095,21 +1099,17 @@ fn create_token_tax_rec_vec(
 
     // Convert everything to TokenTaxRecs expect the Buy, Sell, Fee transactions
     // those will be saved to convert to Trade records next step
-    for (idx, bctr) in tr_vec.iter().enumerate() {
-        state.line_number = idx + 2;
-
+    for bctr in tr_vec {
         let c = categorize(
             (bctr.account.as_str(), bctr.operation.as_str()),
             account_operation_to_category,
         );
-        let mut tr = bctr.clone();
-        tr.line_number = state.line_number;
         match c {
-            TradeCategories::Buy => state.spot_buy_tr_vec.push(tr),
-            TradeCategories::Sell => state.spot_sell_tr_vec.push(tr),
-            TradeCategories::Fee => state.spot_fee_tr_vec.push(tr),
+            TradeCategories::Buy => state.spot_buy_tr_vec.push(bctr.clone()),
+            TradeCategories::Sell => state.spot_sell_tr_vec.push(bctr.clone()),
+            TradeCategories::Fee => state.spot_fee_tr_vec.push(bctr.clone()),
             TradeCategories::Other => {
-                let ttr_a = TokenTaxRec::from_trade_rec(&mut state, &tr)?;
+                let ttr_a = TokenTaxRec::from_trade_rec(bctr)?;
 
                 for ttr in ttr_a {
                     state.ttr_vec.push(ttr);
@@ -1130,7 +1130,7 @@ fn create_token_tax_rec_vec(
     state
         .ttr_vec
         .sort_by(|lhs, rhs| lhs.time.partial_cmp(&rhs.time).unwrap());
-    state.ttr_vec.iter().for_each(|tr| println!("{tr}"));
+    //state.ttr_vec.iter().for_each(|tr| println!("{tr}"));
 
     Ok(state.ttr_vec)
 }
@@ -1175,11 +1175,7 @@ fn write_tr_vec(
     Ok(())
 }
 
-fn process_entry(
-    line_number: usize,
-    bc_data: &mut BcData,
-    bctr: &TradeRec,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn std::error::Error>> {
     let ar = bc_data
         .bc_asset_rec_map
         .bt
@@ -1253,8 +1249,8 @@ fn process_entry(
         }
         _ => {
             return Err(format!(
-                "line_number: {line_number}, bctr acccount: {}, operation {}, unknown",
-                bctr.account, bctr.operation
+                "file_idx: {} line_number: {} bctr acccount: {} operation {}, unknown",
+                bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
             )
             .into())
         }
@@ -1293,22 +1289,24 @@ pub async fn process_binance_com_trade_history_files(
     let mut bc_data = BcData::new();
 
     println!("Read files");
-    for f in in_th_file_paths {
-        println!("file: {f}");
+    for (fidx, f) in in_th_file_paths.into_iter().enumerate() {
+        println!("file {fidx}: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create csv reader
         let mut rdr = csv::Reader::from_reader(reader);
 
         let mut first_tr = TradeRec::new();
-        for (rec_index, result) in rdr.deserialize().enumerate() {
-            let line_number = rec_index + 2;
-            let tr: TradeRec = result?;
+        for (rec_idx, result) in rdr.deserialize().enumerate() {
+            let mut tr: TradeRec = result?;
+            tr.file_idx = fidx;
+            tr.line_number = rec_idx + 2;
+            let tr = tr; // Make immutable
 
             if config.progress_info {
                 print!(
-                    "Processing {line_number} {} {}                     \r",
-                    tr.operation, tr.coin
+                    "Processing {} {} {}                     \r",
+                    tr.line_number, tr.operation, tr.coin
                 );
             }
 
@@ -1318,7 +1316,7 @@ pub async fn process_binance_com_trade_history_files(
             }
             assert_eq!(first_tr.user_id, tr.user_id);
 
-            process_entry(line_number, &mut bc_data, &tr)?;
+            process_entry(&mut bc_data, &tr)?;
 
             bc_data.total_count += 1;
         }
@@ -1464,8 +1462,8 @@ pub async fn consolidate_binance_com_trade_history_files(
     let tr_writer = create_buf_writer_from_path(out_tr_path)?;
 
     println!("Read files");
-    for f in in_th_paths {
-        println!("file: {f}");
+    for (fidx, f) in in_th_paths.into_iter().enumerate() {
+        println!("file {fidx}: {f}");
         let reader = create_buf_reader(f)?;
 
         // DataRec reader
@@ -1474,14 +1472,18 @@ pub async fn consolidate_binance_com_trade_history_files(
         // Read the TradeRecs and append them to data.tr_vec and at the
         // same add them them in to per asset map.
         let mut first_tr = TradeRec::new();
-        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+        for (rec_idx, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
-            let line_number = rec_index + 2;
             let mut tr: TradeRec = result?;
+            tr.file_idx = fidx;
+            tr.line_number = rec_idx + 2;
 
             if config.progress_info {
                 let asset = &tr.coin;
-                print!("Processing {line_number} {asset}                        \r",);
+                print!(
+                    "Processing {} {asset}                        \r",
+                    tr.line_number
+                );
             }
 
             // Guarantee the user_id is always the same
@@ -1596,9 +1598,9 @@ pub async fn tt_file_from_binance_com_trade_history_files(
     let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
     println!("Read files");
-    for f in &in_file_paths {
-        println!("file: {f}");
-        let in_file = if let Ok(in_f) = File::open(*f) {
+    for (fidx, f) in in_file_paths.into_iter().enumerate() {
+        println!("file {fidx}: {f}");
+        let in_file = if let Ok(in_f) = File::open(f) {
             in_f
         } else {
             return Err(format!("Unable to open {f}").into());
@@ -1608,14 +1610,18 @@ pub async fn tt_file_from_binance_com_trade_history_files(
         // DataRec reader
         let mut data_rec_reader = csv::Reader::from_reader(reader);
 
-        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+        for (rec_idx, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
-            let line_number = rec_index + 2;
             let mut bctr: TradeRec = result?;
+            bctr.file_idx = fidx;
+            bctr.line_number = rec_idx + 2;
 
             if config.progress_info {
                 let asset = bctr.coin.as_str();
-                print!("Processing {line_number} {asset}                        \r",);
+                print!(
+                    "Processing {} {asset}                        \r",
+                    bctr.line_number
+                );
             }
 
             if let Some(offset) = time_ms_offset {
@@ -1679,7 +1685,7 @@ mod test {
                 "".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,2,123456789,Spot,Commission History".to_owned(),
+                "v3,0,2,123456789,Spot,Commission History".to_owned(),
                 dt_str_to_utc_time_ms("2020-05-09 05:09:31", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
@@ -1692,7 +1698,7 @@ mod test {
                 "BNB".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,5,123456789,Spot,Buy".to_owned(),
+                "v3,0,5,123456789,Spot,Buy".to_owned(),
                 dt_str_to_utc_time_ms("2020-05-09 05:11:01", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
@@ -1705,7 +1711,7 @@ mod test {
                 "".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,6,123456789,Spot,Buy".to_owned(),
+                "v3,0,6,123456789,Spot,Buy".to_owned(),
                 dt_str_to_utc_time_ms("2020-05-09 05:12:24", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
@@ -1718,7 +1724,7 @@ mod test {
                 "".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,9,123456789,Spot,Commission History".to_owned(),
+                "v3,0,9,123456789,Spot,Commission History".to_owned(),
                 dt_str_to_utc_time_ms("2020-05-09 20:42:56", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
@@ -1731,7 +1737,7 @@ mod test {
                 "BNB".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,10,123456789,Spot,Buy".to_owned(),
+                "v3,0,10,123456789,Spot,Buy".to_owned(),
                 dt_str_to_utc_time_ms("2020-05-09 20:42:56", TzMassaging::CondAddTzUtc).unwrap(),
             ),
         ];
@@ -1832,10 +1838,12 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             commission_time: 321,
             registration_time: 213,
             referral_id: "bpcode".to_string(),
+            file_idx: 0,
+            line_number: 2,
         };
         //println!("bcr: {bccr:?}");
 
-        let ttr = TokenTaxRec::from_commission_rec(1, &bccr);
+        let ttr = TokenTaxRec::from_commission_rec(&bccr);
         //println!("ttr: {ttr:?}");
         assert_eq!(ttr.type_txs, TypeTxs::Income);
         assert_eq!(ttr.buy_amount, Some(dec!(123)));
@@ -1846,7 +1854,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         assert!(ttr.fee_currency.is_empty());
         assert_eq!(ttr.exchange, "binance.com");
         assert_eq!(ttr.group, None);
-        assert_eq!(ttr.comment, "v1,1,USDT_futures,42254326,,123,213,bpcode");
+        assert_eq!(ttr.comment, "v1,0,2,USDT_futures,42254326,,123,213,bpcode");
         assert_eq!(ttr.time, 321);
     }
 
@@ -1891,13 +1899,12 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             coin: "DOT".to_string(),
             change: dec!(0.00505120),
             remark: "".to_string(),
-            line_number: 0,
+            file_idx: 0,
+            line_number: 1,
         };
         //println!("bctr: {bctr:?}");
 
-        let mut state = StateForTradeRec::new();
-        state.line_number = 1;
-        let ttr_a = TokenTaxRec::from_trade_rec(&mut state, &bctr).unwrap();
+        let ttr_a = TokenTaxRec::from_trade_rec(&bctr).unwrap();
         let ttr = &ttr_a[0];
 
         //println!("ttr: {ttr:?}");
@@ -1911,7 +1918,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         assert!(ttr.fee_currency.is_empty());
         assert_eq!(ttr.exchange, "binance.com");
         assert_eq!(ttr.group, None);
-        assert_eq!(ttr.comment, "v2,1,123456789,Spot,Commission History");
+        assert_eq!(ttr.comment, "v3,0,1,123456789,Spot,Commission History");
         assert_eq!(ttr.time, 1609459231000);
     }
 
@@ -1964,21 +1971,26 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
 
         let bctr_a = csv_str_to_trade_rec_array(csv_str);
 
-        let mut state = StateForTradeRec::new();
         for (idx, bctr) in bctr_a.iter().enumerate() {
-            state.line_number = idx + 2;
+            let mut bctr = bctr.clone();
+            bctr.file_idx = 0;
+            bctr.line_number = idx + 2;
+            let bctr = &bctr; // Make immutable
+
             //println!("bcr: {:?}", bctr);
-            let ttr_a = TokenTaxRec::from_trade_rec(&mut state, bctr).unwrap();
+            let ttr_a = TokenTaxRec::from_trade_rec(bctr).unwrap();
             let ttr = &ttr_a[0];
             if bctr.coin != "BNB" {
-                assert_ne!(state.line_number, 36);
+                assert_eq!(bctr.file_idx, 0);
+                assert_ne!(bctr.line_number, 36);
                 assert_eq!(ttr.type_txs, TypeTxs::Spend);
                 assert_eq!("", ttr.buy_currency);
                 assert_eq!(None, ttr.buy_amount);
                 assert_eq!(bctr.coin, ttr.sell_currency);
                 assert_eq!(Some(-bctr.change), ttr.sell_amount);
             } else {
-                assert_eq!(state.line_number, 36);
+                assert_eq!(bctr.file_idx, 0);
+                assert_eq!(bctr.line_number, 36);
                 assert_eq!(ttr.type_txs, TypeTxs::Income);
                 assert_eq!(bctr.coin, ttr.buy_currency);
                 assert_eq!(Some(bctr.change), ttr.buy_amount);
@@ -2066,14 +2078,13 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         let mut tr_a = Vec::<TradeRec>::new();
         let rdr = csv_str.as_bytes();
         let mut reader = csv::Reader::from_reader(rdr);
-        for entry in reader.deserialize() {
+        for (idx, entry) in reader.deserialize().enumerate() {
+            let mut bctr: TradeRec = entry.expect("Should Never Happen");
+            bctr.file_idx = 0;
+            bctr.line_number = idx + 2;
+
             //println!("{_idx}: entry: {:?}", entry);
-            match entry {
-                Ok(bctr) => {
-                    tr_a.push(bctr);
-                }
-                Err(e) => panic!("Error: {e}"),
-            }
+            tr_a.push(bctr);
         }
 
         tr_a

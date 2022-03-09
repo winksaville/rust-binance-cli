@@ -54,7 +54,7 @@ use crate::{
     date_time_utc::DateTimeUtc,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     process_token_tax::{TokenTaxRec, TypeTxs},
-    token_tax_comment_vers::TT_CMT_VER0,
+    token_tax_comment_vers::TT_CMT_VER4,
 };
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
@@ -104,31 +104,28 @@ struct DistRec {
     pub withdrawal_method: String,
     #[serde(rename = "Additional_Note")]
     pub additional_note: String,
+
+    #[serde(skip)]
+    file_idx: usize,
+
+    #[serde(skip)]
+    line_number: usize,
 }
 
 #[allow(unused)]
 impl DistRec {
     // Return a tuple of (asset, quantity and usd_value)
-    fn get_asset_quantity_usd_value(
-        &self,
-        usd_value_needed: bool,
-        line_number: Option<usize>,
-    ) -> (&str, Decimal, Decimal) {
-        let ln_str = if let Some(ln) = line_number {
-            format!("{ln}")
-        } else {
-            "?".to_string()
-        };
+    fn get_asset_quantity_usd_value(&self, usd_value_needed: bool) -> (&str, Decimal, Decimal) {
         let result = if !self.primary_asset.is_empty() {
             assert!(self.base_asset.is_empty());
             (
                 self.primary_asset.as_str(),
                 self.realized_amount_for_primary_asset
-                    .unwrap_or_else(|| panic!("No realized_amount_for_primary_asset at {ln_str}")),
+                    .unwrap_or_else(|| panic!("No realized_amount_for_primary_asset at file_idx: {} line_number: {}", self.file_idx, self.line_number)),
                 self.realized_amount_for_primary_asset_in_usd_value
                     .unwrap_or_else(|| {
                         if usd_value_needed {
-                            panic!("No realized_amount_for_primary_asset_usd_value at {ln_str}")
+                            panic!("No realized_amount_for_primary_asset_usd_value at file_idx: {} line_number: {}", self.file_idx, self.line_number)
                         } else {
                             dec!(0)
                         }
@@ -140,12 +137,12 @@ impl DistRec {
                     "Buy" => (
                         self.base_asset.as_str(),
                         self.realized_amount_for_base_asset.unwrap_or_else(|| {
-                            panic!("No realized_amount_for_base_asset at {ln_str}")
+                            panic!("No realized_amount_for_base_asset at file_idx: {} line_number: {}", self.file_idx, self.line_number)
                         }),
                         self.realized_amount_for_base_asset_in_usd_value
                             .unwrap_or_else(||
                                 if usd_value_needed {
-                                    panic!("No realized_amount_for_base_asset_usd_value at {ln_str}")
+                                    panic!("No realized_amount_for_base_asset_usd_value at file_idx: {} line_number: {}", self.file_idx, self.line_number)
                                 } else {
                                      dec!(0)
                                 }),
@@ -153,11 +150,11 @@ impl DistRec {
                     "Sell" => (
                         self.quote_asset.as_str(),
                         self.realized_amount_for_quote_asset.unwrap_or_else(|| {
-                            panic!("No realized_amount_for_primary_asset at {ln_str}")
+                            panic!("No realized_amount_for_primary_asset at file_idx: {} line_number: {}", self.file_idx, self.line_number)
                         }),
                         self.realized_amount_for_quote_asset_in_usd_value
                             .unwrap_or_else(|| if usd_value_needed {
-                                panic!("No realized_amount_for_primary_asset_usd_value at {ln_str}")
+                                panic!("No realized_amount_for_primary_asset_usd_value at file_idx: {} line_number: {}", self.file_idx, self.line_number)
                             } else {
                                 dec!(0)
                             }),
@@ -170,10 +167,10 @@ impl DistRec {
                 _ => (
                     self.base_asset.as_str(),
                     self.realized_amount_for_base_asset
-                        .unwrap_or_else(|| panic!("No realized_amount_for_base_asset at {ln_str}")),
+                        .unwrap_or_else(|| panic!("No realized_amount_for_base_asset at file_idx: {} line_number: {}", self.file_idx, self.line_number)),
                     self.realized_amount_for_base_asset_in_usd_value
                         .unwrap_or_else(|| if usd_value_needed {
-                            panic!("No realized_amount_for_base_asset_usd_value at {ln_str}")
+                            panic!("No realized_amount_for_base_asset_usd_value at file_idx: {} line_number: {}", self.file_idx, self.line_number)
                         } else {
                             dec!(0)
                         }),
@@ -184,7 +181,7 @@ impl DistRec {
         result
     }
 
-    fn get_asset_only(&self, line_number: usize) -> &str {
+    fn get_asset_only(&self) -> &str {
         let result = if !self.primary_asset.is_empty() {
             assert!(self.base_asset.is_empty());
             self.primary_asset.as_str()
@@ -194,8 +191,8 @@ impl DistRec {
                     "Buy" => self.base_asset.as_str(),
                     "Sell" => self.quote_asset.as_str(),
                     _ => {
-                        panic!("Unsupported {} category with operation {}, expected operation to be Buy or Sell at line_number {line_number}",
-                                self.category, self.operation);
+                        panic!("Unsupported {} category with operation {}, expected operation to be Buy or Sell at line_number {}",
+                                self.line_number, self.category, self.operation);
                     }
                 },
                 _ => self.base_asset.as_str(),
@@ -206,19 +203,19 @@ impl DistRec {
     }
 
     fn get_asset(&self) -> &str {
-        let (asset, _, _) = self.get_asset_quantity_usd_value(false, None);
+        let (asset, _, _) = self.get_asset_quantity_usd_value(false);
 
         asset
     }
 
     fn get_value(&self) -> Decimal {
-        let (_, quantity, _) = self.get_asset_quantity_usd_value(false, None);
+        let (_, quantity, _) = self.get_asset_quantity_usd_value(false);
 
         quantity
     }
 
     fn get_value_usd(&self) -> Decimal {
-        let (_, _, usd_value) = self.get_asset_quantity_usd_value(true, None);
+        let (_, _, usd_value) = self.get_asset_quantity_usd_value(true);
 
         usd_value
     }
@@ -403,7 +400,7 @@ impl AssetRecMap {
         }
     }
 
-    fn add_dr(&mut self, dr: DistRec, line_number: usize) {
+    fn add_dr(&mut self, dr: DistRec) {
         let asset = if !dr.primary_asset.is_empty() {
             assert!(dr.base_asset.is_empty());
             &dr.primary_asset
@@ -413,14 +410,17 @@ impl AssetRecMap {
                     "Buy" => &dr.base_asset,
                     "Sell" => &dr.quote_asset,
                     _ => {
-                        panic!("Got {} category with operation {} is an unsupported, expected operation to be Buy or Sell at {line_number}",
-                                dr.category, dr.operation);
+                        panic!("Got {} category with operation {} is an unsupported, expected operation to be Buy or Sell at file_idx: {} line_number: {}",
+                                dr.category, dr.operation, dr.file_idx, dr.line_number);
                     }
                 },
                 _ => &dr.base_asset,
             }
         } else {
-            panic!("No primary_asset or base_asset at line {line_number}");
+            panic!(
+                "No primary_asset or base_asset at file_idx: {} line_number: {}",
+                dr.file_idx, dr.line_number
+            );
         };
 
         let entry = self
@@ -563,15 +563,15 @@ impl BuData {
 }
 
 impl TokenTaxRec {
-    fn format_tt_cmt_ver0(line_number: usize, dr: &DistRec) -> String {
-        let ver = TT_CMT_VER0.as_str();
+    fn format_tt_cmt_ver4(dr: &DistRec) -> String {
+        let ver = TT_CMT_VER4.as_str();
         format!(
-            "{ver},{line_number},{},{},{},{}",
-            dr.order_id, dr.transaction_id, dr.category, dr.operation
+            "{ver},{},{},{},{},{},{}",
+            dr.file_idx, dr.line_number, dr.order_id, dr.transaction_id, dr.category, dr.operation
         )
     }
 
-    fn from_dist_rec(line_number: usize, dr: &DistRec) -> TokenTaxRec {
+    fn from_dist_rec(dr: &DistRec) -> TokenTaxRec {
         let mut ttr = TokenTaxRec {
             type_txs: TypeTxs::Trade,
             buy_amount: None,
@@ -582,7 +582,7 @@ impl TokenTaxRec {
             fee_currency: "".to_owned(),
             exchange: "binance.us".to_owned(),
             group: None,
-            comment: TokenTaxRec::format_tt_cmt_ver0(line_number, dr),
+            comment: TokenTaxRec::format_tt_cmt_ver4(dr),
             time: dr.time,
         };
         //dbg!(&dr.operation);
@@ -621,8 +621,8 @@ impl TokenTaxRec {
                     }
                     _ => {
                         panic!(
-                            "{} {} {} unknown operation: {}",
-                            line_number, dr.base_asset, dr.category, dr.operation
+                            "file_idx: {} line_number: {} {} known category: {} unknown operation: {}",
+                            dr.file_idx, dr.line_number, dr.get_asset_only(), dr.category, dr.operation
                         );
                     }
                 }
@@ -646,7 +646,14 @@ impl TokenTaxRec {
                 ttr
             }
             _ => {
-                panic!("{} Unknown category: {}", line_number, dr.category);
+                panic!(
+                    "file_idx: {} line_number: {} {} Unknown category: {} unkown operation: {}",
+                    dr.file_idx,
+                    dr.line_number,
+                    dr.get_asset_only(),
+                    dr.category,
+                    dr.operation
+                );
             }
         }
     }
@@ -717,13 +724,12 @@ async fn get_asset_in_usd_value_update_if_none(
 async fn update_all_usd_values(
     config: &Configuration,
     dr: &mut DistRec,
-    line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //let line_number = rec_index + 2;
     if !dr.primary_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_number,
+            dr.line_number,
             dr.time,
             &dr.primary_asset,
             dr.realized_amount_for_primary_asset,
@@ -736,7 +742,7 @@ async fn update_all_usd_values(
     if !dr.base_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_number,
+            dr.line_number,
             dr.time,
             &dr.base_asset,
             dr.realized_amount_for_base_asset,
@@ -749,7 +755,7 @@ async fn update_all_usd_values(
     if !dr.quote_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_number,
+            dr.line_number,
             dr.time,
             &dr.quote_asset,
             dr.realized_amount_for_quote_asset,
@@ -762,7 +768,7 @@ async fn update_all_usd_values(
     if !dr.fee_asset.is_empty() {
         let _usd_value = get_asset_in_usd_value_update_if_none(
             config,
-            line_number,
+            dr.line_number,
             dr.time,
             &dr.fee_asset,
             dr.realized_amount_for_fee_asset,
@@ -848,10 +854,9 @@ fn write_dist_rec_vec_as_token_tax(
 
     // Output the data
     println!("Output token tax recs: len={}", dist_rec_vec.len());
-    for (idx, dr) in dist_rec_vec.iter().enumerate() {
-        let line_number = idx + 2;
+    for dr in dist_rec_vec {
         let dr: &DistRec = dr;
-        let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(line_number, dr);
+        let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(dr);
         token_tax_writer.serialize(ttr)?;
     }
     println!("Output token tax recs: Done");
@@ -885,15 +890,13 @@ fn process_entry(
     arm: &mut AssetRecMap,
     dr: &DistRec,
     usd_value_needed: bool,
-    line_number: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let leading_nl = if config.progress_info { "\n" } else { "" };
 
     data.total_count += 1;
 
     // The get the asset is always either primary_asset or base_asset
-    let (asset, quantity, value_usd) =
-        dr.get_asset_quantity_usd_value(usd_value_needed, Some(line_number));
+    let (asset, quantity, value_usd) = dr.get_asset_quantity_usd_value(usd_value_needed);
 
     // Add missing AssetRecMap entries that might be needed
     // Adding them here means less surprises later and we can
@@ -952,8 +955,8 @@ fn process_entry(
                 _ => {
                     data.distribution_operation_unknown_count += 1;
                     println!(
-                        "{leading_nl}{} {} Distribution unknown operation: {}",
-                        line_number, dr.primary_asset, dr.operation
+                        "{leading_nl}file_idx: {} line_number: {}, {} Distribution unknown operation: {}",
+                        dr.file_idx, dr.line_number, dr.primary_asset, dr.operation
                     );
                 }
             }
@@ -970,9 +973,7 @@ fn process_entry(
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
                             if usd_value_needed {
-                                panic!(
-                                    "Quick Buy of {asset} has no fee in USD at line {line_number}"
-                                )
+                                panic!("Quick Buy of {asset} has no fee in USD at file_idx: {} line_number: {}", dr.file_idx, dr.line_number)
                             } else {
                                 dec!(0)
                             }
@@ -987,9 +988,7 @@ fn process_entry(
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| {
                             if usd_value_needed {
-                                panic!(
-                                    "Quick Sell of {asset} has no fee in USD at line {line_number}"
-                                )
+                                panic!("Quick Sell of {asset} has no fee in USD at file_idx: {} line_number: {}", dr.file_idx, dr.line_number)
                             } else {
                                 dec!(0)
                             }
@@ -998,8 +997,8 @@ fn process_entry(
                 _ => {
                     data.quick_operation_unknown_count += 1;
                     println!(
-                        "{leading_nl}{} {} Quick unknown operation: {}",
-                        line_number, dr.base_asset, dr.operation
+                        "{leading_nl}file_idx: {} line_number: {}, {} Quick unknown operation: {}",
+                        dr.file_idx, dr.line_number, dr.base_asset, dr.operation
                     );
                 }
             }
@@ -1015,7 +1014,7 @@ fn process_entry(
                     data.spot_trading_operation_buy_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| if usd_value_needed {
-                            panic!("Spot Trading Buy of {asset} has no fee in USD at line {line_number}")
+                            panic!("Spot Trading Buy of {asset} has no fee in USD at file_idx: {} line_number {}", dr.file_idx, dr.line_number)
                         } else {
                             dec!(0)
                         });
@@ -1028,7 +1027,7 @@ fn process_entry(
                     data.spot_trading_operation_sell_fee_in_usd_value += dr
                         .realized_amount_for_fee_asset_in_usd_value
                         .unwrap_or_else(|| if usd_value_needed {
-                            panic!("Spot Trading Sell of {asset} has no fee in USD at line {line_number}")
+                            panic!("Spot Trading Sell of {asset} has no fee in USD at file_idx: {} line_number {}", dr.file_idx, dr.line_number)
                         } else {
                             dec!(0)
                         });
@@ -1036,8 +1035,8 @@ fn process_entry(
                 _ => {
                     data.spot_trading_operation_unknown_count += 1;
                     println!(
-                        "{leading_nl}{} {} Spot trading unknown operation: {}",
-                        line_number, dr.base_asset, dr.operation
+                        "{leading_nl}file_idx: {} line_number: {}, {} Spot trading unknown operation: {}",
+                        dr.file_idx, dr.line_number, dr.base_asset, dr.operation
                     );
                 }
             }
@@ -1055,7 +1054,7 @@ fn process_entry(
                         data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value +=
                             dr.realized_amount_for_fee_asset_in_usd_value
                             .unwrap_or_else(|| if usd_value_needed {
-                                panic!("Crypto Withdrawal of {asset} has no fee in USD at line {line_number}")
+                                panic!("Crypto Withdrawal of {asset} has no fee in USD at file_idx: {} line_number: {}", dr.file_idx, dr.line_number)
                             } else {
                                 dec!(0)
                             });
@@ -1067,8 +1066,8 @@ fn process_entry(
                 _ => {
                     data.withdrawal_operation_unknown_count += 1;
                     println!(
-                        "{leading_nl}{} {} Withdrawal unknown operation: {}",
-                        line_number, dr.primary_asset, dr.operation
+                        "{leading_nl}file_idx: {} line_number: {}, {} Withdrawal unknown operation: {}",
+                        dr.file_idx, dr.line_number, dr.primary_asset, dr.operation
                     );
                 }
             }
@@ -1116,8 +1115,8 @@ fn process_entry(
                 _ => {
                     data.deposit_operation_unknown_count += 1;
                     println!(
-                        "{leading_nl}{} {} Deposit unknown operation: {}",
-                        line_number, dr.primary_asset, dr.operation
+                        "{leading_nl}file_ids: {} line_number: {} {} Deposit unknown category: {} operation: {}",
+                        dr.file_idx, dr.line_number, dr.primary_asset, dr.category, dr.operation
                     );
                 }
             }
@@ -1125,8 +1124,8 @@ fn process_entry(
         _ => {
             data.unprocessed_category_count += 1;
             println!(
-                "{leading_nl}{} Unknown category: {}",
-                line_number, dr.category
+                "{leading_nl}file_idx: {} line_number: {}, Unknown category: {} operation: {}",
+                dr.file_idx, dr.line_number, dr.category, dr.operation
             );
         }
     }
@@ -1192,33 +1191,30 @@ pub async fn process_binance_us_dist_files(
     };
 
     println!("Read files");
-    for f in in_dist_file_paths {
+    for (fidx, f) in in_dist_file_paths.into_iter().enumerate() {
         println!("{leading_nl}file: {f}");
         let reader = create_buf_reader(f)?;
 
         // Create reader
         let mut rdr = csv::Reader::from_reader(reader);
 
-        for (rec_index, result) in rdr.deserialize().enumerate() {
-            let line_number = rec_index + 2;
+        for (rec_idx, result) in rdr.deserialize().enumerate() {
             let mut dr: DistRec = result?;
+            dr.file_idx = fidx;
+            dr.line_number = rec_idx + 2;
 
             if config.progress_info {
-                let asset = dr.get_asset_only(line_number);
-                print!("Processing {line_number} {asset}                        \r",);
+                let asset = dr.get_asset_only();
+                print!(
+                    "Processing {} {asset}                        \r",
+                    dr.line_number
+                );
             }
 
             match process_type {
-                ProcessType::Update => update_all_usd_values(config, &mut dr, line_number).await?,
+                ProcessType::Update => update_all_usd_values(config, &mut dr).await?,
                 ProcessType::Process => {
-                    process_entry(
-                        config,
-                        &mut data,
-                        &mut asset_rec_map,
-                        &dr,
-                        usd_value_needed,
-                        line_number,
-                    )?;
+                    process_entry(config, &mut data, &mut asset_rec_map, &dr, usd_value_needed)?;
                 }
             }
 
@@ -1591,9 +1587,9 @@ pub async fn consolidate_binance_us_dist_files(
     let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
     println!("Read files");
-    for f in &in_dist_paths {
-        println!("{leading_nl}file: {f}");
-        let in_file = if let Ok(in_f) = File::open(*f) {
+    for (fidx, f) in in_dist_paths.into_iter().enumerate() {
+        println!("{leading_nl}file {fidx}: {f}");
+        let in_file = if let Ok(in_f) = File::open(f) {
             in_f
         } else {
             return Err(format!("Unable to open {f}").into());
@@ -1603,14 +1599,18 @@ pub async fn consolidate_binance_us_dist_files(
         // DataRec reader
         let mut data_rec_reader = csv::Reader::from_reader(reader);
 
-        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+        for (rec_idx, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
-            let line_number = rec_index + 2;
             let mut dr: DistRec = result?;
+            dr.file_idx = fidx;
+            dr.line_number = rec_idx + 2;
 
             if config.progress_info {
-                let asset = dr.get_asset_only(line_number);
-                print!("Processing {line_number} {asset}                        \r",);
+                let asset = dr.get_asset_only();
+                print!(
+                    "Processing {} {asset}                        \r",
+                    dr.line_number
+                );
             }
 
             if let Some(offset) = time_ms_offset {
@@ -1618,7 +1618,7 @@ pub async fn consolidate_binance_us_dist_files(
             }
 
             data.dist_rec_vec.push(dr.clone());
-            data.asset_rec_map.add_dr(dr, line_number);
+            data.asset_rec_map.add_dr(dr);
         }
     }
 
@@ -1706,9 +1706,9 @@ pub async fn tt_file_from_binance_us_dist_files(
     let token_tax_rec_writer = create_buf_writer_from_path(out_token_tax_path)?;
 
     println!("Read files");
-    for f in &in_dist_paths {
+    for (fidx, f) in in_dist_paths.into_iter().enumerate() {
         println!("{leading_nl}file: {f}");
-        let in_file = if let Ok(in_f) = File::open(*f) {
+        let in_file = if let Ok(in_f) = File::open(f) {
             in_f
         } else {
             return Err(format!("Unable to open {f}").into());
@@ -1718,14 +1718,18 @@ pub async fn tt_file_from_binance_us_dist_files(
         // DataRec reader
         let mut data_rec_reader = csv::Reader::from_reader(reader);
 
-        for (rec_index, result) in data_rec_reader.deserialize().enumerate() {
+        for (rec_idx, result) in data_rec_reader.deserialize().enumerate() {
             //println!("{rec_index}: {result:?}");
-            let line_number = rec_index + 2;
             let mut dr: DistRec = result?;
+            dr.file_idx = fidx;
+            dr.line_number = rec_idx + 2;
 
             if config.progress_info {
-                let asset = dr.get_asset_only(line_number);
-                print!("Processing {line_number} {asset}                        \r",);
+                let asset = dr.get_asset_only();
+                print!(
+                    "Processing {} {} {asset}                        \r",
+                    dr.file_idx, dr.line_number
+                );
             }
 
             if let Some(offset) = time_ms_offset {
@@ -1912,7 +1916,7 @@ Time
 
     #[test]
     fn test_deserialize_binance_us_dist_rec_to_serialized_token_tax_rec() {
-        let csv = "User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
+        let csv = r#"User_Id,Time,Category,Operation,Order_Id,Transaction_Id,Primary_Asset,Realized_Amount_For_Primary_Asset,Realized_Amount_For_Primary_Asset_In_USD_Value,Base_Asset,Realized_Amount_For_Base_Asset,Realized_Amount_For_Base_Asset_In_USD_Value,Quote_Asset,Realized_Amount_For_Quote_Asset,Realized_Amount_For_Quote_Asset_In_USD_Value,Fee_Asset,Realized_Amount_For_Fee_Asset,Realized_Amount_For_Fee_Asset_In_USD_Value,Payment_Method,Withdrawal_Method,Additional_Note
 12345678,2019-08-01T00:00:00.000+00:00,Deposit,USD Deposit,1,1,USD,5125,5125,,,,,,,,,,Debit,,
 12345678,2019-09-28T15:35:02.000+00:00,Spot Trading,Buy,367670,125143,,,,BTC,0.00558,46.012234,USD,44.959176,44.959176,BTC,0,0,Wallet,,
 12345678,2020-03-02T07:32:05.000+00:00,Distribution,Referral Commission,5442858,17929593,BTC,0.0000003,0.002661,,,,,,,,,,Wallet,,
@@ -1922,30 +1926,32 @@ Time
 12345678,2020-08-16T23:54:01.000+00:00,Withdrawal,Crypto Withdrawal,38078398,38078398,ETH,23.99180186,10407.403729,,,,,,,ETH,0.005,2.16895,Wallet,Wallet,
 12345678,2021-03-18T03:49:18.000+00:00,Quick Buy,Buy,cf9257c74ea243da9f3e64847ad0233b,171875688,,,,USD,27.4684,27.4684,BNB,0.1,26.170481,USD,0.14,0.14,Wallet,,
 12345678,2021-03-22T22:33:06.147+00:00,Quick Sell,Sell,87d5c693897c4a0a8a35534782f6c471,179163493,,,,BTC,0.010946,596.876028,USD,590.5686,590.5686,USD,2.97,2.97,Wallet,,
-";
-        let result_ttr_csv = "Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
-Deposit,5125,USD,,,,,binance.us,,\"v0,2,1,1,Deposit,USD Deposit\",2019-08-01T00:00:00.000+00:00
-Trade,0.00558,BTC,44.959176,USD,0,BTC,binance.us,,\"v0,3,367670,125143,Spot Trading,Buy\",2019-09-28T15:35:02.000+00:00
-Income,0.0000003,BTC,,,,,binance.us,,\"v0,4,5442858,17929593,Distribution,Referral Commission\",2020-03-02T07:32:05.000+00:00
-Deposit,45.25785064909286,ETH,,,,,binance.us,,\"v0,5,17916393,17916393,Deposit,Crypto Deposit\",2020-03-23T04:08:20.000+00:00
-Trade,0.427854,BTC,20.374,ETH,0.16893668,BNB,binance.us,,\"v0,6,5988456,17916714,Spot Trading,Sell\",2020-03-23T04:10:29.000+00:00
-Trade,0.61,BNB,11.90903,USD,0.0004575,BNB,binance.us,,\"v0,7,26988333,32890969,Spot Trading,Buy\",2020-07-26T15:50:02.000+00:00
-Withdrawal,,,23.99180186,ETH,0.005,ETH,binance.us,,\"v0,8,38078398,38078398,Withdrawal,Crypto Withdrawal\",2020-08-16T23:54:01.000+00:00
-Trade,27.4684,USD,0.1,BNB,0.14,USD,binance.us,,\"v0,9,cf9257c74ea243da9f3e64847ad0233b,171875688,Quick Buy,Buy\",2021-03-18T03:49:18.000+00:00
-Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,\"v0,10,87d5c693897c4a0a8a35534782f6c471,179163493,Quick Sell,Sell\",2021-03-22T22:33:06.147+00:00
-";
+"#;
+        let result_ttr_csv = r#"Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
+Deposit,5125,USD,,,,,binance.us,,"v4,0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00:00.000+00:00
+Trade,0.00558,BTC,44.959176,USD,0,BTC,binance.us,,"v4,0,3,367670,125143,Spot Trading,Buy",2019-09-28T15:35:02.000+00:00
+Income,0.0000003,BTC,,,,,binance.us,,"v4,0,4,5442858,17929593,Distribution,Referral Commission",2020-03-02T07:32:05.000+00:00
+Deposit,45.25785064909286,ETH,,,,,binance.us,,"v4,0,5,17916393,17916393,Deposit,Crypto Deposit",2020-03-23T04:08:20.000+00:00
+Trade,0.427854,BTC,20.374,ETH,0.16893668,BNB,binance.us,,"v4,0,6,5988456,17916714,Spot Trading,Sell",2020-03-23T04:10:29.000+00:00
+Trade,0.61,BNB,11.90903,USD,0.0004575,BNB,binance.us,,"v4,0,7,26988333,32890969,Spot Trading,Buy",2020-07-26T15:50:02.000+00:00
+Withdrawal,,,23.99180186,ETH,0.005,ETH,binance.us,,"v4,0,8,38078398,38078398,Withdrawal,Crypto Withdrawal",2020-08-16T23:54:01.000+00:00
+Trade,27.4684,USD,0.1,BNB,0.14,USD,binance.us,,"v4,0,9,cf9257c74ea243da9f3e64847ad0233b,171875688,Quick Buy,Buy",2021-03-18T03:49:18.000+00:00
+Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,"v4,0,10,87d5c693897c4a0a8a35534782f6c471,179163493,Quick Sell,Sell",2021-03-22T22:33:06.147+00:00
+"#;
 
         let rdr = csv.as_bytes();
         let mut reader = csv::Reader::from_reader(rdr);
 
         let mut wtr = csv::Writer::from_writer(vec![]);
         for (idx, entry) in reader.deserialize().enumerate() {
-            let line_number = idx + 2;
             println!("{idx}: entry: {:?}", entry);
-            let dr: DistRec = entry.unwrap();
-            //dbg!(dr);
+            let mut dr: DistRec = entry.unwrap();
+            dr.file_idx = 0;
+            dr.line_number = idx + 2;
+            let dr = dr; // Make immutable
+                         //dbg!(dr);
 
-            let ttr = TokenTaxRec::from_dist_rec(line_number, &dr);
+            let ttr = TokenTaxRec::from_dist_rec(&dr);
             //dbg!(&ttr);
             wtr.serialize(&ttr).expect("Error serializing");
         }
