@@ -54,12 +54,12 @@ use crate::{
     date_time_utc::DateTimeUtc,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     process_token_tax::{TokenTaxRec, TypeTxs},
-    token_tax_comment_vers::TT_CMT_VER4,
+    token_tax_comment_vers::create_tt_cmt_ver4_string,
 };
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 #[serde(rename_all = "camelCase")]
-struct DistRec {
+pub struct DistRec {
     #[serde(rename = "User_Id")]
     pub user_id: String,
     #[serde(rename = "Time")]
@@ -106,10 +106,10 @@ struct DistRec {
     pub additional_note: String,
 
     #[serde(skip)]
-    file_idx: usize,
+    pub file_idx: usize,
 
     #[serde(skip)]
-    line_number: usize,
+    pub line_number: usize,
 }
 
 #[allow(unused)]
@@ -563,14 +563,6 @@ impl BuData {
 }
 
 impl TokenTaxRec {
-    fn format_tt_cmt_ver4(dr: &DistRec) -> String {
-        let ver = TT_CMT_VER4.as_str();
-        format!(
-            "{ver},{},{},{},{},{},{}",
-            dr.file_idx, dr.line_number, dr.order_id, dr.transaction_id, dr.category, dr.operation
-        )
-    }
-
     fn from_dist_rec(dr: &DistRec) -> TokenTaxRec {
         let mut ttr = TokenTaxRec {
             type_txs: TypeTxs::Trade,
@@ -582,7 +574,7 @@ impl TokenTaxRec {
             fee_currency: "".to_owned(),
             exchange: "binance.us".to_owned(),
             group: None,
-            comment: TokenTaxRec::format_tt_cmt_ver4(dr),
+            comment: create_tt_cmt_ver4_string(dr),
             time: dr.time,
         };
         //dbg!(&dr.operation);

@@ -19,7 +19,7 @@ use crate::{
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     process_token_tax::{TokenTaxRec, TypeTxs},
-    token_tax_comment_vers::{TT_CMT_VER1, TT_CMT_VER3},
+    token_tax_comment_vers::{create_tt_cmt_ver1_string, create_tt_cmt_ver3_string},
 };
 use clap::ArgMatches;
 use rust_decimal::prelude::*;
@@ -29,77 +29,77 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 // Order Type,Friend's ID(Spot),Friend's sub ID (Spot),Commission Asset,Commission Earned,Commission Earned (USDT),Commission Time,Registration Time,Referral ID
 //USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-31 21:58:24,bpcode
-struct CommissionRec {
+pub struct CommissionRec {
     #[serde(rename = "Order Type")]
-    order_type: String,
+    pub order_type: String,
 
     #[serde(rename = "Friend's ID(Spot)")]
-    friends_id_spot: u64,
+    pub friends_id_spot: u64,
 
     #[serde(rename = "Friend's sub ID (Spot)")]
-    friends_sub_id_spot: String,
+    pub friends_sub_id_spot: String,
 
     #[serde(rename = "Commission Asset")]
-    commission_asset: String,
+    pub commission_asset: String,
 
     #[serde(rename = "Commission Earned")]
-    commission_earned: Decimal,
+    pub commission_earned: Decimal,
 
     #[serde(rename = "Commission Earned (USDT)")]
-    commission_earned_usdt: Decimal,
+    pub commission_earned_usdt: Decimal,
 
     #[serde(rename = "Commission Time")]
     #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
-    commission_time: i64,
+    pub commission_time: i64,
 
     #[serde(rename = "Registration Time")]
     #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
-    registration_time: i64,
+    pub registration_time: i64,
 
     #[serde(rename = "Referral ID")]
-    referral_id: String,
+    pub referral_id: String,
 
     #[serde(skip)]
-    file_idx: usize,
+    pub file_idx: usize,
 
     #[serde(skip)]
-    line_number: usize,
+    pub line_number: usize,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
 // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
-struct TradeRec {
+pub struct TradeRec {
     #[serde(rename = "User_ID")]
-    user_id: String,
+    pub user_id: String,
 
     #[serde(rename = "UTC_Time")]
     #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
-    time: i64,
+    pub time: i64,
 
     #[serde(rename = "Account")]
-    account: String,
+    pub account: String,
 
     #[serde(rename = "Operation")]
-    operation: String,
+    pub operation: String,
 
     #[serde(rename = "Coin")]
-    coin: String,
+    pub coin: String,
 
     #[serde(rename = "Change")]
-    change: Decimal,
+    pub change: Decimal,
 
     #[serde(rename = "Remark")]
-    remark: String,
+    pub remark: String,
 
     #[serde(skip)]
-    file_idx: usize,
+    pub file_idx: usize,
 
     #[serde(skip)]
-    line_number: usize,
+    pub line_number: usize,
 }
 
 impl Eq for TradeRec {}
@@ -420,29 +420,6 @@ impl BcAssetRecMap {
 }
 
 impl TokenTaxRec {
-    fn format_tt_cmt_ver1(bccr: &CommissionRec) -> String {
-        let ver = TT_CMT_VER1.as_str();
-        format!(
-            "{ver},{},{},{},{},{},{},{},{}",
-            bccr.file_idx,
-            bccr.line_number,
-            bccr.order_type,
-            bccr.friends_id_spot,
-            bccr.friends_sub_id_spot,
-            bccr.commission_earned_usdt,
-            bccr.registration_time,
-            bccr.referral_id
-        )
-    }
-
-    fn format_tt_cmt_ver3(bctr: &TradeRec) -> String {
-        let ver = TT_CMT_VER3.as_str();
-        format!(
-            "{ver},{},{},{},{},{}",
-            bctr.file_idx, bctr.line_number, bctr.user_id, bctr.account, bctr.operation,
-        )
-    }
-
     #[allow(unused)]
     fn from_commission_rec(bccr: &CommissionRec) -> TokenTaxRec {
         let mut ttr = TokenTaxRec::new();
@@ -451,7 +428,7 @@ impl TokenTaxRec {
         ttr.buy_amount = Some(bccr.commission_earned);
         ttr.buy_currency = bccr.commission_asset.clone();
         ttr.exchange = "binance.com".to_owned();
-        ttr.comment = TokenTaxRec::format_tt_cmt_ver1(bccr);
+        ttr.comment = create_tt_cmt_ver1_string(bccr);
         ttr.time = bccr.commission_time;
 
         ttr
@@ -536,7 +513,7 @@ impl TokenTaxRec {
 
         // For all acount/operations these are the same
         ttr.exchange = "binance.com".to_owned();
-        ttr.comment = TokenTaxRec::format_tt_cmt_ver3(bctr);
+        ttr.comment = create_tt_cmt_ver3_string(bctr);
         ttr.time = bctr.time;
 
         // Most other account/operations are Income so
@@ -977,7 +954,7 @@ impl TokenTaxRec {
                 fee_coin.clone(),
                 "binance.com".to_owned(),
                 None,
-                TokenTaxRec::format_tt_cmt_ver3(buy_tr),
+                create_tt_cmt_ver3_string(buy_tr),
                 buy_tr.time,
             );
             trade_tt_rec_a.push(ttr);
