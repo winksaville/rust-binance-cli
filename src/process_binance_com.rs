@@ -407,26 +407,6 @@ impl BcAssetRecMap {
     //}
 }
 
-#[derive(Debug, Clone)]
-#[allow(unused)]
-struct StateFromTradeRec {
-    line_number: usize,
-    spot_buy_tr_vec: Vec<TradeRec>,
-    spot_fee_tr_vec: Vec<TradeRec>,
-    spot_related_tr_vec: Vec<TradeRec>,
-}
-
-impl StateFromTradeRec {
-    fn new() -> StateFromTradeRec {
-        StateFromTradeRec {
-            line_number: 0,
-            spot_buy_tr_vec: Vec::<TradeRec>::new(),
-            spot_fee_tr_vec: Vec::<TradeRec>::new(),
-            spot_related_tr_vec: Vec::<TradeRec>::new(),
-        }
-    }
-}
-
 impl TokenTaxRec {
     fn format_tt_cmt_ver1(line_number: usize, bccr: &CommissionRec) -> String {
         let ver = TT_CMT_VER1.as_str();
@@ -468,9 +448,8 @@ impl TokenTaxRec {
     // Returns: Ok(Some(TokenTaxRec)) if conversion was successful
     //          Ok(None) if the TradeRec::account,operation should be ignored
     //          Err if an error typically the account,operation pair were Unknown
-    #[allow(unused)]
     fn from_trade_rec(
-        state: &mut StateFromTradeRec,
+        state: &mut StateForTradeRec,
         bctr: &TradeRec,
     ) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
         // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
@@ -914,6 +893,66 @@ impl TokenTaxRec {
 
         Ok(result_a)
     }
+
+    fn from_buy_sell_fee(
+        state: &mut StateForTradeRec,
+    ) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
+        let len_buy = state.spot_buy_tr_vec.len();
+        let len_sell = state.spot_sell_tr_vec.len();
+        let len_fee = state.spot_fee_tr_vec.len();
+        assert_eq!(
+            len_buy, len_sell,
+            r#"Error: Expected number of "Spot,Buy": {} == "Spot,Transaction Related": {}"#,
+            len_buy, len_sell
+        );
+        assert!(
+            len_fee <= len_buy,
+            r#"Error: Expected number of "Spot,Fee": {} <= "Spot,Buy": {}"#,
+            len_fee,
+            len_buy
+        );
+
+        let mut trade_tt_rec_a = Vec::<TokenTaxRec>::new();
+        for (idx, buy_tr) in state.spot_buy_tr_vec.iter().enumerate() {
+            // Ok as len checked above
+            let sell_tr = state.spot_sell_tr_vec.get(idx).unwrap();
+            let line_number = idx + 2;
+
+            // Fee is "optional" as it's not required in that I've seen
+            // it missing in a data set
+            let fee_tr = state.spot_fee_tr_vec.get(idx);
+            let (fee_coin, fee_change) = if let Some(fee) = fee_tr {
+                (fee.coin.clone(), fee.change)
+            } else {
+                ("".to_owned(), dec!(0))
+            };
+
+            // Make additional asserts
+            assert!(!buy_tr.coin.is_empty());
+            assert!(buy_tr.change >= dec!(0));
+            assert!(!sell_tr.coin.is_empty());
+            assert!(sell_tr.change <= dec!(0));
+            assert!(fee_change <= dec!(0));
+
+            // Create the record and push it
+            let ttr = TokenTaxRec::from(
+                TypeTxs::Trade,
+                Some(buy_tr.change),
+                buy_tr.coin.clone(),
+                Some(sell_tr.change),
+                sell_tr.coin.clone(),
+                Some(fee_change),
+                fee_coin.clone(),
+                "binance.com".to_owned(),
+                None,
+                TokenTaxRec::format_tt_cmt_ver2(line_number, buy_tr),
+                buy_tr.time,
+            );
+            trade_tt_rec_a.push(ttr);
+        }
+
+        Ok(trade_tt_rec_a)
+    }
 }
 
 // From bctr_buy, _sell and _fee records create a TokenTax trade record
@@ -975,6 +1014,94 @@ impl BcData {
     }
 }
 
+#[derive(Debug, Clone)]
+#[allow(unused)]
+struct StateForTradeRec {
+    line_number: usize,
+    ttr_vec: Vec<TokenTaxRec>,
+    spot_buy_tr_vec: Vec<TradeRec>,
+    spot_sell_tr_vec: Vec<TradeRec>,
+    spot_fee_tr_vec: Vec<TradeRec>,
+}
+
+impl StateForTradeRec {
+    fn new() -> StateForTradeRec {
+        StateForTradeRec {
+            line_number: 0,
+            ttr_vec: Vec::<TokenTaxRec>::new(),
+            spot_buy_tr_vec: Vec::<TradeRec>::new(),
+            spot_sell_tr_vec: Vec::<TradeRec>::new(),
+            spot_fee_tr_vec: Vec::<TradeRec>::new(),
+        }
+    }
+}
+
+enum TradeCategories {
+    Other = 0,
+    Buy,
+    Sell,
+    Fee,
+}
+
+fn account_operation_to_category(account_operation: (&str, &str)) -> TradeCategories {
+    match account_operation {
+        ("Spot", "Buy") => TradeCategories::Buy,
+        ("Spot", "Transaction Related") => TradeCategories::Sell,
+        ("Spot", "Fee") => TradeCategories::Fee,
+        _ => TradeCategories::Other,
+    }
+}
+
+fn categorize<F, T, C>(t: T, func: F) -> C
+where
+    F: Fn(T) -> C,
+{
+    func(t)
+}
+
+// Write token tax record from tr_vec
+//
+// Returns number of records written
+fn create_token_tax_rec_vec(
+    tr_vec: &[TradeRec],
+) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
+    let mut state = StateForTradeRec::new();
+
+    // Convert everything to TokenTaxRecs expect the Buy, Sell, Fee transactions
+    // those will be saved to convert to Trade records next step
+    for (idx, bctr) in tr_vec.iter().enumerate() {
+        state.line_number = idx + 2;
+
+        let c = categorize(
+            (bctr.account.as_str(), bctr.operation.as_str()),
+            account_operation_to_category,
+        );
+        match c {
+            TradeCategories::Buy => state.spot_buy_tr_vec.push(bctr.clone()),
+            TradeCategories::Sell => state.spot_sell_tr_vec.push(bctr.clone()),
+            TradeCategories::Fee => state.spot_fee_tr_vec.push(bctr.clone()),
+            TradeCategories::Other => {
+                let ttr_a = TokenTaxRec::from_trade_rec(&mut state, bctr)?;
+
+                for ttr in ttr_a {
+                    state.ttr_vec.push(ttr);
+                }
+            }
+        }
+    }
+
+    // Now process the buy_sell_fee arrays to TokenTax Trades and
+    // push the completed trades to ttr_vec
+    for ttr in TokenTaxRec::from_buy_sell_fee(&mut state)? {
+        state.ttr_vec.push(ttr);
+    }
+
+    // Sort the final result
+    state.ttr_vec.sort();
+
+    Ok(state.ttr_vec)
+}
+
 // Write token tax record from tr_vec
 //
 // Returns number of records written
@@ -985,23 +1112,17 @@ fn write_tr_vec_as_token_tax(
     // Create a token tax writer
     let mut token_tax_writer = csv::Writer::from_writer(writer);
 
-    let mut state = StateFromTradeRec::new();
+    // Create the TokenTaxRec vector
+    let ttr_vec = create_token_tax_rec_vec(tr_vec)?;
+    let len = ttr_vec.len();
 
-    let mut count_written = 0usize;
-    // Output the data
-    for (idx, bctr) in tr_vec.iter().enumerate() {
-        state.line_number = idx + 2;
-        let ttr_a = TokenTaxRec::from_trade_rec(&mut state, bctr)?;
-
-        for ttr in &ttr_a {
-            count_written += 1;
-            token_tax_writer.serialize(ttr)?;
-        }
+    // Write the completed TokenTaxRecs
+    for ttr in ttr_vec {
+        token_tax_writer.serialize(ttr)?;
     }
-
     token_tax_writer.flush()?;
 
-    Ok(count_written)
+    Ok(len)
 }
 
 fn write_tr_vec(
@@ -1491,31 +1612,80 @@ mod test {
 
     use super::*;
     use crate::{
-        common::dt_str_to_utc_time_ms,
+        common::{dt_str_to_utc_time_ms, TzMassaging},
         process_token_tax::{TokenTaxRec, TypeTxs},
     };
     use rust_decimal_macros::dec;
 
     #[test]
-    fn test_create_token_tax_trade() {
+    fn test_create_token_tax_rec_vec() {
         let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+123456789,2020-06-15 02:09:23,Spot,Withdraw,BTC,-0.89339667,Withdraw fee is included
 123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
+123456789,2020-12-26 18:36:01,Spot,Commission History,BNB,0.00021562,
+123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
 123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
 123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
+123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
 123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
-123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014356,""
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.41000000,""
-123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00465885,""
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00112574,""
-123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00445039,""
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
 "#;
         //println!("csv: {csv:?}");
+
+        let expected = vec![
+            TokenTaxRec::from(
+                TypeTxs::Withdrawal,
+                None,
+                "".to_owned(),
+                Some(dec!(0.89339667)),
+                "BTC".to_owned(),
+                None,
+                "".to_owned(),
+                "binance.com".to_owned(),
+                None,
+                "v2,2,123456789,Spot,Withdraw".to_owned(),
+                dt_str_to_utc_time_ms("2020-06-15 02:09:23", TzMassaging::CondAddTzUtc).unwrap(),
+            ),
+            TokenTaxRec::from(
+                TypeTxs::Income,
+                Some(dec!(0.00021562)),
+                "BNB".to_owned(),
+                None,
+                "".to_owned(),
+                None,
+                "".to_owned(),
+                "binance.com".to_owned(),
+                None,
+                "v2,5,123456789,Spot,Commission History".to_owned(),
+                dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
+            ),
+            TokenTaxRec::from(
+                TypeTxs::Trade,
+                Some(dec!(0.00014357)),
+                "BTC".to_owned(),
+                Some(dec!(-0.11)),
+                "BNB".to_owned(),
+                Some(dec!(-0.0025559)),
+                "BNB".to_owned(),
+                "binance.com".to_owned(),
+                None,
+                "v2,2,123456789,Spot,Buy".to_owned(),
+                dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
+            ),
+            TokenTaxRec::from(
+                TypeTxs::Trade,
+                Some(dec!(0.00195765)),
+                "BTC".to_owned(),
+                Some(dec!(-1.5)),
+                "BNB".to_owned(),
+                Some(dec!(-0.00267651)),
+                "BNB".to_owned(),
+                "binance.com".to_owned(),
+                None,
+                "v2,3,123456789,Spot,Buy".to_owned(),
+                dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
+            ),
+        ];
+
         let mut bctr_a = csv_str_to_trade_rec_array(csv);
         println!("before sort:");
         bctr_a.iter().for_each(|tr| println!("{tr}"));
@@ -1523,21 +1693,13 @@ mod test {
         println!("after  sort:");
         bctr_a.iter().for_each(|tr| println!("{tr}"));
 
-        let mut state = StateFromTradeRec::new();
+        let ttr_vec = create_token_tax_rec_vec(&bctr_a).unwrap();
 
-        let mut ttr_a = Vec::<TokenTaxRec>::new();
-        for (idx, bctr) in bctr_a.iter().enumerate() {
-            state.line_number = idx + 2;
-            let ttr_returned_a = TokenTaxRec::from_trade_rec(&mut state, &bctr).unwrap();
-            ttr_returned_a
-                .iter()
-                .for_each(|ttr| ttr_a.push(ttr.clone()));
+        ttr_vec.iter().for_each(|ttr| println!("{ttr}"));
+        for (idx, ttr) in ttr_vec.iter().enumerate() {
+            println!("{idx}: {ttr:?}");
+            assert_eq!(ttr, expected.get(idx).unwrap())
         }
-
-        //println!("bctr_a: {bctr_a:?}");
-
-        //TODO: implement create_tt_trade_rec
-        //tt_trade_rec = create_tt_trade_rec(&bctr_a)?;
     }
 
     #[test]
@@ -1687,7 +1849,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         };
         //println!("bctr: {bctr:?}");
 
-        let mut state = StateFromTradeRec::new();
+        let mut state = StateForTradeRec::new();
         state.line_number = 1;
         let ttr_a = TokenTaxRec::from_trade_rec(&mut state, &bctr).unwrap();
         let ttr = &ttr_a[0];
@@ -1756,7 +1918,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
 
         let bctr_a = csv_str_to_trade_rec_array(csv_str);
 
-        let mut state = StateFromTradeRec::new();
+        let mut state = StateForTradeRec::new();
         for (idx, bctr) in bctr_a.iter().enumerate() {
             state.line_number = idx + 2;
             //println!("bcr: {:?}", bctr);

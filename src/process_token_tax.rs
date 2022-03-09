@@ -85,6 +85,35 @@ impl TokenTaxRec {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn from(
+        type_txs: TypeTxs,
+        buy_amount: Option<Decimal>,
+        buy_currency: String,
+        sell_amount: Option<Decimal>,
+        sell_currency: String,
+        fee_amount: Option<Decimal>,
+        fee_currency: String,
+        exchange: String,
+        group: Option<GroupType>,
+        comment: String,
+        time: i64,
+    ) -> TokenTaxRec {
+        TokenTaxRec {
+            type_txs,
+            buy_amount,
+            buy_currency,
+            sell_amount,
+            sell_currency,
+            fee_amount,
+            fee_currency,
+            exchange,
+            group,
+            comment,
+            time,
+        }
+    }
+
     fn get_asset(&self) -> &str {
         match self.type_txs {
             TypeTxs::Unknown => "",
