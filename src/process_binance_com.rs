@@ -1,6 +1,7 @@
 //! This file processes binance.com commission files.
 //!
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     ffi::OsString,
     fmt::Display,
@@ -902,17 +903,21 @@ impl TokenTaxRec {
         let len_buy = state.spot_buy_tr_vec.len();
         let len_sell = state.spot_sell_tr_vec.len();
         let len_fee = state.spot_fee_tr_vec.len();
-        assert_eq!(
-            len_buy, len_sell,
-            r#"Error: Expected number of "Spot,Buy": {} == "Spot,Transaction Related": {}"#,
-            len_buy, len_sell
-        );
-        assert!(
-            len_fee <= len_buy,
-            r#"Error: Expected number of "Spot,Fee": {} <= "Spot,Buy": {}"#,
-            len_fee,
-            len_buy
-        );
+
+        if len_buy != len_sell {
+            return Err(format!(
+                "Error: Expected number of 'Spot,Buy': {} == 'Spot,Transaction Related': {}",
+                len_buy, len_sell
+            )
+            .into());
+        }
+        if len_fee > len_buy {
+            return Err(format!(
+                "Error: Expected number of 'Spot,Fee': {} <= 'Spot,Buy': {}",
+                len_fee, len_buy
+            )
+            .into());
+        }
 
         let mut trade_tt_rec_a = Vec::<TokenTaxRec>::new();
         for (idx, buy_tr) in state.spot_buy_tr_vec.iter().enumerate() {
@@ -923,9 +928,29 @@ impl TokenTaxRec {
             // it missing in a data set
             let fee_tr = state.spot_fee_tr_vec.get(idx);
             let (fee_coin, fee_change) = if let Some(fee) = fee_tr {
-                (fee.coin.clone(), fee.change)
+                if fee.time == buy_tr.time {
+                    match fee.change.cmp(&dec!(0)) {
+                        Ordering::Less => (fee.coin.clone(), Some(-fee.change)),
+                        Ordering::Equal => ("".to_owned(), None),
+                        Ordering::Greater => {
+                            return Err(format!(
+                                r#"Error: fee.change is > 0, line_number: {}, {fee}"#,
+                                fee.line_number
+                            )
+                            .into());
+                        }
+                    }
+                } else {
+                    // Out of order so a fee is missing
+                    let mut fake_fee = fee.clone();
+                    fake_fee.coin = "".to_owned();
+                    fake_fee.change = dec!(0);
+                    state.spot_fee_tr_vec.insert(idx, fake_fee);
+
+                    ("".to_owned(), None)
+                }
             } else {
-                ("".to_owned(), dec!(0))
+                ("".to_owned(), None)
             };
 
             // Make additional asserts
@@ -933,7 +958,7 @@ impl TokenTaxRec {
             assert!(buy_tr.change >= dec!(0));
             assert!(!sell_tr.coin.is_empty());
             assert!(sell_tr.change <= dec!(0));
-            assert!(fee_change <= dec!(0));
+            assert!(fee_change.is_none() || fee_change >= Some(dec!(0)));
 
             // Create the record and push it
             let ttr = TokenTaxRec::from(
@@ -942,7 +967,7 @@ impl TokenTaxRec {
                 buy_tr.coin.clone(),
                 Some(-sell_tr.change),
                 sell_tr.coin.clone(),
-                Some(-fee_change),
+                fee_change,
                 fee_coin.clone(),
                 "binance.com".to_owned(),
                 None,
@@ -1099,8 +1124,13 @@ fn create_token_tax_rec_vec(
         state.ttr_vec.push(ttr);
     }
 
-    // Sort the final result
-    state.ttr_vec.sort();
+    // Sort the final result only by time. Because this is
+    // a "stable" sort items with the same time will not move
+    // relative to each other.
+    state
+        .ttr_vec
+        .sort_by(|lhs, rhs| lhs.time.partial_cmp(&rhs.time).unwrap());
+    state.ttr_vec.iter().for_each(|tr| println!("{tr}"));
 
     Ok(state.ttr_vec)
 }
@@ -1623,30 +1653,60 @@ mod test {
     #[test]
     fn test_create_token_tax_rec_vec() {
         let csv = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-123456789,2020-06-15 02:09:23,Spot,Withdraw,BTC,-0.89339667,Withdraw fee is included
-123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
-123456789,2020-12-26 18:36:01,Spot,Commission History,BNB,0.00021562,
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
-123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
-123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
-123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
+123456789,2020-05-09 05:09:31,Spot,Commission History,VET,1.71544000,""
+123456789,2020-05-09 05:11:01,Spot,Transaction Related,XRP,-187.00000000,""
+123456789,2020-05-09 05:11:01,Spot,Fee,BNB,-0.00178794,""
+123456789,2020-05-09 05:11:01,Spot,Buy,BTC,0.00418506,""
+123456789,2020-05-09 05:12:24,Spot,Buy,BTC,0.00357700,""
+123456789,2020-05-09 05:12:24,Spot,Transaction Related,BUSD,-35.05460000,""
+123456789,2020-05-09 20:42:56,Spot,Transaction Related,USDT,-27.99945000,""
+123456789,2020-05-09 20:42:56,Spot,Commission History,BNB,0.00021562,""
+123456789,2020-05-09 20:42:56,Spot,Buy,BTC,0.00289400,""
+123456789,2020-05-09 20:42:56,Spot,Fee,BNB,-0.00123363,""
 "#;
+
+        //123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,"" //first Trade
         //println!("csv: {csv:?}");
 
         let expected = vec![
             TokenTaxRec::from(
-                TypeTxs::Withdrawal,
+                TypeTxs::Income,
+                Some(dec!(1.71544)),
+                "VET".to_owned(),
                 None,
                 "".to_owned(),
-                Some(dec!(0.89339667)),
-                "BTC".to_owned(),
                 None,
                 "".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,2,123456789,Spot,Withdraw".to_owned(),
-                dt_str_to_utc_time_ms("2020-06-15 02:09:23", TzMassaging::CondAddTzUtc).unwrap(),
+                "v2,2,123456789,Spot,Commission History".to_owned(),
+                dt_str_to_utc_time_ms("2020-05-09 05:09:31", TzMassaging::CondAddTzUtc).unwrap(),
+            ),
+            TokenTaxRec::from(
+                TypeTxs::Trade,
+                Some(dec!(0.00418506)),
+                "BTC".to_owned(),
+                Some(dec!(187)),
+                "XRP".to_owned(),
+                Some(dec!(0.00178794)),
+                "BNB".to_owned(),
+                "binance.com".to_owned(),
+                None,
+                "v2,5,123456789,Spot,Buy".to_owned(),
+                dt_str_to_utc_time_ms("2020-05-09 05:11:01", TzMassaging::CondAddTzUtc).unwrap(),
+            ),
+            TokenTaxRec::from(
+                TypeTxs::Trade,
+                Some(dec!(0.003577)),
+                "BTC".to_owned(),
+                Some(dec!(35.0546)),
+                "BUSD".to_owned(),
+                None,
+                "".to_owned(),
+                "binance.com".to_owned(),
+                None,
+                "v2,6,123456789,Spot,Buy".to_owned(),
+                dt_str_to_utc_time_ms("2020-05-09 05:12:24", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
                 TypeTxs::Income,
@@ -1658,43 +1718,25 @@ mod test {
                 "".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,5,123456789,Spot,Commission History".to_owned(),
-                dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
+                "v2,9,123456789,Spot,Commission History".to_owned(),
+                dt_str_to_utc_time_ms("2020-05-09 20:42:56", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
                 TypeTxs::Trade,
-                Some(dec!(0.00014357)),
+                Some(dec!(0.002894)),
                 "BTC".to_owned(),
-                Some(dec!(0.11)),
-                "BNB".to_owned(),
-                Some(dec!(0.0025559)),
+                Some(dec!(27.99945)),
+                "USDT".to_owned(),
+                Some(dec!(0.00123363)),
                 "BNB".to_owned(),
                 "binance.com".to_owned(),
                 None,
-                "v2,3,123456789,Spot,Buy".to_owned(),
-                dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
-            ),
-            TokenTaxRec::from(
-                TypeTxs::Trade,
-                Some(dec!(0.00195765)),
-                "BTC".to_owned(),
-                Some(dec!(1.5)),
-                "BNB".to_owned(),
-                Some(dec!(0.00267651)),
-                "BNB".to_owned(),
-                "binance.com".to_owned(),
-                None,
-                "v2,4,123456789,Spot,Buy".to_owned(),
-                dt_str_to_utc_time_ms("2020-12-26 18:36:01", TzMassaging::CondAddTzUtc).unwrap(),
+                "v2,10,123456789,Spot,Buy".to_owned(),
+                dt_str_to_utc_time_ms("2020-05-09 20:42:56", TzMassaging::CondAddTzUtc).unwrap(),
             ),
         ];
 
-        let mut bctr_a = csv_str_to_trade_rec_array(csv);
-        println!("before sort:");
-        bctr_a.iter().for_each(|tr| println!("{tr}"));
-        bctr_a.sort();
-        println!("after  sort:");
-        bctr_a.iter().for_each(|tr| println!("{tr}"));
+        let bctr_a = csv_str_to_trade_rec_array(csv);
 
         let ttr_vec = create_token_tax_rec_vec(&bctr_a).unwrap();
 
