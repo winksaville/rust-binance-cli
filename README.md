@@ -1,4 +1,7 @@
 # Binance-cli
+
+![ci-stable](https://github.com/winksaville/rust-binance-cli/actions/workflows/ci-stable.yml/badge.svg)
+![ci-nightly](https://github.com/winksaville/rust-binance-cli/actions/workflows/ci-nightly.yml/badge.svg)
 [![codecov](https://codecov.io/gh/winksaville/rust-binance-cli/branch/main/graph/badge.svg?token=cowZtK1KK1)](https://codecov.io/gh/winksaville/rust-binance-cli)
 
 > **Note: In no case can the authors of this program be held responsible

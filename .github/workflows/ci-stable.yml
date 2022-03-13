@@ -52,44 +52,32 @@ jobs:
         with:
           command: test
 
-  # Based on: https://github.com/actions-rs/tarpaulin#example-workflow
+  # Based on: https://github.com/xd009642/tarpaulin#github-actions
   coverage:
     name: Tarpaulin code coverage
     runs-on: ubuntu-latest
+    container:
+      image:                    xd009642/tarpaulin:develop-nightly
+      options:                  --security-opt seccomp=unconfined
     steps:
-      - name: Checkout sources
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-        # From:
-        #  https://github.com/Ch00k/orthanc-cli/blob/slow-follow-exec/.github/workflows/test.yml
-      - name: Install tarpaulin
-        run: cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
-
-        # From:
-        #  https://github.com/xd009642/tarpaulin#github-actions
-      - name: Run cargo tarpaulin
-        run: cargo tarpaulin --out Xml
+      - name: Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1.0.2
+        uses: codecov/codecov-action@v2
         with:
-          # From Edward Thomson blog:
-          #  https://www.edwardthomson.com/blog/github_actions_11_secrets.html
-          #
           # Added CODECOV_TOKEN to repo in Settings -> Secrets:
           #    https://github.com/winksaville/rust-binance-cli/settings/secrets/actions
           # Then click "New repository secret" adding CODECOV_TOKEN as name and
           # the token from:
           #    https://app.codecov.io/gh/winksaville/rust-binance-cli/settings
           #
-          token: ${{secrets.CODECOV_TOKEN}}
+          token: ${{secrets.CODECOV_TOKEN}} # Seems to be required
+          fail_ci_if_error: true
 
       - name: Archive code coverage results
         uses: actions/upload-artifact@v1
