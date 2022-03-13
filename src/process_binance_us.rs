@@ -42,6 +42,7 @@ use clap::ArgMatches;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
 use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
 
 use crate::{
@@ -53,7 +54,6 @@ use crate::{
     },
     configuration::Configuration,
     date_time_utc::DateTimeUtc,
-    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     process_token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::create_tt_cmt_ver4_string,
 };
@@ -64,7 +64,7 @@ pub struct DistRec {
     #[serde(rename = "User_Id")]
     pub user_id: String,
     #[serde(rename = "Time")]
-    #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub time: i64,
     #[serde(rename = "Category")]
@@ -1753,14 +1753,12 @@ pub async fn tt_file_from_binance_us_dist_files(
 mod test {
 
     use super::*;
-    use crate::de_string_to_utc_time_ms::{
-        de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string,
-    };
+    use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
 
     #[derive(Debug, Serialize, Deserialize)]
     struct TimeRec {
         #[serde(rename = "Time")]
-        #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+        #[serde(deserialize_with = "de_string_to_utc_time_ms")]
         #[serde(serialize_with = "se_time_ms_to_utc_string")]
         time: i64,
     }

@@ -10,6 +10,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
+
 use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
     common::{
@@ -17,7 +19,6 @@ use crate::{
         verify_input_files_exist,
     },
     configuration::Configuration,
-    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
     process_token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::{create_tt_cmt_ver1_string, create_tt_cmt_ver3_string},
 };
@@ -50,12 +51,12 @@ pub struct CommissionRec {
     pub commission_earned_usdt: Decimal,
 
     #[serde(rename = "Commission Time")]
-    #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub commission_time: i64,
 
     #[serde(rename = "Registration Time")]
-    #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub registration_time: i64,
 
@@ -77,7 +78,7 @@ pub struct TradeRec {
     pub user_id: String,
 
     #[serde(rename = "UTC_Time")]
-    #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub time: i64,
 

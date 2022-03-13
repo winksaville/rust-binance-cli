@@ -6,9 +6,9 @@ use crate::{
     },
     configuration::Configuration,
     date_time_utc::DateTimeUtc,
-    de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
 };
 
+use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
 use time_ms_conversions::{time_ms_to_utc, time_ms_to_utc_string, utc_now_to_time_ms};
 
 use clap::ArgMatches;
@@ -65,7 +65,7 @@ pub struct TokenTaxRec {
     pub comment: String,
 
     #[serde(rename = "Date")]
-    #[serde(deserialize_with = "de_string_to_utc_time_ms_condaddtzutc")]
+    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
     #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub time: i64,
 }
