@@ -21,6 +21,7 @@ mod date_time_utc;
 mod de_string_or_number;
 mod process_binance_com;
 mod process_binance_us;
+mod process_taxbit;
 mod process_token_tax;
 mod serde_header_map;
 mod token_tax_comment_vers;
@@ -63,6 +64,7 @@ use crate::{
         consolidate_binance_us_dist_files, process_binance_us_dist_files,
         tt_file_from_binance_us_dist_files, ProcessDistSubCommand, ProcessType,
     },
+    process_taxbit::{process_tax_bit_files, tb_file_from_token_tax_file},
     process_token_tax::{consolidate_token_tax_files, process_token_tax_files},
 };
 
@@ -445,6 +447,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "pttf" => process_token_tax_files(&config, sc_matches).await?,
             "cttf" => consolidate_token_tax_files(&config, sc_matches).await?,
+            "ptbf" => process_tax_bit_files(&config, sc_matches).await?,
+            "tbffttf" => tb_file_from_token_tax_file(&config, sc_matches).await?,
             _ => println!("Unknown subcommand: {}", sc_name),
         }
     }

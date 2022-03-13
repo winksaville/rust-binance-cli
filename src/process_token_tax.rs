@@ -116,7 +116,7 @@ impl TokenTaxRec {
         }
     }
 
-    fn get_asset(&self) -> &str {
+    pub fn get_asset(&self) -> &str {
         match self.type_txs {
             TypeTxs::Unknown => "",
             TypeTxs::Trade => &self.buy_currency,

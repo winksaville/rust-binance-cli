@@ -321,6 +321,14 @@ pub fn are_you_sure_stdout_stdin() -> bool {
     }
 }
 
+pub fn dec_to_string_or_empty(d: Option<Decimal>) -> String {
+    if let Some(q) = d {
+        format!("{}", q)
+    } else {
+        "".to_owned()
+    }
+}
+
 pub fn dec_to_money_string(v: Decimal) -> String {
     let v_string = v.round_dp(2).to_string();
     let money_string: String = match Money::from_str(&v_string, iso::USD) {
