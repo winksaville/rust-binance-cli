@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use chrono::{prelude::*, Datelike, Utc};
 
-use crate::common::time_ms_to_utc;
+use time_ms_conversions::time_ms_to_utc;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct DateTimeUtc {

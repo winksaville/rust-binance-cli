@@ -10,6 +10,7 @@ use std::{
     thread::sleep,
     time::Duration,
 };
+use time_ms_conversions::utc_now_to_time_ms;
 
 use crate::{
     binance_exchange_info::ExchangeInfo,
@@ -19,7 +20,7 @@ use crate::{
         TradeResponse, UnknownTradeResponseRec,
     },
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{post_req_get_response, utc_now_to_time_ms, ResponseErrorRec, Side, VALUE_ASSETS},
+    common::{post_req_get_response, ResponseErrorRec, Side, VALUE_ASSETS},
     configuration::Configuration,
 };
 

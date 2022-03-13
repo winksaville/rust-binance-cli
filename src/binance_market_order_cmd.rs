@@ -3,6 +3,7 @@
 use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
+use time_ms_conversions::utc_now_to_time_ms;
 
 use crate::{
     binance_account_info::get_account_info,
@@ -17,7 +18,7 @@ use crate::{
         adj_quantity_verify_lot_size, verify_max_position, verify_min_notional, verify_open_orders,
         verify_quanity_is_less_than_or_eq_free,
     },
-    common::{utc_now_to_time_ms, InternalErrorRec, Side},
+    common::{InternalErrorRec, Side},
     configuration::Configuration,
     ier_new,
 };

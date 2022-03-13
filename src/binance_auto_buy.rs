@@ -8,12 +8,12 @@ use crate::{
     binance_market_order_cmd::market_order,
     binance_order_response::TradeResponse,
     binance_trade::{MarketQuantityType, TradeOrderType},
-    common::{
-        are_you_sure_stdout_stdin, time_ms_to_utc, utc_now_to_time_ms, InternalErrorRec, Side,
-    },
+    common::{are_you_sure_stdout_stdin, InternalErrorRec, Side},
     configuration::Configuration,
     ier_new,
 };
+
+use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
 
 pub async fn auto_buy(
     config: &Configuration,

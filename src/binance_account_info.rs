@@ -14,10 +14,12 @@ use crate::{
     common::{dec_to_separated_string, VALUE_ASSETS},
 };
 use crate::{
-    common::{dec_to_money_string, get_req_get_response, time_ms_to_utc},
+    common::{dec_to_money_string, get_req_get_response},
     de_string_or_number::de_string_or_number_to_i64,
     Configuration,
 };
+
+use time_ms_conversions::time_ms_to_utc;
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
 // TODO: Maybe a process macro can be created that generates de_vec_xxx_to_hashmap?

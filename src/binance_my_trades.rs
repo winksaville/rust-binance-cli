@@ -4,11 +4,11 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
+use time_ms_conversions::{utc_now_to_time_ms, utc_to_time_ms};
 
 use crate::{
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{get_req_get_response, ResponseErrorRec},
-    common::{utc_now_to_time_ms, utc_to_time_ms, InternalErrorRec},
+    common::{get_req_get_response, InternalErrorRec, ResponseErrorRec},
     configuration::Configuration,
     de_string_or_number::de_string_or_number_to_i64,
     ier_new,

@@ -1,7 +1,9 @@
 use serde::{de, Deserialize, Deserializer, /*Serialize,*/ Serializer};
 use serde_json::Value;
 
-use crate::common::{dt_str_to_utc_time_ms, time_ms_to_utc_string, TzMassaging::CondAddTzUtc};
+use time_ms_conversions::{
+    dt_str_to_utc_time_ms, time_ms_to_utc_string, TzMassaging::CondAddTzUtc,
+};
 
 // Convert a string to UTC time in ms as i64
 #[allow(unused)]
@@ -28,9 +30,9 @@ mod test {
     use super::*;
     use serde::Serialize;
 
-    use crate::de_string_to_utc_time_ms::{
-        de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string,
-    };
+    //use crate::de_string_to_utc_time_ms::{
+    //    de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string,
+    //};
 
     const MS_PER_MIN: i64 = 1000 * 60;
 

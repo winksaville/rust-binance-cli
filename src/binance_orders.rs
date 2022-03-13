@@ -4,12 +4,12 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use rust_decimal::prelude::*;
+use time_ms_conversions::{utc_now_to_time_ms, utc_to_time_ms};
 
 use crate::{
     binance_order_response::TradeResponse,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{self, get_req_get_response, ResponseErrorRec},
-    common::{utc_now_to_time_ms, utc_to_time_ms},
+    common::{get_req_get_response, ResponseErrorRec, Side},
     configuration::Configuration,
     de_string_or_number::de_string_or_number_to_i64,
 };
@@ -54,7 +54,7 @@ impl Orders {
             .orders
             .iter()
             .map(|x| {
-                if x.side.eq(common::Side::BUY.into()) {
+                if x.side.eq(Side::BUY.into()) {
                     trace!("x.orig_qty: {}", x.orig_qty);
                     x.orig_qty
                 } else {

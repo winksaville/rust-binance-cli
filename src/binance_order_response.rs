@@ -7,10 +7,11 @@ use serde::{Deserialize, Serialize};
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use semver::Version;
+use time_ms_conversions::time_ms_to_utc;
 
 use crate::{
     binance_withdraw_cmd::WithdrawParams,
-    common::{dec_to_money_string, time_ms_to_utc, InternalErrorRec, ResponseErrorRec, Side},
+    common::{dec_to_money_string, InternalErrorRec, ResponseErrorRec, Side},
     configuration::Configuration,
     de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
 };

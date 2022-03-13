@@ -86,6 +86,7 @@ dependencies = [
  "sha2",
  "strum_macros",
  "test-env-log",
+ "time_ms_conversions",
  "tokio",
  "toml",
  "vergen",
@@ -1366,6 +1367,14 @@ dependencies = [
  "libc",
  "wasi",
  "winapi",
+]
+
+[[package]]
+name = "time_ms_conversions"
+version = "0.1.0"
+source = "git+https://github.com/winksaville/time-ms-conversions#1f53aeb2c8d46051a00dab9ee2ccc4d5cfa4c374"
+dependencies = [
+ "chrono",
 ]
 
 [[package]]

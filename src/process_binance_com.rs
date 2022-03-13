@@ -14,7 +14,7 @@ use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
     common::{
         create_buf_reader, create_buf_writer, create_buf_writer_from_path, dec_to_separated_string,
-        time_ms_to_utc_string, verify_input_files_exist,
+        verify_input_files_exist,
     },
     configuration::Configuration,
     de_string_to_utc_time_ms::{de_string_to_utc_time_ms_condaddtzutc, se_time_ms_to_utc_string},
@@ -25,6 +25,7 @@ use clap::ArgMatches;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use time_ms_conversions::time_ms_to_utc_string;
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 // Order Type,Friend's ID(Spot),Friend's sub ID (Spot),Commission Asset,Commission Earned,Commission Earned (USDT),Commission Time,Registration Time,Referral ID
@@ -1627,11 +1628,9 @@ pub async fn tt_file_from_binance_com_trade_history_files(
 mod test {
 
     use super::*;
-    use crate::{
-        common::{dt_str_to_utc_time_ms, TzMassaging},
-        process_token_tax::{TokenTaxRec, TypeTxs},
-    };
+    use crate::process_token_tax::{TokenTaxRec, TypeTxs};
     use rust_decimal_macros::dec;
+    use time_ms_conversions::{dt_str_to_utc_time_ms, TzMassaging};
 
     #[test]
     fn test_create_token_tax_rec_vec() {
@@ -1849,11 +1848,8 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
                     assert_eq!(bctr.user_id, "123456789");
                     assert_eq!(
                         bctr.time,
-                        dt_str_to_utc_time_ms(
-                            "2021-01-01 00:00:31",
-                            crate::common::TzMassaging::CondAddTzUtc
-                        )
-                        .unwrap()
+                        dt_str_to_utc_time_ms("2021-01-01 00:00:31", TzMassaging::CondAddTzUtc)
+                            .unwrap()
                     );
                     assert_eq!(bctr.account, "Spot");
                     assert_eq!(bctr.operation, "Commission History");

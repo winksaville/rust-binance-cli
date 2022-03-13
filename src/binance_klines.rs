@@ -9,10 +9,12 @@ use serde_json::Value;
 
 use strum_macros::IntoStaticStr;
 
+use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
+
 use crate::{
     binance_order_response::TradeResponse,
     binance_signature::query_vec_u8,
-    common::{get_req_get_response, time_ms_to_utc, utc_now_to_time_ms, ResponseErrorRec},
+    common::{get_req_get_response, ResponseErrorRec},
     configuration::Configuration,
 };
 

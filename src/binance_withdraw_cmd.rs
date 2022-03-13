@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use log::trace;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
+use time_ms_conversions::utc_now_to_time_ms;
 
 use crate::{
     binance_account_info::{get_account_info, AccountInfo},
@@ -18,7 +19,6 @@ use crate::{
     binance_signature::{append_signature, binance_signature, query_vec_u8},
     binance_trade::order_log_file,
     binance_verify_order::{adj_quantity_verify_lot_size, verify_quanity_is_less_than_or_eq_free},
-    common::utc_now_to_time_ms,
     common::InternalErrorRec,
     configuration::Configuration,
     ier_new,

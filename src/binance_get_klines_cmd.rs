@@ -2,11 +2,12 @@ use log::trace;
 
 use crate::{
     binance_klines::{get_klines, KlineInterval, KlineRec},
-    common::{
-        dt_str_to_utc_time_ms, time_ms_to_utc,
-        TzMassaging::{HasTz, LocalTz},
-    },
     configuration::Configuration,
+};
+
+use time_ms_conversions::{
+    dt_str_to_utc_time_ms, time_ms_to_utc,
+    TzMassaging::{HasTz, LocalTz},
 };
 
 #[derive(Debug, Clone, Default)]
