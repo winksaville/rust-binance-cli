@@ -442,7 +442,7 @@ impl AssetRecMap {
 struct TokenTaxData {
     ttr_vec: Vec<TokenTaxRec>,
     consolidated_ttr_vec: Vec<TokenTaxRec>,
-    asset_rec_map: AssetRecMap,
+    //asset_rec_map: AssetRecMap,
     total_count: u64,
     type_txs_unknown_count: u64,
     type_txs_trade_count: u64,
@@ -461,7 +461,7 @@ impl TokenTaxData {
         TokenTaxData {
             ttr_vec: Vec::new(),
             consolidated_ttr_vec: Vec::new(),
-            asset_rec_map: AssetRecMap::new(),
+            //asset_rec_map: AssetRecMap::new(),
             total_count: 0u64,
             type_txs_unknown_count: 0u64,
             type_txs_trade_count: 0u64,
@@ -667,13 +667,13 @@ pub async fn process_token_tax_files(
 
             if config.progress_info {
                 let asset = ttr.get_asset();
-                print!("Processing {line_number} {asset}                        \r",);
+                print!("Processing {line_number} {asset}                        \r");
             }
 
             process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
 
             data.ttr_vec.push(ttr.clone());
-            data.asset_rec_map.push_rec(ttr.clone());
+            asset_rec_map.push_rec(ttr);
         }
     }
     println!();
@@ -784,8 +784,10 @@ pub async fn consolidate_token_tax_files(
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace!("consolidate_token_tax_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
 
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
     let mut data = TokenTaxData::new();
-    //let mut asset_rec_map = AssetRecMap::new();
+    let mut asset_rec_map = AssetRecMap::new();
 
     let in_tt_file_paths: Vec<&str> = sc_matches
         .values_of("IN_FILES")
@@ -816,9 +818,9 @@ pub async fn consolidate_token_tax_files(
         None
     };
 
-    print!("Read files");
+    println!("Read files");
     for f in in_tt_file_paths {
-        println!("\nfile: {f}");
+        println!("{leading_nl}file: {f}");
         trace!("top loop: f: {f}");
         let reader = create_buf_reader(f)?;
 
@@ -836,8 +838,10 @@ pub async fn consolidate_token_tax_files(
                 print!("Processing {line_number} {asset}                        \r",);
             }
 
+            process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
+
             data.ttr_vec.push(ttr.clone());
-            data.asset_rec_map.push_rec(ttr.clone());
+            asset_rec_map.push_rec(ttr);
         }
     }
 
@@ -853,7 +857,7 @@ pub async fn consolidate_token_tax_files(
         "Asset", "pre count", "post count"
     );
 
-    for (asset, ar) in &mut data.asset_rec_map.bt {
+    for (asset, ar) in &mut asset_rec_map.bt {
         //trace!("consolidating: {asset}");
         let pre_len = ar.ttr_vec.len();
         total_pre_len += pre_len;
@@ -887,6 +891,117 @@ pub async fn consolidate_token_tax_files(
         println!("Writing consolidated data to {}", out_tt_file_path.unwrap());
         for ttr in &data.consolidated_ttr_vec {
             w.serialize(&ttr)?;
+        }
+        w.flush()?;
+    }
+
+    println!("Done");
+    Ok(())
+}
+
+/// uniq_currency_token_tax_files
+///
+/// The initial goal of this function is to find a subset of transactions
+/// such we can test that every asset can converted into a "quote" asset
+/// such as USD.
+///
+/// Another function cound/should probably be written that also includes every
+/// type of operation is in the data set is represented in some test data.
+///
+/// And maybe in an ideal case this code or some other function should create,
+/// for each asset, an array of every possible operation and find one transaction
+/// with that operation for each asset. It's not expected that every asset
+/// would be used in every operation but that we should emit one transaction
+/// of each operation that an asset does participate in.
+pub async fn uniq_currency_token_tax_files(
+    config: &Configuration,
+    sc_matches: &ArgMatches,
+) -> Result<(), Box<dyn std::error::Error>> {
+    trace!("uniq_currency_token_tax_files:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let leading_nl = if config.progress_info { "\n" } else { "" };
+
+    let mut data = TokenTaxData::new();
+    let mut asset_rec_map = AssetRecMap::new();
+
+    let in_tt_file_paths: Vec<&str> = sc_matches
+        .values_of("IN_FILES")
+        .expect("files option is missing")
+        .collect();
+
+    // Clippy suggests:
+    //    let out_tt_file_path = sc_matches.value_of("OUT_FILE").map(|r| r);
+    // I feel that is "obtuse", so for me I'm using this more obvious style
+    #[allow(clippy::manual_map)]
+    let out_tt_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
+        Some(r)
+    } else {
+        None
+    };
+
+    trace!("in_tt_file_path: {in_tt_file_paths:?}");
+    trace!("out_tt_file_path: {out_tt_file_path:?}");
+
+    // Verify all input files exist
+    verify_input_files_exist(&in_tt_file_paths)?;
+
+    // Create csv::Writer if out_file_path exists
+    let mut csv_ttr_writer = if let Some(out_file_path) = out_tt_file_path {
+        let writer = create_buf_writer(out_file_path)?;
+        Some(csv::Writer::from_writer(writer))
+    } else {
+        None
+    };
+
+    println!("Read files");
+    for f in in_tt_file_paths {
+        println!("{leading_nl}file: {f}");
+        trace!("top loop: f: {f}");
+        let reader = create_buf_reader(f)?;
+
+        // Create reader
+        let mut rdr = csv::Reader::from_reader(reader);
+
+        for (rec_index, result) in rdr.deserialize().enumerate() {
+            let line_number = rec_index + 2;
+            let ttr: TokenTaxRec = result?;
+
+            //println!("{line_number}: {ttr}");
+
+            if config.progress_info {
+                let asset = ttr.get_asset();
+                print!("Processing {line_number} {asset}                        \r");
+            }
+
+            process_entry(config, &mut data, &mut asset_rec_map, &ttr, line_number)?;
+
+            data.ttr_vec.push(ttr.clone());
+            asset_rec_map.push_rec(ttr);
+        }
+    }
+
+    let mut uc_ttr_vec = Vec::<TokenTaxRec>::new();
+    println!(
+        "{leading_nl}asset_rec_map.bt.len: {}",
+        asset_rec_map.bt.len()
+    );
+    for ar in &mut asset_rec_map.bt.values() {
+        if let Some(rec) = ar.ttr_vec.get(0) {
+            uc_ttr_vec.push(rec.clone());
+        }
+    }
+
+    println!("Sorting");
+    uc_ttr_vec.sort();
+    println!("Sorting done");
+
+    println!("uc_ttr_vec.len: {}", uc_ttr_vec.len());
+    //uc_ttr_vec.iter().for_each(|r| println!("rec: {r}"));
+
+    if let Some(w) = &mut csv_ttr_writer {
+        println!("Writing uc_ttr data to {}", out_tt_file_path.unwrap());
+        for ttr in &uc_ttr_vec {
+            w.serialize(ttr)?;
         }
         w.flush()?;
     }
