@@ -9,6 +9,7 @@ use clap::ArgMatches;
 use rust_decimal::prelude::*;
 //use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
 
 use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
@@ -55,6 +56,8 @@ pub enum TaxBitTxsType {
 //   Exchange Transaction ID, Blockchain Transaction Hash
 pub struct TaxBitRec {
     #[serde(rename = "Date and Time")]
+    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
+    #[serde(serialize_with = "se_time_ms_to_utc_string")]
     pub time: i64,
 
     #[serde(rename = "Transaction Type")]
@@ -147,6 +150,15 @@ impl TaxBitRec {
     }
 
     fn from_token_tax_rec(ttr: &TokenTaxRec) -> TaxBitRec {
+        // TODO: TaxBit "source/destination" fields must be valid
+        // TODO: for binance.com and binance.us that is "Binance"
+        // TODO: but what about other exchanges, maybe make this
+        // TODO: should be a command line option as the user may know?
+        let exchange = match ttr.exchange.as_str() {
+            "binance.com" | "binance.us" => "Binance".to_owned(), // This is what TaxBit wants for both!
+            _ => "".to_owned(),
+        };
+
         match ttr.type_txs {
             TypeTxs::Mining | TypeTxs::Income => {
                 let mut tbr = TaxBitRec::_new();
@@ -154,7 +166,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::Income;
                 tbr.received_quantity = ttr.buy_amount;
                 tbr.received_currency = ttr.buy_currency.clone();
-                tbr.receiving_destination = ttr.exchange.clone();
+                tbr.receiving_destination = exchange;
 
                 tbr
             }
@@ -164,10 +176,10 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::Trade;
                 tbr.sent_quantity = ttr.sell_amount;
                 tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = ttr.exchange.clone();
+                tbr.sending_source = exchange.clone();
                 tbr.received_quantity = ttr.buy_amount;
                 tbr.received_currency = ttr.buy_currency.clone();
-                tbr.receiving_destination = ttr.exchange.clone();
+                tbr.receiving_destination = exchange;
                 tbr.fee_quantity = ttr.fee_amount;
                 tbr.fee_currency = ttr.fee_currency.clone();
 
@@ -180,7 +192,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::TransferIn;
                 tbr.received_quantity = ttr.buy_amount;
                 tbr.received_currency = ttr.buy_currency.clone();
-                tbr.receiving_destination = ttr.exchange.clone();
+                tbr.receiving_destination = exchange;
 
                 tbr
             }
@@ -191,7 +203,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::TransferOut;
                 tbr.sent_quantity = ttr.sell_amount;
                 tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = ttr.exchange.clone();
+                tbr.sending_source = exchange;
 
                 tbr
             }
@@ -201,7 +213,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::Expense;
                 tbr.sent_quantity = ttr.sell_amount;
                 tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = ttr.exchange.clone(); //"Spend".to_owned();
+                tbr.sending_source = exchange;
 
                 tbr
             }
@@ -211,7 +223,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::Expense;
                 tbr.sent_quantity = ttr.sell_amount;
                 tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = ttr.exchange.clone(); //"Lost".to_owned();
+                tbr.sending_source = exchange;
 
                 tbr
             }
@@ -221,7 +233,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::Expense;
                 tbr.sent_quantity = ttr.sell_amount;
                 tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = ttr.exchange.clone(); //"Stolen".to_owned();
+                tbr.sending_source = exchange;
 
                 tbr
             }
@@ -231,7 +243,7 @@ impl TaxBitRec {
                 tbr.txs_type = TaxBitTxsType::TransferOut;
                 tbr.sent_quantity = ttr.sell_amount;
                 tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = "Gift".to_owned();
+                tbr.sending_source = exchange;
 
                 tbr
             }
