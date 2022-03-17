@@ -7,6 +7,7 @@ use std::{
 
 use clap::ArgMatches;
 use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 //use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
@@ -198,6 +199,14 @@ impl TaxBitRec {
                 tbr.receiving_destination = exchange;
                 tbr.fee_quantity = ttr.fee_amount;
                 tbr.fee_currency = ttr.fee_currency.clone();
+
+                // If fee_quantity is zero remove otherwise it is silently rejected by TaxBit
+                if let Some(q) = tbr.fee_quantity {
+                    if q == dec!(0) {
+                        tbr.fee_quantity = None;
+                        tbr.fee_currency = "".to_owned();
+                    }
+                }
 
                 tbr
             }
