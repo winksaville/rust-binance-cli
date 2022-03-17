@@ -526,7 +526,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                     assert_eq!(tbr.txs_type, TaxBitTxsType::TransferIn);
                     assert_eq!(tbr.received_quantity, Some(dec!(5125)));
                     assert_eq!(tbr.received_currency, "USD");
-                    assert_eq!(tbr.receiving_destination, "binance.us");
+                    assert_eq!(tbr.receiving_destination, "BinanceUS");
                     assert_eq!(tbr.sent_quantity, None);
                     assert_eq!(tbr.sent_currency, "");
                     assert_eq!(tbr.sending_source, "");
