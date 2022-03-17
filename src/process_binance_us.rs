@@ -1156,15 +1156,10 @@ pub async fn process_binance_us_dist_files(
         .expect("files option is missing")
         .collect();
 
-    let out_dist_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
-        Some(r)
-    } else {
-        if subcmd == ProcessDistSubCommand::Udf {
-            return Err("Expected --out-file parameter".into());
-        }
-
-        None
-    };
+    let out_dist_file_path = sc_matches.value_of("OUT_FILE");
+    if out_dist_file_path.is_none() && subcmd == ProcessDistSubCommand::Udf {
+        return Err("Expected --out-file parameter".into());
+    }
 
     // usd_value_need is true unless --no-usd-value-need is present
     let usd_value_needed = !sc_matches.is_present("no-usd-value-needed");

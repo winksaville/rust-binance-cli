@@ -626,15 +626,7 @@ pub async fn process_token_tax_files(
         .expect("files option is missing")
         .collect();
 
-    // Clippy suggests:
-    //    let out_tt_file_path = sc_matches.value_of("OUT_FILE").map(|r| r);
-    // I feel that is "obtuse", so for me I'm using this more obvious style
-    #[allow(clippy::manual_map)]
-    let out_tt_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
-        Some(r)
-    } else {
-        None
-    };
+    let out_tt_file_path = sc_matches.value_of("OUT_FILE");
 
     // usd_value_need is true unless --no-usd-value-need is present
     let usd_value_needed = !sc_matches.is_present("no-usd-value-needed");
@@ -794,15 +786,7 @@ pub async fn consolidate_token_tax_files(
         .expect("files option is missing")
         .collect();
 
-    // Clippy suggests:
-    //    let out_tt_file_path = sc_matches.value_of("OUT_FILE").map(|r| r);
-    // I feel that is "obtuse", so for me I'm using this more obvious style
-    #[allow(clippy::manual_map)]
-    let out_tt_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
-        Some(r)
-    } else {
-        None
-    };
+    let out_tt_file_path = sc_matches.value_of("OUT_FILE");
 
     trace!("in_tt_file_path: {in_tt_file_paths:?}");
     trace!("out_tt_file_path: {out_tt_file_path:?}");
@@ -929,15 +913,7 @@ pub async fn uniq_currency_token_tax_files(
         .expect("files option is missing")
         .collect();
 
-    // Clippy suggests:
-    //    let out_tt_file_path = sc_matches.value_of("OUT_FILE").map(|r| r);
-    // I feel that is "obtuse", so for me I'm using this more obvious style
-    #[allow(clippy::manual_map)]
-    let out_tt_file_path = if let Some(r) = sc_matches.value_of("OUT_FILE") {
-        Some(r)
-    } else {
-        None
-    };
+    let out_tt_file_path = sc_matches.value_of("OUT_FILE");
 
     trace!("in_tt_file_path: {in_tt_file_paths:?}");
     trace!("out_tt_file_path: {out_tt_file_path:?}");
