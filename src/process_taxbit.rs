@@ -155,7 +155,8 @@ impl TaxBitRec {
         // TODO: but what about other exchanges, maybe make this
         // TODO: should be a command line option as the user may know?
         let exchange = match ttr.exchange.as_str() {
-            "binance.com" | "binance.us" => "Binance".to_owned(), // This is what TaxBit wants for both!
+            "binance.com" => "Binance".to_owned(),
+            "binance.us" => "BinanceUS".to_owned(),
             _ => "".to_owned(),
         };
 
@@ -172,13 +173,28 @@ impl TaxBitRec {
             }
             TypeTxs::Trade => {
                 let mut tbr = TaxBitRec::_new();
+
+                if ttr.sell_currency.as_str() == "USD" {
+                    tbr.txs_type = TaxBitTxsType::Buy;
+                    tbr.sent_quantity = ttr.sell_amount;
+                    tbr.sent_currency = ttr.sell_currency.clone();
+                    tbr.received_quantity = ttr.buy_amount;
+                    tbr.received_currency = ttr.buy_currency.clone();
+                } else if ttr.buy_currency.as_str() == "USD" {
+                    tbr.txs_type = TaxBitTxsType::Sale;
+                    tbr.sent_quantity = ttr.buy_amount;
+                    tbr.sent_currency = ttr.buy_currency.clone();
+                    tbr.received_quantity = ttr.sell_amount;
+                    tbr.received_currency = ttr.sell_currency.clone();
+                } else {
+                    tbr.txs_type = TaxBitTxsType::Trade;
+                    tbr.sent_quantity = ttr.sell_amount;
+                    tbr.sent_currency = ttr.sell_currency.clone();
+                    tbr.received_quantity = ttr.buy_amount;
+                    tbr.received_currency = ttr.buy_currency.clone();
+                }
                 tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::Trade;
-                tbr.sent_quantity = ttr.sell_amount;
-                tbr.sent_currency = ttr.sell_currency.clone();
                 tbr.sending_source = exchange.clone();
-                tbr.received_quantity = ttr.buy_amount;
-                tbr.received_currency = ttr.buy_currency.clone();
                 tbr.receiving_destination = exchange;
                 tbr.fee_quantity = ttr.fee_amount;
                 tbr.fee_currency = ttr.fee_currency.clone();
@@ -276,7 +292,7 @@ fn write_tbr_vec(
     let len = tbr_vec.len();
 
     for tbr in tbr_vec {
-        println!("{tbr}");
+        //println!("{tbr}");
         cvs_writer.serialize(tbr)?;
     }
     cvs_writer.flush()?;
