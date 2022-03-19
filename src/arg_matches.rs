@@ -1,5 +1,5 @@
 // Based on https://stackoverflow.com/a/55134333/4812090
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use std::error::Error;
 
 use crate::common::{APP_NAME, APP_VERSION};
@@ -133,7 +133,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .long("no-usd-value-needed")
         .help("No USD value needed");
 
-    let matches = App::new(APP_NAME.as_str())
+    let matches = Command::new(APP_NAME.as_str())
         .version(APP_VERSION.as_str())
         .about("Binance cli app")
         .arg(config_arg.clone())
@@ -153,7 +153,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .arg(scheme_arg.clone())
         .arg(domain_arg.clone())
         .subcommand(
-            App::new("ai")
+            Command::new("ai")
                 .display_order(1)
                 .about("Display the account info")
                 // Turns out this isn't the time you'd like for information
@@ -166,17 +166,17 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 //),
         )
         .subcommand(
-            App::new("auto-buy")
+            Command::new("auto-buy")
                 .display_order(2)
                 .about("Automatically buy assets as defined in the configuration buy section"),
         )
         .subcommand(
-            App::new("auto-sell")
+            Command::new("auto-sell")
                 .display_order(2)
                 .about("Automatically sell assets as defined in the configuration keep section"),
         )
         .subcommand(
-            App::new("buy-market-value")
+            Command::new("buy-market-value")
                 .display_order(5)
                 .about("Buy asset using quote asset value")
                 .arg(
@@ -193,7 +193,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("buy-market")
+            Command::new("buy-market")
                 .display_order(5)
                 .about("Buy a number of assets")
                 .arg(
@@ -210,7 +210,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("sell-market")
+            Command::new("sell-market")
                 .display_order(5)
                 .about("Sell a number of assets")
                 .arg(
@@ -227,7 +227,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("sell-market-value")
+            Command::new("sell-market-value")
                 .display_order(5)
                 .about("Sell asset using quote asset value")
                 .arg(
@@ -244,7 +244,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("withdraw")
+            Command::new("withdraw")
                 .display_order(5)
                 .about("Withdraw an asset, either quantity, dollars or precent.\nExamples:\n  withdraw ETH '$1000' 1543abcd --keep-min \\$200\n  withdraw ETH 100% 1543abcd --keep-min '$200'\n  withdraw ETH 100 1543abcd\n NOTE: Dollar values must be written\n in single quotes '$123' or with a backslash \\$1234")
                 .arg(
@@ -291,12 +291,12 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("ei")
+            Command::new("ei")
                 .display_order(10)
                 .about("Display the exchange info"),
         )
         .subcommand(
-            App::new("sei")
+            Command::new("sei")
                 .display_order(10)
                 .about("Display a symbols exchange information")
                 .arg(
@@ -307,7 +307,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("sap")
+            Command::new("sap")
                 .display_order(10)
                 .about("Display a symbols 5 minute average price")
                 .arg(
@@ -318,7 +318,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("skr")
+            Command::new("skr")
                 .display_order(10)
                 .about("Display a symbols current kline record")
                 .arg(
@@ -335,7 +335,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("skrs")
+            Command::new("skrs")
                 .display_order(10)
                 .about("Display a symbols kline records")
                 .arg(
@@ -371,7 +371,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("oo")
+            Command::new("oo")
                 .display_order(10)
                 .about("Display a symbols open orders")
                 .arg(
@@ -382,7 +382,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("dh")
+            Command::new("dh")
                 .display_order(7)
                 .about("Display deposit history")
                 .arg(
@@ -393,7 +393,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("wh")
+            Command::new("wh")
                 .display_order(7)
                 .about("Display withdrawal history")
                 .arg(
@@ -404,7 +404,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("fcdh")
+            Command::new("fcdh")
                 .display_order(7)
                 .about("Display fiat currency deposit history")
                 .arg(
@@ -415,7 +415,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("fcwh")
+            Command::new("fcwh")
                 .display_order(7)
                 .about("Display fiat currency withdraw history")
                 .arg(
@@ -426,7 +426,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("mt")
+            Command::new("mt")
                 .display_order(8)
                 .about("Display my trades for a symbol")
                 .arg(
@@ -437,12 +437,12 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("ao")
+            Command::new("ao")
                 .display_order(9)
                 .about("Dispaly all orders"),
         )
         .subcommand(
-            App::new("obid")
+            Command::new("obid")
                 .display_order(9)
                 .about("Order by id")
                 .arg(
@@ -465,17 +465,17 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 ),
         )
         .subcommand(
-            App::new("ol")
+            Command::new("ol")
                 .display_order(9)
                 .about("Display order log"),
             )
         .subcommand(
-            App::new("pol")
+            Command::new("pol")
                 .display_order(9)
                 .about("process order log"),
         )
         .subcommand(
-            App::new("ubudf")
+            Command::new("ubudf")
                 .display_order(9)
                 .about("update binance.us distribution files")
                 .arg(
@@ -499,7 +499,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("pbudf")
+            Command::new("pbudf")
                 .display_order(9)
                 .about("process binance.us distribution files")
                 .arg(
@@ -524,7 +524,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&no_usd_value_needed_arg)
         )
         .subcommand(
-            App::new("cbudf")
+            Command::new("cbudf")
                 .display_order(9)
                 .about("consolidate binance.us distribution files")
                 .arg(
@@ -549,7 +549,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&time_offset_days_arg)
         )
         .subcommand(
-            App::new("ttffbudf")
+            Command::new("ttffbudf")
                 .display_order(9)
                 .about("Token Tax file from binance.us distribution files")
                 .arg(
@@ -574,7 +574,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&time_offset_days_arg)
         )
         .subcommand(
-            App::new("pbcthf")
+            Command::new("pbcthf")
                 .display_order(9)
                 .about("process binance.com trade history files")
                 .arg(
@@ -598,7 +598,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("cbcthf")
+            Command::new("cbcthf")
                 .display_order(9)
                 .about("consolidate binance.com trade history files")
                 .arg(
@@ -623,7 +623,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&time_offset_days_arg)
         )
         .subcommand(
-            App::new("ttffbcthf")
+            Command::new("ttffbcthf")
                 .display_order(9)
                 .about("Token Tax file from binance.com trade history files")
                 .arg(
@@ -648,7 +648,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&time_offset_days_arg)
         )
         .subcommand(
-            App::new("pttf")
+            Command::new("pttf")
                 .display_order(9)
                 .about("process Token Tax files")
                 .arg(
@@ -673,7 +673,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&no_usd_value_needed_arg)
         )
         .subcommand(
-            App::new("cttf")
+            Command::new("cttf")
                 .display_order(9)
                 .about("consolidate Token Tax files")
                 .arg(
@@ -697,7 +697,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("ucttf")
+            Command::new("ucttf")
                 .display_order(9)
                 .about("uniq currency transactions in Token Tax files")
                 .arg(
@@ -721,7 +721,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("ptbf")
+            Command::new("ptbf")
                 .display_order(9)
                 .about("process Tax Bit file")
                 .arg(
@@ -745,7 +745,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 )
         )
         .subcommand(
-            App::new("tbffttf")
+            Command::new("tbffttf")
                 .display_order(9)
                 .about("TaxBit file from Token Tax file")
                 .arg(
@@ -770,12 +770,12 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                 .arg(&time_offset_days_arg)
         )
         .subcommand(
-            App::new("version")
+            Command::new("version")
                 .display_order(12)
                 .about("Display version"),
         )
         .subcommand(
-            App::new("check-params")
+            Command::new("check-params")
                 .display_order(99)
                 .about("Used for testing")
         )
