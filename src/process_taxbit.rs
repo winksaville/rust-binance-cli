@@ -10,7 +10,7 @@ use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 //use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
+use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_z_string};
 
 use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
@@ -58,7 +58,7 @@ pub enum TaxBitTxsType {
 pub struct TaxBitRec {
     #[serde(rename = "Date and Time")]
     #[serde(deserialize_with = "de_string_to_utc_time_ms")]
-    #[serde(serialize_with = "se_time_ms_to_utc_string")]
+    #[serde(serialize_with = "se_time_ms_to_utc_z_string")]
     pub time: i64,
 
     #[serde(rename = "Transaction Type")]
