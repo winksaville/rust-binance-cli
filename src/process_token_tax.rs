@@ -962,8 +962,19 @@ pub async fn uniq_currency_token_tax_files(
         asset_rec_map.bt.len()
     );
     for ar in &mut asset_rec_map.bt.values() {
+        let mut was_pushed = false;
         if let Some(rec) = ar.ttr_vec.get(0) {
-            uc_ttr_vec.push(rec.clone());
+            // We have rec, but lets prefer an Income rec as they are simple
+            for ttr in ar.ttr_vec.iter() {
+                if ttr.type_txs == TypeTxs::Income {
+                    uc_ttr_vec.push(ttr.clone());
+                    was_pushed = true;
+                    break;
+                }
+            }
+            if !was_pushed {
+                uc_ttr_vec.push(rec.clone());
+            }
         }
     }
 
