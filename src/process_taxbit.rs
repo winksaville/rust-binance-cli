@@ -12,12 +12,12 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_z_string};
 use time_ms_conversions::time_ms_to_utc_string;
+use tokentaxrec::{TokenTaxRec, TokenTaxRecType};
 
 use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
     common::{create_buf_writer, create_buf_writer_from_path, verify_input_files_exist},
     configuration::Configuration,
-    process_token_tax::{TokenTaxRec, TypeTxs},
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
@@ -158,7 +158,7 @@ impl TaxBitRec {
         };
 
         match ttr.type_txs {
-            TypeTxs::Mining | TypeTxs::Income => {
+            TokenTaxRecType::Mining | TokenTaxRecType::Income => {
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
                 tbr.txs_type = TaxBitTxsType::Income;
@@ -168,7 +168,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Trade => {
+            TokenTaxRecType::Trade => {
                 let mut tbr = TaxBitRec::_new();
 
                 if ttr.sell_currency.as_str() == "USD" {
@@ -206,7 +206,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Deposit => {
+            TokenTaxRecType::Deposit => {
                 // How to receive cost basis of crypto
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
@@ -217,7 +217,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Withdrawal => {
+            TokenTaxRecType::Withdrawal => {
                 // How to send cost basis of crypto
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
@@ -228,7 +228,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Spend => {
+            TokenTaxRecType::Spend => {
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
                 tbr.txs_type = TaxBitTxsType::Expense;
@@ -238,7 +238,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Lost => {
+            TokenTaxRecType::Lost => {
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
                 tbr.txs_type = TaxBitTxsType::Expense;
@@ -248,7 +248,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Stolen => {
+            TokenTaxRecType::Stolen => {
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
                 tbr.txs_type = TaxBitTxsType::Expense;
@@ -258,7 +258,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Gift => {
+            TokenTaxRecType::Gift => {
                 let mut tbr = TaxBitRec::_new();
                 tbr.time = ttr.time;
                 tbr.txs_type = TaxBitTxsType::TransferOut;
@@ -268,7 +268,7 @@ impl TaxBitRec {
 
                 tbr
             }
-            TypeTxs::Unknown => {
+            TokenTaxRecType::Unknown => {
                 panic!("Unknown Token Type")
             }
         }

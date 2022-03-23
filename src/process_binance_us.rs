@@ -47,7 +47,6 @@ use crate::{
     },
     configuration::Configuration,
     date_time_utc::DateTimeUtc,
-    process_token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::create_tt_cmt_ver4_string,
 };
 use dec_utils::{dec_to_money_string, dec_to_separated_string};
@@ -56,6 +55,7 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_string};
 use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
+use tokentaxrec::{TokenTaxRec, TokenTaxRecType};
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 #[serde(rename_all = "camelCase")]
@@ -562,91 +562,93 @@ impl BuData {
     }
 }
 
-impl TokenTaxRec {
-    fn from_dist_rec(dr: &DistRec) -> TokenTaxRec {
-        let mut ttr = TokenTaxRec {
-            type_txs: TypeTxs::Trade,
-            buy_amount: None,
-            buy_currency: "".to_owned(),
-            sell_amount: None,
-            sell_currency: "".to_owned(),
-            fee_amount: None,
-            fee_currency: "".to_owned(),
-            exchange: "binance.us".to_owned(),
-            group: None,
-            comment: create_tt_cmt_ver4_string(dr),
-            time: dr.time,
-        };
-        //dbg!(&dr.operation);
-        //dbg!(&ttr);
+fn ttr_from_dist_rec(dr: &DistRec) -> TokenTaxRec {
+    let mut ttr = TokenTaxRec {
+        type_txs: TokenTaxRecType::Trade,
+        buy_amount: None,
+        buy_currency: "".to_owned(),
+        sell_amount: None,
+        sell_currency: "".to_owned(),
+        fee_amount: None,
+        fee_currency: "".to_owned(),
+        exchange: "binance.us".to_owned(),
+        group: None,
+        comment: create_tt_cmt_ver4_string(dr),
+        time: dr.time,
+    };
+    //dbg!(&dr.operation);
+    //dbg!(&ttr);
 
-        match dr.category.as_ref() {
-            "Distribution" => {
-                ttr.type_txs = TypeTxs::Income;
-                ttr.buy_amount = dr.realized_amount_for_primary_asset;
-                ttr.buy_currency = dr.primary_asset.clone();
-                ttr.fee_amount = dr.realized_amount_for_fee_asset;
-                ttr.fee_currency = dr.fee_asset.clone();
+    match dr.category.as_ref() {
+        "Distribution" => {
+            ttr.type_txs = TokenTaxRecType::Income;
+            ttr.buy_amount = dr.realized_amount_for_primary_asset;
+            ttr.buy_currency = dr.primary_asset.clone();
+            ttr.fee_amount = dr.realized_amount_for_fee_asset;
+            ttr.fee_currency = dr.fee_asset.clone();
 
-                ttr
-            }
-            "Quick Buy" | "Quick Sell" | "Spot Trading" => {
-                ttr.type_txs = TypeTxs::Trade;
-                ttr.fee_amount = dr.realized_amount_for_fee_asset;
-                ttr.fee_currency = dr.fee_asset.clone();
-                match dr.operation.as_ref() {
-                    "Buy" => {
-                        ttr.buy_amount = dr.realized_amount_for_base_asset;
-                        ttr.buy_currency = dr.base_asset.clone();
-                        ttr.sell_amount = dr.realized_amount_for_quote_asset;
-                        ttr.sell_currency = dr.quote_asset.clone();
+            ttr
+        }
+        "Quick Buy" | "Quick Sell" | "Spot Trading" => {
+            ttr.type_txs = TokenTaxRecType::Trade;
+            ttr.fee_amount = dr.realized_amount_for_fee_asset;
+            ttr.fee_currency = dr.fee_asset.clone();
+            match dr.operation.as_ref() {
+                "Buy" => {
+                    ttr.buy_amount = dr.realized_amount_for_base_asset;
+                    ttr.buy_currency = dr.base_asset.clone();
+                    ttr.sell_amount = dr.realized_amount_for_quote_asset;
+                    ttr.sell_currency = dr.quote_asset.clone();
 
-                        ttr
-                    }
-                    "Sell" => {
-                        ttr.buy_amount = dr.realized_amount_for_quote_asset;
-                        ttr.buy_currency = dr.quote_asset.clone();
-                        ttr.sell_amount = dr.realized_amount_for_base_asset;
-                        ttr.sell_currency = dr.base_asset.clone();
+                    ttr
+                }
+                "Sell" => {
+                    ttr.buy_amount = dr.realized_amount_for_quote_asset;
+                    ttr.buy_currency = dr.quote_asset.clone();
+                    ttr.sell_amount = dr.realized_amount_for_base_asset;
+                    ttr.sell_currency = dr.base_asset.clone();
 
-                        ttr
-                    }
-                    _ => {
-                        panic!(
-                            "file_idx: {} line_number: {} {} known category: {} unknown operation: {}",
-                            dr.file_idx, dr.line_number, dr.get_asset_only(), dr.category, dr.operation
-                        );
-                    }
+                    ttr
+                }
+                _ => {
+                    panic!(
+                        "file_idx: {} line_number: {} {} known category: {} unknown operation: {}",
+                        dr.file_idx,
+                        dr.line_number,
+                        dr.get_asset_only(),
+                        dr.category,
+                        dr.operation
+                    );
                 }
             }
-            "Withdrawal" => {
-                ttr.type_txs = TypeTxs::Withdrawal;
-                ttr.sell_amount = dr.realized_amount_for_primary_asset;
-                ttr.sell_currency = dr.primary_asset.clone();
-                ttr.fee_amount = dr.realized_amount_for_fee_asset;
-                ttr.fee_currency = dr.fee_asset.clone();
+        }
+        "Withdrawal" => {
+            ttr.type_txs = TokenTaxRecType::Withdrawal;
+            ttr.sell_amount = dr.realized_amount_for_primary_asset;
+            ttr.sell_currency = dr.primary_asset.clone();
+            ttr.fee_amount = dr.realized_amount_for_fee_asset;
+            ttr.fee_currency = dr.fee_asset.clone();
 
-                ttr
-            }
-            "Deposit" => {
-                ttr.type_txs = TypeTxs::Deposit;
-                ttr.buy_amount = dr.realized_amount_for_primary_asset;
-                ttr.buy_currency = dr.primary_asset.clone();
-                ttr.fee_amount = dr.realized_amount_for_fee_asset;
-                ttr.fee_currency = dr.fee_asset.clone();
+            ttr
+        }
+        "Deposit" => {
+            ttr.type_txs = TokenTaxRecType::Deposit;
+            ttr.buy_amount = dr.realized_amount_for_primary_asset;
+            ttr.buy_currency = dr.primary_asset.clone();
+            ttr.fee_amount = dr.realized_amount_for_fee_asset;
+            ttr.fee_currency = dr.fee_asset.clone();
 
-                ttr
-            }
-            _ => {
-                panic!(
-                    "file_idx: {} line_number: {} {} Unknown category: {} unkown operation: {}",
-                    dr.file_idx,
-                    dr.line_number,
-                    dr.get_asset_only(),
-                    dr.category,
-                    dr.operation
-                );
-            }
+            ttr
+        }
+        _ => {
+            panic!(
+                "file_idx: {} line_number: {} {} Unknown category: {} unkown operation: {}",
+                dr.file_idx,
+                dr.line_number,
+                dr.get_asset_only(),
+                dr.category,
+                dr.operation
+            );
         }
     }
 }
@@ -848,7 +850,7 @@ fn write_dist_rec_vec_as_token_tax(
     println!("Output token tax recs: len={}", dist_rec_vec.len());
     for dr in dist_rec_vec {
         let dr: &DistRec = dr;
-        let ttr: TokenTaxRec = TokenTaxRec::from_dist_rec(dr);
+        let ttr: TokenTaxRec = ttr_from_dist_rec(dr);
         token_tax_writer.serialize(ttr)?;
     }
     println!("Output token tax recs: Done");
@@ -1936,7 +1938,7 @@ Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,"v4,0,10,87d5c693897c4a0a8a
             let dr = dr; // Make immutable
                          //dbg!(dr);
 
-            let ttr = TokenTaxRec::from_dist_rec(&dr);
+            let ttr = ttr_from_dist_rec(&dr);
             //dbg!(&ttr);
             wtr.serialize(&ttr).expect("Error serializing");
         }

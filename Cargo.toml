@@ -33,6 +33,7 @@ csv = "1.1.6"
 time_ms_conversions = { git = "https://github.com/winksaville/time-ms-conversions" }
 serde_utc_time_ms = { git = "https://github.com/winksaville/serde-utc-time-ms" }
 dec-utils = { git = "https://github.com/winksaville/dec-utils" }
+tokentaxrec = { git = "https://github.com/winksaville/tokentaxrec" }
 
 [dev-dependencies]
 assert_cmd = "2.0.2"

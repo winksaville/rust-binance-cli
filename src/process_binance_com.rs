@@ -19,7 +19,6 @@ use crate::{
         create_buf_reader, create_buf_writer, create_buf_writer_from_path, verify_input_files_exist,
     },
     configuration::Configuration,
-    process_token_tax::{TokenTaxRec, TypeTxs},
     token_tax_comment_vers::{create_tt_cmt_ver1_string, create_tt_cmt_ver3_string},
 };
 use clap::ArgMatches;
@@ -27,6 +26,7 @@ use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use time_ms_conversions::time_ms_to_utc_string;
+use tokentaxrec::{TokenTaxRec, TokenTaxRecType};
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 // Order Type,Friend's ID(Spot),Friend's sub ID (Spot),Commission Asset,Commission Earned,Commission Earned (USDT),Commission Time,Registration Time,Referral ID
@@ -143,7 +143,7 @@ impl PartialOrd for TradeRec {
         // I may not want to do this here and instead do it when converting?
         // Or maybe do it both places although this would be "unnecessary"
         // for correctly converting the Spot "Buy, Fee and Transaction Related"
-        // records into a single token_tax::TypeTxs::Trade record.
+        // records into a single token_tax::TokenTaxRecType::Trade record.
         match (self.account.as_str(), self.operation.as_str()) {
             ("Spot", "Fee") | ("Spot", "Transaction Related") => {
                 // Sort using absolute value so negative values sort like
@@ -421,149 +421,383 @@ impl BcAssetRecMap {
     //}
 }
 
-impl TokenTaxRec {
-    #[allow(unused)]
-    fn from_commission_rec(bccr: &CommissionRec) -> TokenTaxRec {
-        let mut ttr = TokenTaxRec::new();
+#[allow(unused)]
+fn ttr_from_commission_rec(bccr: &CommissionRec) -> TokenTaxRec {
+    let mut ttr = TokenTaxRec::new();
 
-        ttr.type_txs = TypeTxs::Income;
-        ttr.buy_amount = Some(bccr.commission_earned);
-        ttr.buy_currency = bccr.commission_asset.clone();
-        ttr.exchange = "binance.com".to_owned();
-        ttr.comment = create_tt_cmt_ver1_string(bccr);
-        ttr.time = bccr.commission_time;
+    ttr.type_txs = TokenTaxRecType::Income;
+    ttr.buy_amount = Some(bccr.commission_earned);
+    ttr.buy_currency = bccr.commission_asset.clone();
+    ttr.exchange = "binance.com".to_owned();
+    ttr.comment = create_tt_cmt_ver1_string(bccr);
+    ttr.time = bccr.commission_time;
 
-        ttr
-    }
+    ttr
+}
 
-    // Create a TokenTaxRec from a TradeRec.
+// Create a TokenTaxRec from a TradeRec.
+//
+// Returns: Ok(Some(TokenTaxRec)) if conversion was successful
+//          Ok(None) if the TradeRec::account,operation should be ignored
+//          Err if an error typically the account,operation pair were Unknown
+fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
+    // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+    // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
     //
-    // Returns: Ok(Some(TokenTaxRec)) if conversion was successful
-    //          Ok(None) if the TradeRec::account,operation should be ignored
-    //          Err if an error typically the account,operation pair were Unknown
-    fn from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
-        // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-        // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
-        //
-        // 2021:
-        // wink@3900x:~/Documents/crypto/binance.com-trade-history/2021
-        // $ cat part-0000* | csvcut -K 2,3 | sort | uniq -c
-        //       3 Account,Operation
-        //  188590 Coin-Futures,Referrer rebates
-        //      99 Coin-Futures,transfer_out
-        //     742 Pool,Pool Distribution
-        //      18 Spot,Buy
-        //  551603 Spot,Commission History
-        //  335953 Spot,Commission Rebate
-        //      91 Spot,Distribution
-        //     322 Spot,ETH 2.0 Staking Rewards
-        //      18 Spot,Fee
-        //      18 Spot,Transaction Related
-        //     168 Spot,transfer_in
-        //       1 Spot,transfer_out
-        //      47 Spot,Withdraw
-        // 1080073 USDT-Futures,Referrer rebates
-        //       1 USDT-Futures,transfer_in
-        //      69 USDT-Futures,transfer_out
-        //
-        // 2020:
-        // wink@3900x:~/prgs/rust/myrepos/binance-cli (Add-binance-com-processing)
-        // $ cat data/b.com-trade-history/2020/part-0000* | csvcut -K 2,3 | sort | uniq -c
-        //       1 Account,Operation
-        //    3376 Coin-Futures,Referrer rebates
-        //     323 Spot,Buy
-        //  338433 Spot,Commission History
-        //       1 Spot,Deposit
-        //     193 Spot,Distribution
-        //     322 Spot,Fee
-        //      28 Spot,Savings Interest
-        //       2 Spot,Savings Principal redemption
-        //      32 Spot,Savings purchase
-        //    1150 Spot,Small assets exchange BNB
-        //     323 Spot,Transaction Related
-        //       3 Spot,Withdraw
-        //  133604 USDT-Futures,Referrer rebates
+    // 2021:
+    // wink@3900x:~/Documents/crypto/binance.com-trade-history/2021
+    // $ cat part-0000* | csvcut -K 2,3 | sort | uniq -c
+    //       3 Account,Operation
+    //  188590 Coin-Futures,Referrer rebates
+    //      99 Coin-Futures,transfer_out
+    //     742 Pool,Pool Distribution
+    //      18 Spot,Buy
+    //  551603 Spot,Commission History
+    //  335953 Spot,Commission Rebate
+    //      91 Spot,Distribution
+    //     322 Spot,ETH 2.0 Staking Rewards
+    //      18 Spot,Fee
+    //      18 Spot,Transaction Related
+    //     168 Spot,transfer_in
+    //       1 Spot,transfer_out
+    //      47 Spot,Withdraw
+    // 1080073 USDT-Futures,Referrer rebates
+    //       1 USDT-Futures,transfer_in
+    //      69 USDT-Futures,transfer_out
+    //
+    // 2020:
+    // wink@3900x:~/prgs/rust/myrepos/binance-cli (Add-binance-com-processing)
+    // $ cat data/b.com-trade-history/2020/part-0000* | csvcut -K 2,3 | sort | uniq -c
+    //       1 Account,Operation
+    //    3376 Coin-Futures,Referrer rebates
+    //     323 Spot,Buy
+    //  338433 Spot,Commission History
+    //       1 Spot,Deposit
+    //     193 Spot,Distribution
+    //     322 Spot,Fee
+    //      28 Spot,Savings Interest
+    //       2 Spot,Savings Principal redemption
+    //      32 Spot,Savings purchase
+    //    1150 Spot,Small assets exchange BNB
+    //     323 Spot,Transaction Related
+    //       3 Spot,Withdraw
+    //  133604 USDT-Futures,Referrer rebates
 
-        // Combined 2020-2021
-        // wink@3900x:~/prgs/rust/myrepos/binance-cli (Add-binance-com-processing)
-        // $ cat data/b.com-trade-history/2020/part-0000* data/b.com-trade-history/2021/part-0000* | csvcut -K 2,3 | sort | uniq -c
-        //       4 Account,Operation
-        //  191966 Coin-Futures,Referrer rebates
-        //      99 Coin-Futures,transfer_out
-        //     742 Pool,Pool Distribution
-        //     341 Spot,Buy
-        //  890036 Spot,Commission History
-        //  335953 Spot,Commission Rebate
-        //       1 Spot,Deposit
-        //     284 Spot,Distribution
-        //     322 Spot,ETH 2.0 Staking Rewards
-        //     340 Spot,Fee
-        //      28 Spot,Savings Interest
-        //       2 Spot,Savings Principal redemption
-        //      32 Spot,Savings purchase
-        //    1150 Spot,Small assets exchange BNB
-        //     341 Spot,Transaction Related
-        //     168 Spot,transfer_in
-        //       1 Spot,transfer_out
-        //      50 Spot,Withdraw
-        // 1213677 USDT-Futures,Referrer rebates
-        //       1 USDT-Futures,transfer_in
-        //      69 USDT-Futures,transfer_out
+    // Combined 2020-2021
+    // wink@3900x:~/prgs/rust/myrepos/binance-cli (Add-binance-com-processing)
+    // $ cat data/b.com-trade-history/2020/part-0000* data/b.com-trade-history/2021/part-0000* | csvcut -K 2,3 | sort | uniq -c
+    //       4 Account,Operation
+    //  191966 Coin-Futures,Referrer rebates
+    //      99 Coin-Futures,transfer_out
+    //     742 Pool,Pool Distribution
+    //     341 Spot,Buy
+    //  890036 Spot,Commission History
+    //  335953 Spot,Commission Rebate
+    //       1 Spot,Deposit
+    //     284 Spot,Distribution
+    //     322 Spot,ETH 2.0 Staking Rewards
+    //     340 Spot,Fee
+    //      28 Spot,Savings Interest
+    //       2 Spot,Savings Principal redemption
+    //      32 Spot,Savings purchase
+    //    1150 Spot,Small assets exchange BNB
+    //     341 Spot,Transaction Related
+    //     168 Spot,transfer_in
+    //       1 Spot,transfer_out
+    //      50 Spot,Withdraw
+    // 1213677 USDT-Futures,Referrer rebates
+    //       1 USDT-Futures,transfer_in
+    //      69 USDT-Futures,transfer_out
 
-        // TODO: Handle the all of the above "Account,Operations".
-        let mut ttr = TokenTaxRec::new();
+    // TODO: Handle the all of the above "Account,Operations".
+    let mut ttr = TokenTaxRec::new();
 
-        // For all acount/operations these are the same
-        ttr.exchange = "binance.com".to_owned();
-        ttr.comment = create_tt_cmt_ver3_string(bctr);
-        ttr.time = bctr.time;
+    // For all acount/operations these are the same
+    ttr.exchange = "binance.com".to_owned();
+    ttr.comment = create_tt_cmt_ver3_string(bctr);
+    ttr.time = bctr.time;
 
-        // Most other account/operations are Income so
-        // we'll assume them too.
-        ttr.type_txs = TypeTxs::Income;
-        ttr.buy_amount = Some(bctr.change);
-        ttr.buy_currency = bctr.coin.clone();
+    // Most other account/operations are Income so
+    // we'll assume them too.
+    ttr.type_txs = TokenTaxRecType::Income;
+    ttr.buy_amount = Some(bctr.change);
+    ttr.buy_currency = bctr.coin.clone();
 
-        // Income should have no seller or fee information
-        assert_eq!(ttr.sell_amount, None);
-        assert_eq!(ttr.sell_currency, "");
-        assert_eq!(ttr.fee_amount, None);
-        assert_eq!(ttr.fee_currency, "");
+    // Income should have no seller or fee information
+    assert_eq!(ttr.sell_amount, None);
+    assert_eq!(ttr.sell_currency, "");
+    assert_eq!(ttr.fee_amount, None);
+    assert_eq!(ttr.fee_currency, "");
 
-        let mut result_a = Vec::<TokenTaxRec>::new();
+    let mut result_a = Vec::<TokenTaxRec>::new();
 
-        match (bctr.account.as_str(), bctr.operation.as_str()) {
-            ("Coin-Futures", "Referrer rebates")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.wrqv2e8c9ulm
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-08-27 17:38:40,Coin-Futures,Referrer rebates,DOT,0.00766144,""
-            | ("USDT-Futures", "Referrer rebates")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.sbvzp8bdk4mj
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-04-30 10:31:50,USDT-Futures,Referrer rebates,USDT,0.04257084,""
-            | ("Pool", "Pool Distribution")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.op3mwkow7pz6
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2021-01-17 02:30:09,Pool,Pool Distribution,ETH,0.00001156,""
-            | ("Spot", "Commission History")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.ibloubix6n52
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2019-05-21 21:39:50,Spot,Commission History,BTT,4.42380000,""
-            | ("Spot", "Commission Rebate")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.p0d190atx05c
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
-            | ("Spot", "ETH 2.0 Staking Rewards")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.nlre4gdfa77x
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2021-02-14 08:07:27,Spot,ETH 2.0 Staking Rewards,BETH,1.0E-7,""
-            | ("Spot", "Savings Interest")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.gczchzfqcvpz
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-05-19 02:17:24,Spot,Savings Interest,BTC,0.00001818,""
+    match (bctr.account.as_str(), bctr.operation.as_str()) {
+        ("Coin-Futures", "Referrer rebates")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.wrqv2e8c9ulm
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-08-27 17:38:40,Coin-Futures,Referrer rebates,DOT,0.00766144,""
+        | ("USDT-Futures", "Referrer rebates")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.sbvzp8bdk4mj
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-04-30 10:31:50,USDT-Futures,Referrer rebates,USDT,0.04257084,""
+        | ("Pool", "Pool Distribution")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.op3mwkow7pz6
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2021-01-17 02:30:09,Pool,Pool Distribution,ETH,0.00001156,""
+        | ("Spot", "Commission History")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.ibloubix6n52
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2019-05-21 21:39:50,Spot,Commission History,BTT,4.42380000,""
+        | ("Spot", "Commission Rebate")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.p0d190atx05c
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2021-06-23 03:54:55,Spot,Commission Rebate,BTC,2.2E-7,""
+        | ("Spot", "ETH 2.0 Staking Rewards")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.nlre4gdfa77x
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2021-02-14 08:07:27,Spot,ETH 2.0 Staking Rewards,BETH,1.0E-7,""
+        | ("Spot", "Savings Interest")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.gczchzfqcvpz
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-05-19 02:17:24,Spot,Savings Interest,BTC,0.00001818,""
+        => {
+            // Income
+            assert_eq!(ttr.type_txs, TokenTaxRecType::Income);
+            assert_eq!(ttr.buy_amount, Some(bctr.change));
+            assert!(ttr.buy_amount.unwrap() > dec!(0));
+            assert_eq!(ttr.buy_currency, bctr.coin);
+            assert_eq!(ttr.sell_amount, None);
+            assert_eq!(ttr.sell_currency, "");
+            assert_eq!(ttr.fee_amount, None);
+            assert_eq!(ttr.fee_currency, "");
+            result_a.push(ttr);
+        }
+        ("Coin-Futures", "transfer_out")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.yb8hhlgirm3t
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2021-01-24 20:47:46,Coin-Futures,transfer_out,BTC,-0.11231074,""
+        | ("USDT-Futures", "transfer_out")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.spkbdpzaf4dl
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-05-13 01:53:36,USDT-Futures,transfer_out,USDT,-121.00000000,""
+        | ("Spot", "transfer_out")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.lz8vqxowg1ce
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-09-07 05:25:49,Spot,transfer_out,USDT,-6.06000000,""
             => {
-                // Income
-                assert_eq!(ttr.type_txs, TypeTxs::Income);
+            // Ignore non-taxable events
+        }
+        ("Coin-Futures", "transfer_in")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.adsgh2corfou
+            // There are currently none, but handling just incase
+        | ("USDT-Futures", "transfer_in")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.blt7gd2m0h65
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-09-07 05:25:49,USDT-Futures,transfer_in,USDT,6.06000000,""
+        | ("Spot", "transfer_in")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.bhqn79b72j6p
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2021-01-01 04:14:16,Spot,transfer_in,USDT,287.03000000,""
+            => {
+            // Ignore non-taxable events
+        }
+        ("Spot", "Savings Principal redemption")
+            // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.qcstrov9fmvj
+            //   123456789,2020-06-15 00:01:57,Spot,Savings Principal redemption,BTC,0.88806156,""
+            //   123456789,2020-06-15 00:01:57,Spot,Savings Principal redemption,LDBTC,-0.88806156,""  (THIS is ODD???)
+        | ("Spot", "Savings purchase")
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.3ot6874j2efk
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-05-17 20:37:50,Spot,Savings purchase,BTC,-0.63202511,""
+        => {
+            // Ignore non-taxable events
+        }
+        ("Spot", "Buy")
+        | ("Spot", "Fee")
+        | ("Spot", "Transaction Related")
+        => {
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.bsrdqr3abb8y
+
+            // Buy, Transaction Related and Fee transactions are part of a "Trade".
+            //
+            // Observations:
+            //  1) All have the same timestamp
+            //  2) Buy and Transaction Related are alway present, Fee was missing once
+            //  3) They are not in in any particular order
+            //  4) There maybe other transactions with the same timestamp
+            //  5) The Fee asset is always BNB
+            //  6) For all Trades with the same timestamp there is a unique Buy asset
+            //     and Transaction Related asset pair thus they maybe consolidated
+            //     into one Buy, Transaction Related and Fee transaction i.e. "Trade"
+            // Prove 6)
+            //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p Operation/Buy | csvcut -K 1,2,3,4 | uniq -c > Buy.csv
+            //    $ head -2 Buy.csv
+            //          1 UTC_Time,Account,Operation,Coin
+            //          1 2020-05-08 01:31:06,Spot,Buy,BTC
+
+            //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p "Operation/Transaction Related" | csvcut -K 1,2,3,4 | uniq -c > TransactionRelated.csv
+            //    $ head -2 TransactionRelated.csv
+            //          1 UTC_Time,Account,Operation,Coin
+            //          1 2020-05-08 01:31:06,Spot,Transaction Related,USDT
+
+            //    $ cat Buy.csv | csvcut -K 0,1 > Buy-count-time.csv
+            //    $ head -2 Buy-count-time.csv
+            //          1 UTC_Time,Account
+            //          1 2020-05-08 01:31:06,Spot
+
+            //    $ cat TransactionRelated.csv | csvcut -K 0,1 > TransactionRelated-count-time.csv
+            //    $ head -2 TransactionRelated-count-time.csv
+            //          1 UTC_Time,Account
+            //          1 2020-05-08 01:31:06,Spot
+
+            //    $ diff -s Buy-count-time.csv TransactionRelated-count-time.csv
+            //    Files Buy-count-time.csv and TransactionRelated-count-time.csv are identical
+
+            // This sequence shows the "unorderness" of the original data from:
+            //  data2/b.com/2020/part-00000-42dcc987-8fa2-46ef-a39a-2973ec95a27f-c000.csv
+            //
+            // Which I placed in:
+            //    wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
+            //    $ cat data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv
+            //    User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //    123456789,2020-12-26 18:34:15,Spot,Commission History,BNB,0.00045653,""
+            //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00112574,""
+            //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.41000000,""
+            //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
+            //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
+            //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
+            //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
+            //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
+            //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
+            //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014356,""
+            //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
+            //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
+            //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00465885,""
+            //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00445039,""
+            //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
+            //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
+            //    123456789,2020-12-26 18:37:17,Spot,Commission History,USDT,0.40384904,""
+
+            //
+            // Running the above through pbcthf with the latest PartialOrd::partial_cmp
+            // yields this:
+            //    wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
+            //    $ cargo run --release pbcthf --no-progress-info -f data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv -o b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
+            //        Finished release [optimized] target(s) in 0.05s
+            //         Running `target/release/binance-cli pbcthf --no-progress-info -f data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv -o b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv`
+            //    Read files
+            //    file: data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv
+            //
+            //    Sorting
+            //    Sorting done
+            //    tr_vec: len: 17
+            //    Writing to b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
+            //    Writing done
+            //
+            //    Asset                  Quantity  Txs count
+            //    BNB                     -8.7061         11
+            //    BTC                      0.0114          5
+            //    USDT                     0.4038          1
+            //
+            //    Total quantity: -8.29085936
+            //    Total txs count: 17
+            //    Total asset count: 3
+            //    Total savings principal: 0
+            //    wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
+            //    $ cat b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
+            //    User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //    123456789,2020-12-26T18:34:15.000+00:00,Spot,Commission History,BNB,0.00045653,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014356,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014357,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00195765,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00445039,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00465885,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00112574,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0025559,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00267651,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-1.5,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.41,
+            //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.57,
+            //    123456789,2020-12-26T18:37:17.000+00:00,Spot,Commission History,USDT,0.40384904,
+            //
+            // Right now the code emits "Buy" as TokenTaxRecType::Income and "Fee" and "Transaction Related"
+            // as TokenTaxRecType::Spends. When I create the State Machine and convert them to a Trade
+            // the Asset Quantity above will remain the same.
+            //
+            // Eventually a State machine will place "Buy", "Fee" and "Transaction Related"
+            // records in three separate arrays as they are received then the "front" of each
+            // array will be part of one Trade. As state the Fee is "optional" but the other
+            // two will always be present thus, it is an error if the lengths of the those
+            // arrays are not equal at the end of the sequence.
+            //
+            // Here are a couple other corner cases:
+            //
+            // A transaction without a fee at 2020-05-09 05:12:24. When the
+            // ("Spot", "Commission History") is hit, the State machine will emit a
+            // transaction without a Fee.
+            //    123456789,2020-05-09T05:12:24.000+00:00,Spot,Buy,BTC,0.003577,
+            //    123456789,2020-05-09T05:12:24.000+00:00,Spot,Transaction Related,BUSD,-35.0546,
+            //    123456789,2020-05-09T05:12:29.000+00:00,Spot,Commission History,BNB,0.00023283,
+            //
+            // An example of non-Trade transaction being interspersed in a Trade.
+            // This is handled by buy ("Spot", "Commission History") so isn't a problem:
+            //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Buy,BTC,0.002894,
+            //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Commission History,BNB,0.00021562,
+            //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Fee,BNB,-0.00123363,
+            //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Transaction Related,USDT,-27.99945,
+            //
+            if bctr.change >= dec!(0) {
+                // Positive values are Income and "Buy"
+                assert!(
+                    (ttr.type_txs == TokenTaxRecType::Income) && (bctr.account == "Spot") && (bctr.operation == "Buy"),
+                    "{}",
+                    format!(r#"file_idx: {} line_number {}: Expected operation: "Buy" found "{}", when bctr.change: {} is positive"#,
+                        bctr.file_idx, bctr.line_number, bctr.operation, bctr.change)
+                );
+                result_a.push(ttr);
+            } else {
+                // Negative values will be Spend operations and "Fee" or "Transaction Related"
+                // 123456789,2021-01-24 21:41:09,Spot,Fee,BNB,-0.00409488,""
+                // 123456789,2021-01-24 21:41:09,Spot,Transaction Related,ADA,-648.00000000,""
+                assert!((bctr.operation == "Fee") || (bctr.operation == "Transaction Related"),
+                    "{}",
+                    format!(r#"file_idx: {} line_number {}: Expected operation: "Fee" or "Transaction Related" found "{}" when bctr.change: {} is negative"#,
+                        bctr.file_idx, bctr.line_number, bctr.operation, bctr.change)
+                );
+                ttr.type_txs = TokenTaxRecType::Spend;
+                ttr.sell_amount = Some(-bctr.change);
+                ttr.sell_currency = bctr.coin.clone();
+                ttr.buy_amount = None;
+                ttr.buy_currency = "".to_owned();
+                assert_eq!(ttr.fee_amount, None);
+                assert_eq!(ttr.fee_currency, "");
+                result_a.push(ttr);
+            }
+        }
+        ("Spot", "Deposit") => {
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j1jqei4w718n
+            //   123456789,2021-01-17T02:30:09.000+00:00,Pool,Pool Distribution,ETH,0.00001156,
+            ttr.type_txs = TokenTaxRecType::Deposit;
+            assert_eq!(ttr.buy_amount, Some(bctr.change));
+            assert!(ttr.buy_amount.unwrap() > dec!(0));
+            assert_eq!(ttr.buy_currency, bctr.coin);
+            assert_eq!(ttr.sell_amount, None);
+            assert_eq!(ttr.sell_currency, "");
+            assert_eq!(ttr.fee_amount, None);
+            assert_eq!(ttr.fee_currency, "");
+            result_a.push(ttr);
+        }
+        ("Spot", "Distribution") => {
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.5xbb71swwsil
+            if bctr.change > dec!(0) {
+                // Income nothing more to do:
+                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                //   123456789,2019-08-03 01:50:38,Spot,Distribution,GAS,0.00006520,""
+                assert_eq!(ttr.type_txs, TokenTaxRecType::Income);
                 assert_eq!(ttr.buy_amount, Some(bctr.change));
                 assert!(ttr.buy_amount.unwrap() > dec!(0));
                 assert_eq!(ttr.buy_currency, bctr.coin);
@@ -572,398 +806,162 @@ impl TokenTaxRec {
                 assert_eq!(ttr.fee_amount, None);
                 assert_eq!(ttr.fee_currency, "");
                 result_a.push(ttr);
-            }
-            ("Coin-Futures", "transfer_out")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.yb8hhlgirm3t
+            } else {
+                // bctr.change < 0 so this is a Spend
                 //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2021-01-24 20:47:46,Coin-Futures,transfer_out,BTC,-0.11231074,""
-            | ("USDT-Futures", "transfer_out")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.spkbdpzaf4dl
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-05-13 01:53:36,USDT-Futures,transfer_out,USDT,-121.00000000,""
-            | ("Spot", "transfer_out")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.lz8vqxowg1ce
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-09-07 05:25:49,Spot,transfer_out,USDT,-6.06000000,""
-             => {
-                // Ignore non-taxable events
-            }
-            ("Coin-Futures", "transfer_in")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.adsgh2corfou
-                // There are currently none, but handling just incase
-            | ("USDT-Futures", "transfer_in")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.blt7gd2m0h65
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-09-07 05:25:49,USDT-Futures,transfer_in,USDT,6.06000000,""
-            | ("Spot", "transfer_in")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.bhqn79b72j6p
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2021-01-01 04:14:16,Spot,transfer_in,USDT,287.03000000,""
-             => {
-                // Ignore non-taxable events
-            }
-            ("Spot", "Savings Principal redemption")
-                // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.qcstrov9fmvj
-                //   123456789,2020-06-15 00:01:57,Spot,Savings Principal redemption,BTC,0.88806156,""
-                //   123456789,2020-06-15 00:01:57,Spot,Savings Principal redemption,LDBTC,-0.88806156,""  (THIS is ODD???)
-            | ("Spot", "Savings purchase")
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.3ot6874j2efk
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-05-17 20:37:50,Spot,Savings purchase,BTC,-0.63202511,""
-            => {
-                // Ignore non-taxable events
-            }
-            ("Spot", "Buy")
-            | ("Spot", "Fee")
-            | ("Spot", "Transaction Related")
-            => {
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.bsrdqr3abb8y
-
-                // Buy, Transaction Related and Fee transactions are part of a "Trade".
-                //
-                // Observations:
-                //  1) All have the same timestamp
-                //  2) Buy and Transaction Related are alway present, Fee was missing once
-                //  3) They are not in in any particular order
-                //  4) There maybe other transactions with the same timestamp
-                //  5) The Fee asset is always BNB
-                //  6) For all Trades with the same timestamp there is a unique Buy asset
-                //     and Transaction Related asset pair thus they maybe consolidated
-                //     into one Buy, Transaction Related and Fee transaction i.e. "Trade"
-                // Prove 6)
-                //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p Operation/Buy | csvcut -K 1,2,3,4 | uniq -c > Buy.csv
-                //    $ head -2 Buy.csv
-                //          1 UTC_Time,Account,Operation,Coin
-                //          1 2020-05-08 01:31:06,Spot,Buy,BTC
-
-                //    $ cat 2020/part-0000* 2021/part-0000* | csvgrep -p "Operation/Transaction Related" | csvcut -K 1,2,3,4 | uniq -c > TransactionRelated.csv
-                //    $ head -2 TransactionRelated.csv
-                //          1 UTC_Time,Account,Operation,Coin
-                //          1 2020-05-08 01:31:06,Spot,Transaction Related,USDT
-
-                //    $ cat Buy.csv | csvcut -K 0,1 > Buy-count-time.csv
-                //    $ head -2 Buy-count-time.csv
-                //          1 UTC_Time,Account
-                //          1 2020-05-08 01:31:06,Spot
-
-                //    $ cat TransactionRelated.csv | csvcut -K 0,1 > TransactionRelated-count-time.csv
-                //    $ head -2 TransactionRelated-count-time.csv
-                //          1 UTC_Time,Account
-                //          1 2020-05-08 01:31:06,Spot
-
-                //    $ diff -s Buy-count-time.csv TransactionRelated-count-time.csv
-                //    Files Buy-count-time.csv and TransactionRelated-count-time.csv are identical
-
-                // This sequence shows the "unorderness" of the original data from:
-                //  data2/b.com/2020/part-00000-42dcc987-8fa2-46ef-a39a-2973ec95a27f-c000.csv
-                //
-                // Which I placed in:
-                //    wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
-                //    $ cat data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv
-                //    User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //    123456789,2020-12-26 18:34:15,Spot,Commission History,BNB,0.00045653,""
-                //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00112574,""
-                //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.41000000,""
-                //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-                //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-3.57000000,""
-                //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-                //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014357,""
-                //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00267651,""
-                //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00195765,""
-                //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00014356,""
-                //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00008040,""
-                //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-1.50000000,""
-                //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00465885,""
-                //    123456789,2020-12-26 18:36:01,Spot,Buy,BTC,0.00445039,""
-                //    123456789,2020-12-26 18:36:01,Spot,Fee,BNB,-0.00255590,""
-                //    123456789,2020-12-26 18:36:01,Spot,Transaction Related,BNB,-0.11000000,""
-                //    123456789,2020-12-26 18:37:17,Spot,Commission History,USDT,0.40384904,""
-
-                //
-                // Running the above through pbcthf with the latest PartialOrd::partial_cmp
-                // yields this:
-                //    wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
-                //    $ cargo run --release pbcthf --no-progress-info -f data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv -o b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
-                //        Finished release [optimized] target(s) in 0.05s
-                //         Running `target/release/binance-cli pbcthf --no-progress-info -f data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv -o b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv`
-                //    Read files
-                //    file: data2/b.com/b.com.spot.buy.fee.transaction.related.2.csv
-                //
-                //    Sorting
-                //    Sorting done
-                //    tr_vec: len: 17
-                //    Writing to b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
-                //    Writing done
-                //
-                //    Asset                  Quantity  Txs count
-                //    BNB                     -8.7061         11
-                //    BTC                      0.0114          5
-                //    USDT                     0.4038          1
-                //
-                //    Total quantity: -8.29085936
-                //    Total txs count: 17
-                //    Total asset count: 3
-                //    Total savings principal: 0
-                //    wink@3900x:~/prgs/rust/myrepos/binance-cli (Work-on-binance-com)
-                //    $ cat b.com.spot.buy.fee.transaction.related.2.pbcthf.new-sort.csv
-                //    User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //    123456789,2020-12-26T18:34:15.000+00:00,Spot,Commission History,BNB,0.00045653,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014356,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00014357,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00195765,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00445039,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Buy,BTC,0.00465885,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0000804,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00112574,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.0025559,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Fee,BNB,-0.00267651,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-0.11,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-1.5,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.41,
-                //    123456789,2020-12-26T18:36:01.000+00:00,Spot,Transaction Related,BNB,-3.57,
-                //    123456789,2020-12-26T18:37:17.000+00:00,Spot,Commission History,USDT,0.40384904,
-                //
-                // Right now the code emits "Buy" as TypeTxs::Income and "Fee" and "Transaction Related"
-                // as TypeTxs::Spends. When I create the State Machine and convert them to a Trade
-                // the Asset Quantity above will remain the same.
-                //
-                // Eventually a State machine will place "Buy", "Fee" and "Transaction Related"
-                // records in three separate arrays as they are received then the "front" of each
-                // array will be part of one Trade. As state the Fee is "optional" but the other
-                // two will always be present thus, it is an error if the lengths of the those
-                // arrays are not equal at the end of the sequence.
-                //
-                // Here are a couple other corner cases:
-                //
-                // A transaction without a fee at 2020-05-09 05:12:24. When the
-                // ("Spot", "Commission History") is hit, the State machine will emit a
-                // transaction without a Fee.
-                //    123456789,2020-05-09T05:12:24.000+00:00,Spot,Buy,BTC,0.003577,
-                //    123456789,2020-05-09T05:12:24.000+00:00,Spot,Transaction Related,BUSD,-35.0546,
-                //    123456789,2020-05-09T05:12:29.000+00:00,Spot,Commission History,BNB,0.00023283,
-                //
-                // An example of non-Trade transaction being interspersed in a Trade.
-                // This is handled by buy ("Spot", "Commission History") so isn't a problem:
-                //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Buy,BTC,0.002894,
-                //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Commission History,BNB,0.00021562,
-                //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Fee,BNB,-0.00123363,
-                //    123456789,2020-05-09T20:42:56.000+00:00,Spot,Transaction Related,USDT,-27.99945,
-                //
-                if bctr.change >= dec!(0) {
-                    // Positive values are Income and "Buy"
-                    assert!(
-                        (ttr.type_txs == TypeTxs::Income) && (bctr.account == "Spot") && (bctr.operation == "Buy"),
-                        "{}",
-                        format!(r#"file_idx: {} line_number {}: Expected operation: "Buy" found "{}", when bctr.change: {} is positive"#,
-                            bctr.file_idx, bctr.line_number, bctr.operation, bctr.change)
-                    );
-                    result_a.push(ttr);
-                } else {
-                    // Negative values will be Spend operations and "Fee" or "Transaction Related"
-                    // 123456789,2021-01-24 21:41:09,Spot,Fee,BNB,-0.00409488,""
-                    // 123456789,2021-01-24 21:41:09,Spot,Transaction Related,ADA,-648.00000000,""
-                    assert!((bctr.operation == "Fee") || (bctr.operation == "Transaction Related"),
-                        "{}",
-                        format!(r#"file_idx: {} line_number {}: Expected operation: "Fee" or "Transaction Related" found "{}" when bctr.change: {} is negative"#,
-                            bctr.file_idx, bctr.line_number, bctr.operation, bctr.change)
-                    );
-                    ttr.type_txs = TypeTxs::Spend;
-                    ttr.sell_amount = Some(-bctr.change);
-                    ttr.sell_currency = bctr.coin.clone();
-                    ttr.buy_amount = None;
-                    ttr.buy_currency = "".to_owned();
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                    result_a.push(ttr);
-                }
-            }
-            ("Spot", "Deposit") => {
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.j1jqei4w718n
-                //   123456789,2021-01-17T02:30:09.000+00:00,Pool,Pool Distribution,ETH,0.00001156,
-                ttr.type_txs = TypeTxs::Deposit;
-                assert_eq!(ttr.buy_amount, Some(bctr.change));
-                assert!(ttr.buy_amount.unwrap() > dec!(0));
-                assert_eq!(ttr.buy_currency, bctr.coin);
-                assert_eq!(ttr.sell_amount, None);
-                assert_eq!(ttr.sell_currency, "");
+                //   12345678,2019-12-12T08:08:18.000+00:00,Spot,Distribution,BCHABC,-0.00505836,
+                ttr.type_txs = TokenTaxRecType::Spend;
+                ttr.sell_amount = Some(-bctr.change);
+                ttr.sell_currency = bctr.coin.clone();
+                ttr.buy_amount = None;
+                ttr.buy_currency = "".to_owned();
                 assert_eq!(ttr.fee_amount, None);
                 assert_eq!(ttr.fee_currency, "");
                 result_a.push(ttr);
             }
-            ("Spot", "Distribution") => {
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.5xbb71swwsil
-                if bctr.change > dec!(0) {
-                    // Income nothing more to do:
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //   123456789,2019-08-03 01:50:38,Spot,Distribution,GAS,0.00006520,""
-                    assert_eq!(ttr.type_txs, TypeTxs::Income);
-                    assert_eq!(ttr.buy_amount, Some(bctr.change));
-                    assert!(ttr.buy_amount.unwrap() > dec!(0));
-                    assert_eq!(ttr.buy_currency, bctr.coin);
-                    assert_eq!(ttr.sell_amount, None);
-                    assert_eq!(ttr.sell_currency, "");
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                    result_a.push(ttr);
-                } else {
-                    // bctr.change < 0 so this is a Spend
-                    //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                    //   12345678,2019-12-12T08:08:18.000+00:00,Spot,Distribution,BCHABC,-0.00505836,
-                    ttr.type_txs = TypeTxs::Spend;
-                    ttr.sell_amount = Some(-bctr.change);
-                    ttr.sell_currency = bctr.coin.clone();
-                    ttr.buy_amount = None;
-                    ttr.buy_currency = "".to_owned();
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                    result_a.push(ttr);
-                }
+        }
+        ("Spot", "Small assets exchange BNB") => {
+            // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.483hgxq44xrw
+            if bctr.coin != "BNB" {
+                // Assert the change is negative
+                assert!(bctr.change < dec!(0));
+                ttr.type_txs = TokenTaxRecType::Spend;
+                ttr.buy_amount = None;
+                ttr.buy_currency = "".to_owned();
+                ttr.sell_amount = Some(-bctr.change);
+                ttr.sell_currency = bctr.coin.clone();
+                assert_eq!(ttr.fee_amount, None);
+                assert_eq!(ttr.fee_currency, "");
+            } else {
+                // Assert the change is positive and coin is BNB
+                assert!(bctr.coin == "BNB"); // This is redundant but just incase!!
+                assert!(bctr.change > dec!(0));
+                ttr.type_txs = TokenTaxRecType::Income;
+                ttr.buy_amount = Some(bctr.change);
+                ttr.buy_currency = bctr.coin.clone();
+                ttr.sell_amount = None;
+                ttr.sell_currency = "".to_owned();
+                assert_eq!(ttr.fee_amount, None);
+                assert_eq!(ttr.fee_currency, "");
             }
-            ("Spot", "Small assets exchange BNB") => {
-                // This implements Option 2 of https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=id.483hgxq44xrw
-                if bctr.coin != "BNB" {
-                    // Assert the change is negative
-                    assert!(bctr.change < dec!(0));
-                    ttr.type_txs = TypeTxs::Spend;
-                    ttr.buy_amount = None;
-                    ttr.buy_currency = "".to_owned();
-                    ttr.sell_amount = Some(-bctr.change);
-                    ttr.sell_currency = bctr.coin.clone();
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                } else {
-                    // Assert the change is positive and coin is BNB
-                    assert!(bctr.coin == "BNB"); // This is redundant but just incase!!
-                    assert!(bctr.change > dec!(0));
-                    ttr.type_txs = TypeTxs::Income;
-                    ttr.buy_amount = Some(bctr.change);
-                    ttr.buy_currency = bctr.coin.clone();
-                    ttr.sell_amount = None;
-                    ttr.sell_currency = "".to_owned();
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                }
 
-                result_a.push(ttr);
-            }
-            ("Spot", "Withdraw") => {
-                // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.ag5jhhhjgd5x
-                //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
-                //   123456789,2020-06-15 02:09:23,Spot,Withdraw,BTC,-0.89339667,Withdraw fee is included
-                ttr.type_txs = TypeTxs::Withdrawal;
-                if bctr.change < dec!(0) {
-                    ttr.sell_amount = Some(-bctr.change);
-                    ttr.sell_currency = bctr.coin.clone();
-                    ttr.buy_amount = None;
-                    ttr.buy_currency = "".to_owned();
-                    assert_eq!(ttr.fee_amount, None);
-                    assert_eq!(ttr.fee_currency, "");
-                } else {
-                    return Err(format!(
-                        "file_idx: {} line_number: {}, account: {}, operation: {}, change: {} expected to be negative",
-                        bctr.file_idx, bctr.line_number, bctr.account, bctr.operation, bctr.change,
-                    )
-                    .into());
-                }
-
-                result_a.push(ttr);
-            }
-            _ => {
+            result_a.push(ttr);
+        }
+        ("Spot", "Withdraw") => {
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit?pli=1#bookmark=kix.ag5jhhhjgd5x
+            //   User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+            //   123456789,2020-06-15 02:09:23,Spot,Withdraw,BTC,-0.89339667,Withdraw fee is included
+            ttr.type_txs = TokenTaxRecType::Withdrawal;
+            if bctr.change < dec!(0) {
+                ttr.sell_amount = Some(-bctr.change);
+                ttr.sell_currency = bctr.coin.clone();
+                ttr.buy_amount = None;
+                ttr.buy_currency = "".to_owned();
+                assert_eq!(ttr.fee_amount, None);
+                assert_eq!(ttr.fee_currency, "");
+            } else {
                 return Err(format!(
-                    "file_idx: {} line_number: {}, bctr acccount: {} operation {} unknown",
-                    bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
+                    "file_idx: {} line_number: {}, account: {}, operation: {}, change: {} expected to be negative",
+                    bctr.file_idx, bctr.line_number, bctr.account, bctr.operation, bctr.change,
                 )
-                .into())
+                .into());
             }
-        };
 
-        Ok(result_a)
+            result_a.push(ttr);
+        }
+        _ => {
+            return Err(format!(
+                "file_idx: {} line_number: {}, bctr acccount: {} operation {} unknown",
+                bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
+            )
+            .into())
+        }
+    };
+
+    Ok(result_a)
+}
+
+fn ttr_from_buy_sell_fee(
+    state: &mut StateForTradeRec,
+) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
+    let len_buy = state.spot_buy_tr_vec.len();
+    let len_sell = state.spot_sell_tr_vec.len();
+    let len_fee = state.spot_fee_tr_vec.len();
+
+    if len_buy != len_sell {
+        return Err(format!(
+            "Error: Expected number of 'Spot,Buy': {} == 'Spot,Transaction Related': {}",
+            len_buy, len_sell
+        )
+        .into());
+    }
+    if len_fee > len_buy {
+        return Err(format!(
+            "Error: Expected number of 'Spot,Fee': {} <= 'Spot,Buy': {}",
+            len_fee, len_buy
+        )
+        .into());
     }
 
-    fn from_buy_sell_fee(
-        state: &mut StateForTradeRec,
-    ) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
-        let len_buy = state.spot_buy_tr_vec.len();
-        let len_sell = state.spot_sell_tr_vec.len();
-        let len_fee = state.spot_fee_tr_vec.len();
+    let mut trade_tt_rec_a = Vec::<TokenTaxRec>::new();
+    for (idx, buy_tr) in state.spot_buy_tr_vec.iter().enumerate() {
+        // Ok as len checked above
+        let sell_tr = state.spot_sell_tr_vec.get(idx).unwrap();
 
-        if len_buy != len_sell {
-            return Err(format!(
-                "Error: Expected number of 'Spot,Buy': {} == 'Spot,Transaction Related': {}",
-                len_buy, len_sell
-            )
-            .into());
-        }
-        if len_fee > len_buy {
-            return Err(format!(
-                "Error: Expected number of 'Spot,Fee': {} <= 'Spot,Buy': {}",
-                len_fee, len_buy
-            )
-            .into());
-        }
-
-        let mut trade_tt_rec_a = Vec::<TokenTaxRec>::new();
-        for (idx, buy_tr) in state.spot_buy_tr_vec.iter().enumerate() {
-            // Ok as len checked above
-            let sell_tr = state.spot_sell_tr_vec.get(idx).unwrap();
-
-            // Fee is "optional" as it's not required in that I've seen
-            // it missing in a data set
-            let fee_tr = state.spot_fee_tr_vec.get(idx);
-            let (fee_coin, fee_change) = if let Some(fee) = fee_tr {
-                if fee.time == buy_tr.time {
-                    match fee.change.cmp(&dec!(0)) {
-                        Ordering::Less => (fee.coin.clone(), Some(-fee.change)),
-                        Ordering::Equal => ("".to_owned(), None),
-                        Ordering::Greater => {
-                            return Err(format!(
-                                r#"Error: fee.change is > 0, file_idx: {} line_number: {}, {fee}"#,
-                                fee.file_idx, fee.line_number
-                            )
-                            .into());
-                        }
+        // Fee is "optional" as it's not required in that I've seen
+        // it missing in a data set
+        let fee_tr = state.spot_fee_tr_vec.get(idx);
+        let (fee_coin, fee_change) = if let Some(fee) = fee_tr {
+            if fee.time == buy_tr.time {
+                match fee.change.cmp(&dec!(0)) {
+                    Ordering::Less => (fee.coin.clone(), Some(-fee.change)),
+                    Ordering::Equal => ("".to_owned(), None),
+                    Ordering::Greater => {
+                        return Err(format!(
+                            r#"Error: fee.change is > 0, file_idx: {} line_number: {}, {fee}"#,
+                            fee.file_idx, fee.line_number
+                        )
+                        .into());
                     }
-                } else {
-                    // Out of order so a fee is missing
-                    let mut fake_fee = fee.clone();
-                    fake_fee.coin = "".to_owned();
-                    fake_fee.change = dec!(0);
-                    state.spot_fee_tr_vec.insert(idx, fake_fee);
-
-                    ("".to_owned(), None)
                 }
             } else {
+                // Out of order so a fee is missing
+                let mut fake_fee = fee.clone();
+                fake_fee.coin = "".to_owned();
+                fake_fee.change = dec!(0);
+                state.spot_fee_tr_vec.insert(idx, fake_fee);
+
                 ("".to_owned(), None)
-            };
+            }
+        } else {
+            ("".to_owned(), None)
+        };
 
-            // Make additional asserts
-            assert!(!buy_tr.coin.is_empty());
-            assert!(buy_tr.change >= dec!(0));
-            assert!(!sell_tr.coin.is_empty());
-            assert!(sell_tr.change <= dec!(0));
-            assert!(fee_change.is_none() || fee_change >= Some(dec!(0)));
+        // Make additional asserts
+        assert!(!buy_tr.coin.is_empty());
+        assert!(buy_tr.change >= dec!(0));
+        assert!(!sell_tr.coin.is_empty());
+        assert!(sell_tr.change <= dec!(0));
+        assert!(fee_change.is_none() || fee_change >= Some(dec!(0)));
 
-            // Create the record and push it
-            let ttr = TokenTaxRec::from(
-                TypeTxs::Trade,
-                Some(buy_tr.change),
-                buy_tr.coin.clone(),
-                Some(-sell_tr.change),
-                sell_tr.coin.clone(),
-                fee_change,
-                fee_coin.clone(),
-                "binance.com".to_owned(),
-                None,
-                create_tt_cmt_ver3_string(buy_tr),
-                buy_tr.time,
-            );
-            trade_tt_rec_a.push(ttr);
-        }
-
-        Ok(trade_tt_rec_a)
+        // Create the record and push it
+        let ttr = TokenTaxRec::from(
+            TokenTaxRecType::Trade,
+            Some(buy_tr.change),
+            buy_tr.coin.clone(),
+            Some(-sell_tr.change),
+            sell_tr.coin.clone(),
+            fee_change,
+            fee_coin.clone(),
+            "binance.com".to_owned(),
+            None,
+            create_tt_cmt_ver3_string(buy_tr),
+            buy_tr.time,
+        );
+        trade_tt_rec_a.push(ttr);
     }
+
+    Ok(trade_tt_rec_a)
 }
 
 // From bctr_buy, _sell and _fee records create a TokenTax trade record
@@ -984,7 +982,7 @@ async fn to_tt_trade_rec(
     };
     assert_eq!(bctr_buy.time, fee_time);
 
-    ttr.type_txs = TypeTxs::Trade;
+    ttr.type_txs = TokenTaxRecType::Trade;
     ttr.buy_amount = Some(bctr_buy.change);
     ttr.buy_currency = bctr_buy.coin.to_owned();
     ttr.sell_amount = Some(bctr_sell.change);
@@ -1088,7 +1086,7 @@ fn create_token_tax_rec_vec(
             TradeCategories::Sell => state.spot_sell_tr_vec.push(bctr.clone()),
             TradeCategories::Fee => state.spot_fee_tr_vec.push(bctr.clone()),
             TradeCategories::Other => {
-                let ttr_a = TokenTaxRec::from_trade_rec(bctr)?;
+                let ttr_a = ttr_from_trade_rec(bctr)?;
 
                 for ttr in ttr_a {
                     state.ttr_vec.push(ttr);
@@ -1099,7 +1097,7 @@ fn create_token_tax_rec_vec(
 
     // Now process the buy_sell_fee arrays to TokenTax Trades and
     // push the completed trades to ttr_vec
-    for ttr in TokenTaxRec::from_buy_sell_fee(&mut state)? {
+    for ttr in ttr_from_buy_sell_fee(&mut state)? {
         state.ttr_vec.push(ttr);
     }
 
@@ -1629,9 +1627,9 @@ pub async fn tt_file_from_binance_com_trade_history_files(
 mod test {
 
     use super::*;
-    use crate::process_token_tax::{TokenTaxRec, TypeTxs};
     use rust_decimal_macros::dec;
     use time_ms_conversions::{dt_str_to_utc_time_ms, TzMassaging};
+    use tokentaxrec::{TokenTaxRec, TokenTaxRecType};
 
     #[test]
     fn test_create_token_tax_rec_vec() {
@@ -1653,7 +1651,7 @@ mod test {
 
         let expected = vec![
             TokenTaxRec::from(
-                TypeTxs::Income,
+                TokenTaxRecType::Income,
                 Some(dec!(1.71544)),
                 "VET".to_owned(),
                 None,
@@ -1666,7 +1664,7 @@ mod test {
                 dt_str_to_utc_time_ms("2020-05-09 05:09:31", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
-                TypeTxs::Trade,
+                TokenTaxRecType::Trade,
                 Some(dec!(0.00418506)),
                 "BTC".to_owned(),
                 Some(dec!(187)),
@@ -1679,7 +1677,7 @@ mod test {
                 dt_str_to_utc_time_ms("2020-05-09 05:11:01", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
-                TypeTxs::Trade,
+                TokenTaxRecType::Trade,
                 Some(dec!(0.003577)),
                 "BTC".to_owned(),
                 Some(dec!(35.0546)),
@@ -1692,7 +1690,7 @@ mod test {
                 dt_str_to_utc_time_ms("2020-05-09 05:12:24", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
-                TypeTxs::Income,
+                TokenTaxRecType::Income,
                 Some(dec!(0.00021562)),
                 "BNB".to_owned(),
                 None,
@@ -1705,7 +1703,7 @@ mod test {
                 dt_str_to_utc_time_ms("2020-05-09 20:42:56", TzMassaging::CondAddTzUtc).unwrap(),
             ),
             TokenTaxRec::from(
-                TypeTxs::Trade,
+                TokenTaxRecType::Trade,
                 Some(dec!(0.002894)),
                 "BTC".to_owned(),
                 Some(dec!(27.99945)),
@@ -1820,9 +1818,9 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         };
         //println!("bcr: {bccr:?}");
 
-        let ttr = TokenTaxRec::from_commission_rec(&bccr);
+        let ttr = ttr_from_commission_rec(&bccr);
         //println!("ttr: {ttr:?}");
-        assert_eq!(ttr.type_txs, TypeTxs::Income);
+        assert_eq!(ttr.type_txs, TokenTaxRecType::Income);
         assert_eq!(ttr.buy_amount, Some(dec!(123)));
         assert_eq!(ttr.buy_currency, "USDT");
         assert_eq!(ttr.sell_amount, None);
@@ -1878,12 +1876,12 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         };
         //println!("bctr: {bctr:?}");
 
-        let ttr_a = TokenTaxRec::from_trade_rec(&bctr).unwrap();
+        let ttr_a = ttr_from_trade_rec(&bctr).unwrap();
         let ttr = &ttr_a[0];
 
         //println!("ttr: {ttr:?}");
         assert!(bctr.remark.is_empty());
-        assert_eq!(ttr.type_txs, TypeTxs::Income);
+        assert_eq!(ttr.type_txs, TokenTaxRecType::Income);
         assert_eq!(ttr.buy_amount, Some(dec!(0.0050512)));
         assert_eq!(ttr.buy_currency, "DOT");
         assert_eq!(ttr.sell_amount, None);
@@ -1952,12 +1950,12 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             let bctr = &bctr; // Make immutable
 
             //println!("bcr: {:?}", bctr);
-            let ttr_a = TokenTaxRec::from_trade_rec(bctr).unwrap();
+            let ttr_a = ttr_from_trade_rec(bctr).unwrap();
             let ttr = &ttr_a[0];
             if bctr.coin != "BNB" {
                 assert_eq!(bctr.file_idx, 0);
                 assert_ne!(bctr.line_number, 36);
-                assert_eq!(ttr.type_txs, TypeTxs::Spend);
+                assert_eq!(ttr.type_txs, TokenTaxRecType::Spend);
                 assert_eq!("", ttr.buy_currency);
                 assert_eq!(None, ttr.buy_amount);
                 assert_eq!(bctr.coin, ttr.sell_currency);
@@ -1965,7 +1963,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             } else {
                 assert_eq!(bctr.file_idx, 0);
                 assert_eq!(bctr.line_number, 36);
-                assert_eq!(ttr.type_txs, TypeTxs::Income);
+                assert_eq!(ttr.type_txs, TokenTaxRecType::Income);
                 assert_eq!(bctr.coin, ttr.buy_currency);
                 assert_eq!(Some(bctr.change), ttr.buy_amount);
                 assert_eq!("", ttr.sell_currency);

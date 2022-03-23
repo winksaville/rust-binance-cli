@@ -89,6 +89,7 @@ dependencies = [
  "strum_macros",
  "test-env-log",
  "time_ms_conversions",
+ "tokentaxrec",
  "tokio",
  "toml",
  "vergen",
@@ -1413,6 +1414,20 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
+
+[[package]]
+name = "tokentaxrec"
+version = "0.2.0"
+source = "git+https://github.com/winksaville/tokentaxrec#0af0677db4374686616055f1b795861549246e60"
+dependencies = [
+ "csv",
+ "dec-utils",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_utc_time_ms",
+ "time_ms_conversions",
+]
 
 [[package]]
 name = "tokio"
