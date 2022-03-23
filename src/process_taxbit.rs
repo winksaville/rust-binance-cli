@@ -1,17 +1,12 @@
 use std::{
-    fmt::Display,
     fs::File,
     io::{BufReader, BufWriter},
     path::Path,
 };
 
 use clap::ArgMatches;
-use dec_utils::dec_to_string_or_empty;
-use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
-use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_z_string};
-use time_ms_conversions::time_ms_to_utc_string;
+use taxbitrec::{TaxBitRec, TaxBitRecType};
 use tokentaxrec::{TokenTaxRec, TokenTaxRecType};
 
 use crate::{
@@ -20,257 +15,130 @@ use crate::{
     configuration::Configuration,
 };
 
-#[derive(Debug, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
-pub enum TaxBitTxsType {
-    // Taxable Events
-    Sale,
-    Trade,
-    Expense,
+fn tbr_from_token_tax_rec(ttr: &TokenTaxRec) -> TaxBitRec {
+    // TODO: TaxBit "source/destination" fields must be valid
+    // TODO: for binance.com and binance.us that is "Binance"
+    // TODO: but what about other exchanges, maybe make this
+    // TODO: should be a command line option as the user may know?
+    let exchange = match ttr.exchange.as_str() {
+        "binance.com" => "Binance".to_owned(),
+        "binance.us" => "BinanceUS".to_owned(),
+        _ => "".to_owned(),
+    };
 
-    // Non-taxable Events
-    Buy,
-    Income,
+    match ttr.type_txs {
+        TokenTaxRecType::Mining | TokenTaxRecType::Income => {
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::Income;
+            tbr.received_quantity = ttr.buy_amount;
+            tbr.received_currency = ttr.buy_currency.clone();
+            tbr.receiving_destination = exchange;
 
-    #[serde(rename = "Transfer In")]
-    TransferIn,
-
-    #[serde(rename = "Transfer Out")]
-    TransferOut,
-
-    #[serde(rename = "Gift Received")]
-    GiftReceived,
-
-    #[serde(rename = "Gift Send")]
-    GiftSent,
-
-    Unknown,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
-// CSV Header
-//   Date and Time, Transaction Type, Sent Quantity, Sent Currency, Sending Source,
-//   Received Quantity, Received Currency, Receiving Destination, Fee, Fee Currency,
-//   Exchange Transaction ID, Blockchain Transaction Hash
-pub struct TaxBitRec {
-    #[serde(rename = "Date and Time")]
-    #[serde(deserialize_with = "de_string_to_utc_time_ms")]
-    #[serde(serialize_with = "se_time_ms_to_utc_z_string")]
-    pub time: i64,
-
-    #[serde(rename = "Transaction Type")]
-    pub txs_type: TaxBitTxsType,
-
-    #[serde(rename = "Sent Quantity")]
-    pub sent_quantity: Option<Decimal>,
-
-    #[serde(rename = "Sent Currency")]
-    pub sent_currency: String,
-
-    #[serde(rename = "Sending Source")]
-    pub sending_source: String,
-
-    #[serde(rename = "Received Quantity")]
-    pub received_quantity: Option<Decimal>,
-
-    #[serde(rename = "Received Currency")]
-    pub received_currency: String,
-
-    #[serde(rename = "Receiving Destination")]
-    pub receiving_destination: String,
-
-    #[serde(rename = "Fee")]
-    pub fee_quantity: Option<Decimal>,
-
-    #[serde(rename = "Fee Currency")]
-    pub fee_currency: String,
-
-    #[serde(rename = "Exchange Transaction ID")]
-    pub exchange_transaction_id: String,
-
-    #[serde(rename = "Blockchain Transaction Hash")]
-    pub blockchain_transaction_hash: String,
-}
-
-impl Display for TaxBitRec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{},{:?},{},{},{},{},{},{},{},{},{},{}",
-            time_ms_to_utc_string(self.time),
-            self.txs_type,
-            dec_to_string_or_empty(self.sent_quantity),
-            self.sent_currency,
-            self.sending_source,
-            dec_to_string_or_empty(self.received_quantity),
-            self.received_currency,
-            self.receiving_destination,
-            dec_to_string_or_empty(self.fee_quantity),
-            self.fee_currency,
-            self.exchange_transaction_id,
-            self.blockchain_transaction_hash,
-        )
-    }
-}
-
-impl TaxBitRec {
-    fn _new() -> TaxBitRec {
-        TaxBitRec {
-            time: 0i64,
-            txs_type: TaxBitTxsType::Unknown,
-            sent_quantity: None,
-            sent_currency: "".to_owned(),
-            sending_source: "".to_owned(),
-            received_quantity: None,
-            received_currency: "".to_owned(),
-            receiving_destination: "".to_owned(),
-            fee_quantity: None,
-            fee_currency: "".to_owned(),
-            exchange_transaction_id: "".to_owned(),
-            blockchain_transaction_hash: "".to_owned(),
+            tbr
         }
-    }
+        TokenTaxRecType::Trade => {
+            let mut tbr = TaxBitRec::new();
 
-    #[allow(unused)]
-    fn get_asset(&self) -> &str {
-        match self.txs_type {
-            TaxBitTxsType::Expense
-            | TaxBitTxsType::TransferOut
-            | TaxBitTxsType::GiftSent
-            | TaxBitTxsType::Sale => self.sent_currency.as_str(),
-            TaxBitTxsType::Buy
-            | TaxBitTxsType::TransferIn
-            | TaxBitTxsType::Income
-            | TaxBitTxsType::GiftReceived
-            | TaxBitTxsType::Trade => self.received_currency.as_str(),
-            TaxBitTxsType::Unknown => panic!("SNH"),
-        }
-    }
-
-    fn from_token_tax_rec(ttr: &TokenTaxRec) -> TaxBitRec {
-        // TODO: TaxBit "source/destination" fields must be valid
-        // TODO: for binance.com and binance.us that is "Binance"
-        // TODO: but what about other exchanges, maybe make this
-        // TODO: should be a command line option as the user may know?
-        let exchange = match ttr.exchange.as_str() {
-            "binance.com" => "Binance".to_owned(),
-            "binance.us" => "BinanceUS".to_owned(),
-            _ => "".to_owned(),
-        };
-
-        match ttr.type_txs {
-            TokenTaxRecType::Mining | TokenTaxRecType::Income => {
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::Income;
+            if ttr.sell_currency.as_str() == "USD" {
+                tbr.type_txs = TaxBitRecType::Buy;
+                tbr.sent_quantity = ttr.sell_amount;
+                tbr.sent_currency = ttr.sell_currency.clone();
                 tbr.received_quantity = ttr.buy_amount;
                 tbr.received_currency = ttr.buy_currency.clone();
-                tbr.receiving_destination = exchange;
-
-                tbr
-            }
-            TokenTaxRecType::Trade => {
-                let mut tbr = TaxBitRec::_new();
-
-                if ttr.sell_currency.as_str() == "USD" {
-                    tbr.txs_type = TaxBitTxsType::Buy;
-                    tbr.sent_quantity = ttr.sell_amount;
-                    tbr.sent_currency = ttr.sell_currency.clone();
-                    tbr.received_quantity = ttr.buy_amount;
-                    tbr.received_currency = ttr.buy_currency.clone();
-                } else if ttr.buy_currency.as_str() == "USD" {
-                    tbr.txs_type = TaxBitTxsType::Sale;
-                    tbr.sent_quantity = ttr.buy_amount;
-                    tbr.sent_currency = ttr.buy_currency.clone();
-                    tbr.received_quantity = ttr.sell_amount;
-                    tbr.received_currency = ttr.sell_currency.clone();
-                } else {
-                    tbr.txs_type = TaxBitTxsType::Trade;
-                    tbr.sent_quantity = ttr.sell_amount;
-                    tbr.sent_currency = ttr.sell_currency.clone();
-                    tbr.received_quantity = ttr.buy_amount;
-                    tbr.received_currency = ttr.buy_currency.clone();
-                }
-                tbr.time = ttr.time;
-                tbr.sending_source = exchange.clone();
-                tbr.receiving_destination = exchange;
-                tbr.fee_quantity = ttr.fee_amount;
-                tbr.fee_currency = ttr.fee_currency.clone();
-
-                // If fee_quantity is zero remove otherwise it is silently rejected by TaxBit
-                if let Some(q) = tbr.fee_quantity {
-                    if q == dec!(0) {
-                        tbr.fee_quantity = None;
-                        tbr.fee_currency = "".to_owned();
-                    }
-                }
-
-                tbr
-            }
-            TokenTaxRecType::Deposit => {
-                // How to receive cost basis of crypto
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::TransferIn;
+            } else if ttr.buy_currency.as_str() == "USD" {
+                tbr.type_txs = TaxBitRecType::Sale;
+                tbr.sent_quantity = ttr.buy_amount;
+                tbr.sent_currency = ttr.buy_currency.clone();
+                tbr.received_quantity = ttr.sell_amount;
+                tbr.received_currency = ttr.sell_currency.clone();
+            } else {
+                tbr.type_txs = TaxBitRecType::Trade;
+                tbr.sent_quantity = ttr.sell_amount;
+                tbr.sent_currency = ttr.sell_currency.clone();
                 tbr.received_quantity = ttr.buy_amount;
                 tbr.received_currency = ttr.buy_currency.clone();
-                tbr.receiving_destination = exchange;
+            }
+            tbr.time = ttr.time;
+            tbr.sending_source = exchange.clone();
+            tbr.receiving_destination = exchange;
+            tbr.fee_quantity = ttr.fee_amount;
+            tbr.fee_currency = ttr.fee_currency.clone();
 
-                tbr
+            // If fee_quantity is zero remove otherwise it is silently rejected by TaxBit
+            if let Some(q) = tbr.fee_quantity {
+                if q == dec!(0) {
+                    tbr.fee_quantity = None;
+                    tbr.fee_currency = "".to_owned();
+                }
             }
-            TokenTaxRecType::Withdrawal => {
-                // How to send cost basis of crypto
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::TransferOut;
-                tbr.sent_quantity = ttr.sell_amount;
-                tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = exchange;
 
-                tbr
-            }
-            TokenTaxRecType::Spend => {
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::Expense;
-                tbr.sent_quantity = ttr.sell_amount;
-                tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = exchange;
+            tbr
+        }
+        TokenTaxRecType::Deposit => {
+            // How to receive cost basis of crypto
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::TransferIn;
+            tbr.received_quantity = ttr.buy_amount;
+            tbr.received_currency = ttr.buy_currency.clone();
+            tbr.receiving_destination = exchange;
 
-                tbr
-            }
-            TokenTaxRecType::Lost => {
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::Expense;
-                tbr.sent_quantity = ttr.sell_amount;
-                tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = exchange;
+            tbr
+        }
+        TokenTaxRecType::Withdrawal => {
+            // How to send cost basis of crypto
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::TransferOut;
+            tbr.sent_quantity = ttr.sell_amount;
+            tbr.sent_currency = ttr.sell_currency.clone();
+            tbr.sending_source = exchange;
 
-                tbr
-            }
-            TokenTaxRecType::Stolen => {
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::Expense;
-                tbr.sent_quantity = ttr.sell_amount;
-                tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = exchange;
+            tbr
+        }
+        TokenTaxRecType::Spend => {
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::Expense;
+            tbr.sent_quantity = ttr.sell_amount;
+            tbr.sent_currency = ttr.sell_currency.clone();
+            tbr.sending_source = exchange;
 
-                tbr
-            }
-            TokenTaxRecType::Gift => {
-                let mut tbr = TaxBitRec::_new();
-                tbr.time = ttr.time;
-                tbr.txs_type = TaxBitTxsType::TransferOut;
-                tbr.sent_quantity = ttr.sell_amount;
-                tbr.sent_currency = ttr.sell_currency.clone();
-                tbr.sending_source = exchange;
+            tbr
+        }
+        TokenTaxRecType::Lost => {
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::Expense;
+            tbr.sent_quantity = ttr.sell_amount;
+            tbr.sent_currency = ttr.sell_currency.clone();
+            tbr.sending_source = exchange;
 
-                tbr
-            }
-            TokenTaxRecType::Unknown => {
-                panic!("Unknown Token Type")
-            }
+            tbr
+        }
+        TokenTaxRecType::Stolen => {
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::Expense;
+            tbr.sent_quantity = ttr.sell_amount;
+            tbr.sent_currency = ttr.sell_currency.clone();
+            tbr.sending_source = exchange;
+
+            tbr
+        }
+        TokenTaxRecType::Gift => {
+            let mut tbr = TaxBitRec::new();
+            tbr.time = ttr.time;
+            tbr.type_txs = TaxBitRecType::TransferOut;
+            tbr.sent_quantity = ttr.sell_amount;
+            tbr.sent_currency = ttr.sell_currency.clone();
+            tbr.sending_source = exchange;
+
+            tbr
+        }
+        TokenTaxRecType::Unknown => {
+            panic!("Unknown Token Type")
         }
     }
 }
@@ -278,7 +146,7 @@ impl TaxBitRec {
 fn create_tbr_vec_from_ttr_vec(ttr_vec: &[TokenTaxRec]) -> Vec<TaxBitRec> {
     let mut tbr_vec = Vec::<TaxBitRec>::new();
     for ttr in ttr_vec {
-        let tbr = TaxBitRec::from_token_tax_rec(ttr);
+        let tbr = tbr_from_token_tax_rec(ttr);
         tbr_vec.push(tbr);
     }
 
@@ -465,6 +333,7 @@ pub async fn process_tax_bit_files(
 #[cfg(test)]
 mod test {
 
+    use taxbitrec::TaxBitRecType;
     use time_ms_conversions::{dt_str_to_utc_time_ms, TzMassaging};
 
     use super::*;
@@ -492,7 +361,7 @@ Gift,,,100,USD,,,,,\"Gift to friend\",1970-01-01 00:00:00
         for (idx, entry) in reader.deserialize().enumerate() {
             let ttr: TokenTaxRec = entry.unwrap();
             println!("{idx}: ttr: {ttr:?}");
-            let tbr = TaxBitRec::from_token_tax_rec(&ttr);
+            let tbr = tbr_from_token_tax_rec(&ttr);
             println!("{idx}: tbr: {tbr:?}");
         }
     }
@@ -518,7 +387,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
         for (idx, entry) in reader.deserialize().enumerate() {
             let ttr: TokenTaxRec = entry.unwrap();
             println!("{idx}: ttr: {ttr:?}");
-            let tbr = TaxBitRec::from_token_tax_rec(&ttr);
+            let tbr = tbr_from_token_tax_rec(&ttr);
             println!("{idx}: tbr: {tbr:?}");
             match idx {
                 0 => {
@@ -528,7 +397,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                         dt_str_to_utc_time_ms("2019-08-01T00:00:00.000+00:00", TzMassaging::HasTz)
                             .unwrap()
                     );
-                    assert_eq!(tbr.txs_type, TaxBitTxsType::TransferIn);
+                    assert_eq!(tbr.type_txs, TaxBitRecType::TransferIn);
                     assert_eq!(tbr.received_quantity, Some(dec!(5125)));
                     assert_eq!(tbr.received_currency, "USD");
                     assert_eq!(tbr.receiving_destination, "BinanceUS");
@@ -540,7 +409,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 }
                 //1 => {
                 //    // Trade,1,ETH,3123.00,USD,0.00124,BNB,binance.us,,,1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Trade);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Trade);
                 //    assert_eq!(tbr.buy_amount, Some(dec!(1)));
                 //    assert_eq!(tbr.buy_currency, "ETH");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(3123)));
@@ -554,7 +423,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //2 => {
                 //    // Trade,1,ETH,312.00,USD,0.00124,BNB,binance.us,margin,,1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Trade);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Trade);
                 //    assert_eq!(tbr.buy_amount, Some(dec!(1)));
                 //    assert_eq!(tbr.buy_currency, "ETH");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(312)));
@@ -568,7 +437,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //3 => {
                 //    // Income,0.001,BNB,,,,,binance.us,,\"Referral Commission\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Income);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Income);
                 //    assert_eq!(tbr.buy_amount, Some(dec!(0.001)));
                 //    assert_eq!(tbr.buy_currency, "BNB");
                 //    assert_eq!(tbr.sell_amount, None);
@@ -582,7 +451,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //4 => {
                 //    // Withdrawal,,,100,USD,,,some bank,,\"AccountId: 123456\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Withdrawal);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Withdrawal);
                 //    assert_eq!(tbr.buy_amount, None);
                 //    assert_eq!(tbr.buy_currency, "");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(100)));
@@ -596,7 +465,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //5 => {
                 //    // Spend,,,100,USD,0.01,USD,,,\"Gift for wife\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Spend);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Spend);
                 //    assert_eq!(tbr.buy_amount, None);
                 //    assert_eq!(tbr.buy_currency, "");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(100)));
@@ -610,7 +479,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //6 => {
                 //    // Lost,,,1,ETH,,,,,\"Wallet lost\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Lost);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Lost);
                 //    assert_eq!(tbr.buy_amount, None);
                 //    assert_eq!(tbr.buy_currency, "");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(1)));
@@ -624,7 +493,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //7 => {
                 //    // Stolen,,,1,USD,,,,,\"Wallet hacked\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Stolen);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Stolen);
                 //    assert_eq!(tbr.buy_amount, None);
                 //    assert_eq!(tbr.buy_currency, "");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(1)));
@@ -638,7 +507,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //8 => {
                 //    // Mining,0.000002,ETH,,,,,binance.us,,\"ETH2 validator reward\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Mining);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Mining);
                 //    assert_eq!(tbr.buy_amount, Some(dec!(0.000002)));
                 //    assert_eq!(tbr.buy_currency, "ETH");
                 //    assert_eq!(tbr.sell_amount, None);
@@ -652,7 +521,7 @@ Deposit,5125,USD,,,,,binance.us,,"v0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00
                 //}
                 //9 => {
                 //    // Gift,,,100,USD,,,,,\"Gift to friend\",1970-01-01 00:00:00
-                //    assert_eq!(tbr.type_txs, TaxBitTxsType::Gift);
+                //    assert_eq!(tbr.type_txs, TaxBitRecType::Gift);
                 //    assert_eq!(tbr.buy_amount, None);
                 //    assert_eq!(tbr.buy_currency, "");
                 //    assert_eq!(tbr.sell_amount, Some(dec!(100)));

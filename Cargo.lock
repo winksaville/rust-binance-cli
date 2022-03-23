@@ -87,6 +87,7 @@ dependencies = [
  "serde_utc_time_ms",
  "sha2",
  "strum_macros",
+ "taxbitrec",
  "test-env-log",
  "time_ms_conversions",
  "tokentaxrec",
@@ -1313,6 +1314,19 @@ dependencies = [
  "ntapi",
  "once_cell",
  "winapi",
+]
+
+[[package]]
+name = "taxbitrec"
+version = "0.2.0"
+source = "git+https://github.com/winksaville/taxbitrec#490439b12742eae9e9790777cdab4582b5c8406b"
+dependencies = [
+ "dec-utils",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_utc_time_ms",
+ "time_ms_conversions",
 ]
 
 [[package]]

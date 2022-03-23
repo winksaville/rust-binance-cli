@@ -34,6 +34,7 @@ time_ms_conversions = { git = "https://github.com/winksaville/time-ms-conversion
 serde_utc_time_ms = { git = "https://github.com/winksaville/serde-utc-time-ms" }
 dec-utils = { git = "https://github.com/winksaville/dec-utils" }
 tokentaxrec = { git = "https://github.com/winksaville/tokentaxrec" }
+taxbitrec = { git = "https://github.com/winksaville/taxbitrec" }
 
 [dev-dependencies]
 assert_cmd = "2.0.2"
