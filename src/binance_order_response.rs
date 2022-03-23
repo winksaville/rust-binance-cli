@@ -4,6 +4,7 @@ use clap::ArgMatches;
 use log::trace;
 use serde::{Deserialize, Serialize};
 
+use dec_utils::dec_to_money_string;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use semver::Version;
@@ -11,7 +12,7 @@ use time_ms_conversions::time_ms_to_utc;
 
 use crate::{
     binance_withdraw_cmd::WithdrawParams,
-    common::{dec_to_money_string, InternalErrorRec, ResponseErrorRec, Side},
+    common::{InternalErrorRec, ResponseErrorRec, Side},
     configuration::Configuration,
     de_string_or_number::{de_string_or_number_to_i64, de_string_or_number_to_u64},
 };

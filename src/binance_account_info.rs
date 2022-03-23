@@ -11,14 +11,12 @@ use std::{
 use crate::{
     binance_klines::get_kline_of_primary_asset_for_value_asset,
     binance_signature::{append_signature, binance_signature, query_vec_u8},
-    common::{dec_to_separated_string, VALUE_ASSETS},
-};
-use crate::{
-    common::{dec_to_money_string, get_req_get_response},
+    common::{get_req_get_response, VALUE_ASSETS},
     de_string_or_number::de_string_or_number_to_i64,
     Configuration,
 };
 
+use dec_utils::{dec_to_money_string, dec_to_separated_string};
 use time_ms_conversions::time_ms_to_utc;
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055

@@ -21,8 +21,8 @@ sha2 = "0.9.9"
 hex-literal = "0.3.4"
 chrono = "0.4.19"
 hex = "0.4.3"
-rust_decimal = { version = "1.20.0", features = ["serde-arbitrary-precision"] }
-rust_decimal_macros = "1.20.0"
+rust_decimal = { version = "1.22.0", features = ["serde-arbitrary-precision"] }
+rust_decimal_macros = "1.22.0"
 test-env-log = "0.2.8"
 toml = "0.5.8"
 semver = { version = "1.0.4", features = ["serde"] }
@@ -32,6 +32,7 @@ separator = "0.4.1"
 csv = "1.1.6"
 time_ms_conversions = { git = "https://github.com/winksaville/time-ms-conversions" }
 serde_utc_time_ms = { git = "https://github.com/winksaville/serde-utc-time-ms" }
+dec-utils = { git = "https://github.com/winksaville/dec-utils" }
 
 [dev-dependencies]
 assert_cmd = "2.0.2"

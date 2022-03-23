@@ -68,6 +68,7 @@ dependencies = [
  "chrono",
  "clap",
  "csv",
+ "dec-utils",
  "env_logger",
  "hex",
  "hex-literal",
@@ -230,6 +231,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "dec-utils"
+version = "0.1.0"
+source = "git+https://github.com/winksaville/dec-utils#335746267eae8226be2c67c52ea745357e7fa4f0"
+dependencies = [
+ "rust_decimal",
+ "rust_decimal_macros",
+ "rusty-money",
+ "separator",
 ]
 
 [[package]]
@@ -531,9 +543,9 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "0.14.17"
+version = "0.14.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "043f0e083e9901b6cc658a77d1eb86f4fc650bbb977a4337dd63192826aa85dd"
+checksum = "b26ae0a80afebe130861d90abf98e3814a4f28a4c6ffeb5ab8ebb2be311e0ef2"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -688,9 +700,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.14"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
+checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if",
 ]
@@ -1201,7 +1213,7 @@ dependencies = [
 [[package]]
 name = "serde_utc_time_ms"
 version = "0.1.0"
-source = "git+https://github.com/winksaville/serde-utc-time-ms#ffd8ac3f0a23f2e37f71fdc8ac754c24dfc2c03d"
+source = "git+https://github.com/winksaville/serde-utc-time-ms#75f666b41934fd88dcf423a030eb1394d87fefeb"
 dependencies = [
  "serde",
  "serde_json",
@@ -1382,7 +1394,7 @@ dependencies = [
 [[package]]
 name = "time_ms_conversions"
 version = "0.1.0"
-source = "git+https://github.com/winksaville/time-ms-conversions#715772c102985bf33ef5e2bd1351717432f7bb7d"
+source = "git+https://github.com/winksaville/time-ms-conversions#176e0701a33f8db8cb6fc239bac75fc6dc663ced"
 dependencies = [
  "chrono",
 ]

@@ -6,23 +6,19 @@ use std::{
 };
 
 use clap::ArgMatches;
+use dec_utils::dec_to_string_or_empty;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
-//use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_utc_time_ms::{de_string_to_utc_time_ms, se_time_ms_to_utc_z_string};
+use time_ms_conversions::time_ms_to_utc_string;
 
 use crate::{
     arg_matches::time_offset_days_to_time_ms_offset,
-    common::{
-        create_buf_writer, create_buf_writer_from_path, dec_to_string_or_empty,
-        verify_input_files_exist,
-    },
+    common::{create_buf_writer, create_buf_writer_from_path, verify_input_files_exist},
     configuration::Configuration,
     process_token_tax::{TokenTaxRec, TypeTxs},
 };
-
-use time_ms_conversions::time_ms_to_utc_string;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Ord, Eq, PartialEq, PartialOrd)]
 pub enum TaxBitTxsType {

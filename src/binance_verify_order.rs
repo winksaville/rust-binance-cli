@@ -1,11 +1,12 @@
 use log::trace;
 
+use dec_utils::dec_to_money_string;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 
 use crate::{
     binance_account_info::AccountInfo, binance_avg_price::AvgPrice, binance_exchange_info::Symbol,
-    binance_orders::Orders, common::dec_to_money_string,
+    binance_orders::Orders,
 };
 
 pub fn verify_open_orders(
