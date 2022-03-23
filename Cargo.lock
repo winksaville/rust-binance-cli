@@ -62,7 +62,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "binance-cli"
-version = "0.3.18"
+version = "0.4.0"
 dependencies = [
  "assert_cmd",
  "chrono",
@@ -238,12 +238,13 @@ dependencies = [
 [[package]]
 name = "dec-utils"
 version = "0.1.0"
-source = "git+https://github.com/winksaville/dec-utils#335746267eae8226be2c67c52ea745357e7fa4f0"
+source = "git+https://github.com/winksaville/dec-utils#91e04f895c1eed6c083baee6b715a9005daf5d7c"
 dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "rusty-money",
  "separator",
+ "serde_json",
 ]
 
 [[package]]
@@ -1214,11 +1215,10 @@ dependencies = [
 
 [[package]]
 name = "serde_utc_time_ms"
-version = "0.1.0"
-source = "git+https://github.com/winksaville/serde-utc-time-ms#75f666b41934fd88dcf423a030eb1394d87fefeb"
+version = "0.2.0"
+source = "git+https://github.com/winksaville/serde-utc-time-ms#84786f6b1202d79c75c7f4f6691533f0acc404e2"
 dependencies = [
  "serde",
- "serde_json",
  "time_ms_conversions",
 ]
 
@@ -1318,13 +1318,15 @@ dependencies = [
 
 [[package]]
 name = "taxbitrec"
-version = "0.2.0"
-source = "git+https://github.com/winksaville/taxbitrec#490439b12742eae9e9790777cdab4582b5c8406b"
+version = "0.4.0"
+source = "git+https://github.com/winksaville/taxbitrec#f6a86595323fd9e17583c358a07c434cf6105edb"
 dependencies = [
+ "csv",
  "dec-utils",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
+ "serde_json",
  "serde_utc_time_ms",
  "time_ms_conversions",
 ]
@@ -1408,8 +1410,8 @@ dependencies = [
 
 [[package]]
 name = "time_ms_conversions"
-version = "0.1.0"
-source = "git+https://github.com/winksaville/time-ms-conversions#176e0701a33f8db8cb6fc239bac75fc6dc663ced"
+version = "0.2.0"
+source = "git+https://github.com/winksaville/time-ms-conversions#b99e473385e6523f5abe5828338144f749112d42"
 dependencies = [
  "chrono",
 ]
@@ -1432,7 +1434,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "tokentaxrec"
 version = "0.2.0"
-source = "git+https://github.com/winksaville/tokentaxrec#0af0677db4374686616055f1b795861549246e60"
+source = "git+https://github.com/winksaville/tokentaxrec#937fe4772e3c1a367c5f9341250dddeaa7f5072c"
 dependencies = [
  "csv",
  "dec-utils",
