@@ -5,7 +5,7 @@ use crate::{
     date_time_utc::DateTimeUtc,
 };
 
-use dec_utils::{dec_to_money_string, dec_to_separated_string};
+use dec_utils::{dec_to_separated_string, dec_to_usd_string};
 use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
 
 use clap::ArgMatches;
@@ -491,7 +491,7 @@ pub async fn process_token_tax_files(
                     convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
                 {
                     ar.value_usd = value_usd;
-                    dec_to_money_string(ar.value_usd)
+                    dec_to_usd_string(ar.value_usd)
                 } else {
                     ar.value_usd = dec!(0);
                     "?".to_owned()
@@ -517,7 +517,7 @@ pub async fn process_token_tax_files(
         println!(
             "Total quantity: {} account value: {}",
             dec_to_separated_string(total_quantity, 8),
-            dec_to_money_string(total_value_usd)
+            dec_to_usd_string(total_value_usd)
         );
 
         println!(

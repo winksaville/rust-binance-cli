@@ -1,7 +1,7 @@
 // TODO: Add tests that contain multi-byte utf8 characters and make any necessary changes
 // TODO: Add url/uri/percent encoding: https://en.wikipedia.org/wiki/Percent-encoding
 
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;

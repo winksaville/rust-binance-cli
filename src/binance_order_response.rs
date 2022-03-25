@@ -4,7 +4,7 @@ use clap::ArgMatches;
 use log::trace;
 use serde::{Deserialize, Serialize};
 
-use dec_utils::dec_to_money_string;
+use dec_utils::dec_to_usd_string;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use semver::Version;
@@ -158,7 +158,7 @@ impl fmt::Display for ResultTradeResponseRec {
             self.executed_qty,
             price.round_dp(4),
             self.symbol,
-            dec_to_money_string(self.cummulative_quote_qty),
+            dec_to_usd_string(self.cummulative_quote_qty),
         )
     }
 }
@@ -209,7 +209,7 @@ impl fmt::Display for FullTradeResponseRec {
             self.executed_qty,
             price.round_dp(4),
             self.symbol,
-            dec_to_money_string(self.cummulative_quote_qty),
+            dec_to_usd_string(self.cummulative_quote_qty),
         )
     }
 }

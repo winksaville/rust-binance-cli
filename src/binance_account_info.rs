@@ -16,7 +16,7 @@ use crate::{
     Configuration,
 };
 
-use dec_utils::{dec_to_money_string, dec_to_separated_string};
+use dec_utils::{dec_to_separated_string, dec_to_usd_string};
 use time_ms_conversions::time_ms_to_utc;
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
@@ -167,15 +167,15 @@ impl AccountInfo {
                 println!(
                     "{:<col_1$} {:>col_2$} {:>col_3$} {:>col_4$} {:>col_5$} {:>col_6$}",
                     balance.asset,
-                    dec_to_money_string(balance.value_in_usd),
-                    dec_to_money_string(balance.price_in_usd),
+                    dec_to_usd_string(balance.value_in_usd),
+                    dec_to_usd_string(balance.price_in_usd),
                     dec_to_separated_string(balance.free + balance.locked, 8),
                     dec_to_separated_string(balance.free, 8),
                     dec_to_separated_string(balance.locked, 8),
                 );
             }
         }
-        println!("total: {}", dec_to_money_string(total_value));
+        println!("total: {}", dec_to_usd_string(total_value));
     }
 
     pub async fn update_and_print(&mut self, config: &Configuration, time_ms: i64) {

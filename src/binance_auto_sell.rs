@@ -17,7 +17,7 @@ use crate::{
     ier_new,
 };
 
-use dec_utils::dec_to_money_string;
+use dec_utils::dec_to_usd_string;
 use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
 
 pub async fn auto_sell(
@@ -123,8 +123,8 @@ pub async fn auto_sell(
                 kr.precision,
                 kr.owned_qty,
                 kr.asset,
-                dec_to_money_string(kr.price_in_usd),
-                dec_to_money_string(kr.keep_value_in_usd.round_dp(2)),
+                dec_to_usd_string(kr.price_in_usd),
+                dec_to_usd_string(kr.keep_value_in_usd.round_dp(2)),
             );
         }
     }
@@ -143,14 +143,14 @@ pub async fn auto_sell(
                 kr.precision,
                 kr.sell_qty,
                 kr.asset,
-                dec_to_money_string(kr.price_in_usd),
-                dec_to_money_string(kr.sell_value_in_usd.round_dp(2)),
+                dec_to_usd_string(kr.price_in_usd),
+                dec_to_usd_string(kr.sell_value_in_usd.round_dp(2)),
             );
             if kr.keep_qty > dec!(0) {
                 println!(
                     "{:6} worth {:10}",
                     kr.keep_qty,
-                    dec_to_money_string(kr.keep_value_in_usd.round_dp(2)),
+                    dec_to_usd_string(kr.keep_value_in_usd.round_dp(2)),
                 );
             } else {
                 println!("NONE");
@@ -164,7 +164,7 @@ pub async fn auto_sell(
         println!(
             "\nSELLING {} assets for {:10}",
             total_assets_selling_some_or_all,
-            dec_to_money_string(total_sell_in_usd.round_dp(2)),
+            dec_to_usd_string(total_sell_in_usd.round_dp(2)),
         );
         if test || !config.confirmation_required || are_you_sure_stdout_stdin() {
             if test {
@@ -190,8 +190,8 @@ pub async fn auto_sell(
                                     kr.precision,
                                     kr.sell_qty,
                                     kr.symbol_name,
-                                    dec_to_money_string(kr.price_in_usd),
-                                    dec_to_money_string(kr.sell_value_in_usd.round_dp(2)),
+                                    dec_to_usd_string(kr.price_in_usd),
+                                    dec_to_usd_string(kr.sell_value_in_usd.round_dp(2)),
                                 );
                             }
                             TradeResponse::SuccessAck(atrr) => {

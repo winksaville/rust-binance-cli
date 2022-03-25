@@ -49,7 +49,7 @@ use crate::{
     date_time_utc::DateTimeUtc,
     token_tax_comment_vers::create_tt_cmt_ver4_string,
 };
-use dec_utils::{dec_to_money_string, dec_to_separated_string};
+use dec_utils::{dec_to_separated_string, dec_to_usd_string};
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -788,7 +788,7 @@ fn dbg_x(
     if x.is_empty() || asset == x {
         println!(
             "{line_number} {asset} {asset_value} {} {category} {operation}",
-            dec_to_money_string(asset_value_usd)
+            dec_to_usd_string(asset_value_usd)
         );
     }
 }
@@ -1042,7 +1042,7 @@ fn process_entry(
                 "Crypto Withdrawal" => {
                     arm.sub_quantity(asset, quantity);
                     if !dr.fee_asset.is_empty() {
-                        //println!("Crypto Withdrawal fee: {} {} {:?}", dr.fee_asset, dec_to_money_string(dr.realized_amount_for_fee_asset_in_usd_value.unwrap()), dr.realized_amount_for_fee_asset);
+                        //println!("Crypto Withdrawal fee: {} {} {:?}", dr.fee_asset, dec_to_usd_string(dr.realized_amount_for_fee_asset_in_usd_value.unwrap()), dr.realized_amount_for_fee_asset);
                         arm.sub_quantity(&dr.fee_asset, dr.realized_amount_for_fee_asset.unwrap());
                         data.withdrawal_operation_crypto_withdrawal_fee_count += 1;
                         data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value +=
@@ -1266,7 +1266,7 @@ pub async fn process_binance_us_dist_files(
                         convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
                     {
                         ar.value_usd = usd;
-                        dec_to_money_string(ar.value_usd)
+                        dec_to_usd_string(ar.value_usd)
                     } else {
                         ar.value_usd = dec!(0);
                         "?".to_owned()
@@ -1287,7 +1287,7 @@ pub async fn process_binance_us_dist_files(
                 println!(
                     "Total quantity: {} account value: {}",
                     dec_to_separated_string(total_quantity, 8),
-                    dec_to_money_string(total_value_usd)
+                    dec_to_usd_string(total_value_usd)
                 );
 
                 println!(
@@ -1314,7 +1314,7 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.distribution_operation_referral_commission_count),
                         0
                     ),
-                    dec_to_money_string(data.distribution_operation_referral_commission_value_usd),
+                    dec_to_usd_string(data.distribution_operation_referral_commission_value_usd),
                     "",
                 );
                 println!(
@@ -1324,7 +1324,7 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.distribution_operation_staking_reward_count),
                         0
                     ),
-                    dec_to_money_string(data.distribution_operation_staking_rewards_value_usd),
+                    dec_to_usd_string(data.distribution_operation_staking_rewards_value_usd),
                     "",
                 );
                 println!(
@@ -1334,22 +1334,22 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.distribution_operation_others_count),
                         0
                     ),
-                    dec_to_money_string(data.distribution_operation_others_value_usd),
+                    dec_to_usd_string(data.distribution_operation_others_value_usd),
                     "",
                 );
                 println!(
                     "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
                     "Quick Buy",
                     dec_to_separated_string(Decimal::from(data.quick_buy_operation_buy_count), 0),
-                    dec_to_money_string(data.quick_buy_base_asset_in_usd_value),
-                    dec_to_money_string(data.quick_buy_operation_buy_fee_in_usd_value)
+                    dec_to_usd_string(data.quick_buy_base_asset_in_usd_value),
+                    dec_to_usd_string(data.quick_buy_operation_buy_fee_in_usd_value)
                 );
                 println!(
                     "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
                     "Quick Sell",
                     dec_to_separated_string(Decimal::from(data.quick_sell_operation_sell_count), 0),
-                    dec_to_money_string(data.quick_sell_base_asset_in_usd_value),
-                    dec_to_money_string(data.quick_sell_operation_sell_fee_in_usd_value)
+                    dec_to_usd_string(data.quick_sell_base_asset_in_usd_value),
+                    dec_to_usd_string(data.quick_sell_operation_sell_fee_in_usd_value)
                 );
                 println!(
                     "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
@@ -1358,8 +1358,8 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.spot_trading_operation_buy_count),
                         0
                     ),
-                    dec_to_money_string(data.spot_trading_operation_buy_base_asset_in_usd_value),
-                    dec_to_money_string(data.spot_trading_operation_buy_fee_in_usd_value)
+                    dec_to_usd_string(data.spot_trading_operation_buy_base_asset_in_usd_value),
+                    dec_to_usd_string(data.spot_trading_operation_buy_fee_in_usd_value)
                 );
                 println!(
                     "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
@@ -1368,8 +1368,8 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.spot_trading_operation_sell_count),
                         0
                     ),
-                    dec_to_money_string(data.spot_trading_operation_sell_base_asset_in_usd_value),
-                    dec_to_money_string(data.spot_trading_operation_sell_fee_in_usd_value)
+                    dec_to_usd_string(data.spot_trading_operation_sell_base_asset_in_usd_value),
+                    dec_to_usd_string(data.spot_trading_operation_sell_fee_in_usd_value)
                 );
                 println!(
                     "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
@@ -1378,10 +1378,8 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.withdrawal_operation_crypto_withdrawal_count),
                         0
                     ),
-                    dec_to_money_string(data.withdrawal_operation_crypto_withdrawal_usd_value),
-                    dec_to_money_string(
-                        data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value
-                    )
+                    dec_to_usd_string(data.withdrawal_operation_crypto_withdrawal_usd_value),
+                    dec_to_usd_string(data.withdrawal_operation_crypto_withdrawal_fee_in_usd_value)
                 );
                 println!(
                     "{:>lbl_width$}: {:>cnt_width$} {:>val_width$} {:>fee_width$}",
@@ -1390,7 +1388,7 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.deposit_operation_crypto_deposit_count),
                         0
                     ),
-                    dec_to_money_string(data.deposit_operation_crypto_deposit_usd_value),
+                    dec_to_usd_string(data.deposit_operation_crypto_deposit_usd_value),
                     "",
                 );
                 println!(
@@ -1400,8 +1398,8 @@ pub async fn process_binance_us_dist_files(
                         Decimal::from(data.deposit_operation_crypto_deposit_count),
                         0
                     ),
-                    dec_to_money_string(data.deposit_operation_usd_deposit_usd_value),
-                    dec_to_money_string(data.deposit_operation_usd_deposit_fee_usd_value)
+                    dec_to_usd_string(data.deposit_operation_usd_deposit_usd_value),
+                    dec_to_usd_string(data.deposit_operation_usd_deposit_fee_usd_value)
                 );
                 let fees_usd_value = data.quick_buy_operation_buy_fee_in_usd_value
                     + data.quick_sell_operation_sell_fee_in_usd_value
@@ -1414,7 +1412,7 @@ pub async fn process_binance_us_dist_files(
                     "Totals",
                     dec_to_separated_string(Decimal::from(data.total_count), 0),
                     "",
-                    dec_to_money_string(fees_usd_value),
+                    dec_to_usd_string(fees_usd_value),
                 );
 
                 println!();
@@ -1439,7 +1437,7 @@ pub async fn process_binance_us_dist_files(
                         entry.asset,
                         entry.quantity,
                         entry.transaction_count,
-                        dec_to_money_string(entry.value_usd),
+                        dec_to_usd_string(entry.value_usd),
                     );
                 }
                 assert_eq!(others_value, data.distribution_operation_others_value_usd);

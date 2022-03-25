@@ -1,6 +1,6 @@
 use log::trace;
 
-use dec_utils::dec_to_money_string;
+use dec_utils::dec_to_usd_string;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 
@@ -55,7 +55,7 @@ pub fn verify_min_notional(
                     symbol.symbol,
                     quantity,
                     min_notional_quantity,
-                    dec_to_money_string((min_notional_quantity * avg_price.price).round_dp(2)),
+                    dec_to_usd_string((min_notional_quantity * avg_price.price).round_dp(2)),
                 )
                 .into());
             }

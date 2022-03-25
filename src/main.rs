@@ -35,7 +35,7 @@ use binance_auto_buy::auto_buy_cmd;
 use binance_auto_sell::auto_sell_cmd;
 use configuration::Configuration;
 
-use dec_utils::{dec_to_money_string, dec_to_separated_string};
+use dec_utils::{dec_to_separated_string, dec_to_usd_string};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use time_ms_conversions::{time_ms_to_utc, utc_now_to_time_ms};
@@ -343,7 +343,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         " {} {} value {}",
                         symbol.base_asset,
                         dec_to_separated_string(tr.qty, symbol.base_asset_precision),
-                        dec_to_money_string(tr.quote_qty),
+                        dec_to_usd_string(tr.quote_qty),
                     );
 
                     let commission_usd = binance_trade::convert(
@@ -371,18 +371,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "total buy transactions: {} buy qty: {} buy quote_qty: {}",
                     buy_txs,
                     dec_to_separated_string(buy_qty, symbol.base_asset_precision),
-                    dec_to_money_string(buy_quote_qty),
+                    dec_to_usd_string(buy_quote_qty),
                 );
                 println!(
                     "total sell transactions: {} sell qty: {} sell quote_qty: {}",
                     sell_txs,
                     dec_to_separated_string(sell_qty, symbol.base_asset_precision),
-                    dec_to_money_string(sell_quote_qty),
+                    dec_to_usd_string(sell_quote_qty),
                 );
                 println!(
                     "commission for {} trades, value USD: {} ",
                     mt.trades.len(),
-                    dec_to_money_string(commission_total_usd),
+                    dec_to_usd_string(commission_total_usd),
                 );
             }
             "dh" => {
