@@ -266,10 +266,8 @@ fn process_entry(
             .bt
             .entry(ttr.get_other_asset().to_owned())
             .or_insert_with(|| {
-                println!(
-                    "WARNING adding missing other_asset: {}",
-                    ttr.get_other_asset()
-                );
+                // Can happen but unusual
+                //println!("WARNING adding missing other_asset: {}",ttr.get_other_asset());
                 AssetRec::new(ttr.get_other_asset())
             });
     }
@@ -278,7 +276,8 @@ fn process_entry(
             .bt
             .entry(ttr.fee_currency.to_owned())
             .or_insert_with(|| {
-                println!("WARNING adding missing fee_currency: {}", ttr.fee_currency);
+                // Can happen but unusual
+                //println!("WARNING adding missing fee_currency: {}", ttr.fee_currency);
                 AssetRec::new(&ttr.fee_currency)
             });
     }
@@ -291,11 +290,15 @@ fn process_entry(
             "{}",
             format!("line_number {line_number}: type_txs: {}, buy_currency: is_empty(), buy_amount: {buy_amount}, comment: {}", ttr.type_txs, ttr.comment)
         );
-        assert!(
-            buy_amount >= dec!(0),
-            "{}",
-            format!("Expected buy_amount: {buy_amount} >= dec!(0) at line_number: {line_number}")
-        );
+        // I've seen this on two recrods from binance.us, weird so just a warning.
+        //assert!(
+        //    buy_amount >= dec!(0),
+        //    "{}",
+        //    format!("Expected buy_amount: {buy_amount} >= dec!(0) at line_number: {line_number}")
+        //);
+        if buy_amount < dec!(0) {
+            println!("WARNING buy_amount: {buy_amount} >= dec!(0) at line_number: {line_number}");
+        }
         arm.add_quantity(&ttr.buy_currency, buy_amount);
     }
 
@@ -594,7 +597,7 @@ pub async fn consolidate_token_tax_files(
 
     let mut total_pre_len = 0usize;
     let mut total_post_len = 0usize;
-    println!("Consolidate");
+    println!("{leading_nl}Consolidate");
     println!(
         "{:<col_1$} {:>col_2$} {:>col_3$}",
         "Asset", "pre count", "post count"
@@ -737,7 +740,7 @@ pub async fn uniq_currency_token_tax_files(
         }
     }
 
-    println!("Sorting");
+    println!("${leading_nl}Sorting");
     uc_ttr_vec.sort();
     println!("Sorting done");
 

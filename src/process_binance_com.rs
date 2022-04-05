@@ -1299,6 +1299,7 @@ pub async fn process_binance_com_trade_history_files(
         }
     }
     println!();
+    println!();
 
     println!("Sorting");
     bc_data.tr_vec.sort();
@@ -1384,6 +1385,8 @@ pub async fn consolidate_binance_com_trade_history_files(
     sc_matches: &ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
     //println!("consoldiate_binance_com_trade_history:+ config: {config:?}\n\nsc_matches: {sc_matches:?}\n");
+
+    let leading_nl = if config.progress_info { "\n" } else { "" };
 
     let mut bc_data = BcData::new();
 
@@ -1479,7 +1482,8 @@ pub async fn consolidate_binance_com_trade_history_files(
         }
     }
     println!();
-    println!("Consolidate");
+
+    println!("{leading_nl}Consolidate");
 
     // Loop through the asset records and consolidating each
     // and then append them to consolidated_tr_vec.

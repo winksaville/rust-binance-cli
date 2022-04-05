@@ -902,12 +902,14 @@ fn process_entry(
     });
     if !dr.quote_asset.is_empty() {
         let _ = arm.bt.entry(dr.quote_asset.to_owned()).or_insert_with(|| {
+            // Could happen but haven't seen it yet
             println!("WARNING adding missing quote_asset: {}", dr.quote_asset);
             AssetRec::new(&dr.quote_asset)
         });
     }
     if !dr.fee_asset.is_empty() {
         let _ = arm.bt.entry(dr.fee_asset.to_owned()).or_insert_with(|| {
+            // Could happen but haven't seen it yet
             println!("WARNING adding missing fee_asset: {}", dr.fee_asset);
             AssetRec::new(&dr.fee_asset)
         });
@@ -1212,7 +1214,7 @@ pub async fn process_binance_us_dist_files(
     }
     println!();
 
-    println!("Sorting");
+    println!("{leading_nl}Sorting");
     data.dist_rec_vec.sort();
     println!("Sorting done");
 
@@ -1256,21 +1258,30 @@ pub async fn process_binance_us_dist_files(
                     "Asset",
                     "Quantity",
                     "Txs count",
-                    "USD value",
-                    time_ms_to_utc(convert_time),
+                    if usd_value_needed { "USD value" } else { "" },
+                    if usd_value_needed {
+                        time_ms_to_utc(convert_time).to_string()
+                    } else {
+                        "".to_owned()
+                    },
                 );
 
                 #[allow(clippy::for_kv_map)]
                 for (_, ar) in &mut asset_rec_map.bt {
-                    let value_usd_string = if let Ok(usd) =
-                        convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
-                    {
-                        ar.value_usd = usd;
-                        dec_to_usd_string(ar.value_usd)
+                    let value_usd_string = if usd_value_needed {
+                        if let Ok(usd) =
+                            convert(config, convert_time, &ar.asset, ar.quantity, "USD").await
+                        {
+                            ar.value_usd = usd;
+                            dec_to_usd_string(ar.value_usd)
+                        } else {
+                            ar.value_usd = dec!(0);
+                            "?".to_owned()
+                        }
                     } else {
-                        ar.value_usd = dec!(0);
-                        "?".to_owned()
+                        "".to_owned()
                     };
+
                     total_quantity += ar.quantity;
                     total_value_usd += ar.value_usd;
 
