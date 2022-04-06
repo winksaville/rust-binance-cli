@@ -133,7 +133,7 @@ impl AssetRec {
                 }
             }
             // Do the last entry
-            if (consolidated_quantity > dec!(0)) {
+            if (consolidated_quantity != dec!(0)) {
                 // Push consolidated record
                 let cttr = self.consolidate(&cur_ttr, &first_dt, consolidated_quantity);
                 trace!("End Period       Q {consolidated_quantity} push {cttr}");
@@ -518,14 +518,21 @@ pub async fn process_token_tax_files(
 
         println!();
         println!(
-            "Total quantity: {} account value: {}",
+            "Total quantity: {}",
             dec_to_separated_string(total_quantity, 8),
-            dec_to_usd_string(total_value_usd)
         );
+        if usd_value_needed {
+            println!(" account value: {}", dec_to_usd_string(total_value_usd));
+        }
+        println!();
 
         println!(
-            "total txs count: {}",
+            "Total txs count: {}",
             dec_to_separated_string(Decimal::from(data.total_count), 0)
+        );
+        println!(
+            "Total asset count: {}",
+            dec_to_separated_string(Decimal::from(asset_rec_map.bt.len()), 0)
         );
     }
 
@@ -770,7 +777,6 @@ mod test {
     #[test]
     fn test_deserialize_from_csv() {
         let csv = "
-
 Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
 Deposit,5125,USD,,,,,binance.us,,,1970-01-01 00:00:00 
 Trade,1,ETH,3123.00,USD,0.00124,BNB,binance.us,,,1970-01-01 00:00:00 
@@ -939,5 +945,34 @@ Gift,,,100,USD,,,,,\"Gift to friend\",1970-01-01 00:00:00
                 Err(e) => panic!("Error: {e}"),
             }
         }
+    }
+
+    #[test]
+    fn test_consolidate_income() {
+        // Very tricky corner case only one record and with a negative value.
+        let csv = r#"
+Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
+Income,-6.890204,NANO,,,,,binance.us,,"v4,0,341330,,960697047,Distribution,Others",2022-02-20T07:57:16.000+00:00
+"#;
+
+        let rdr = csv.as_bytes();
+        let mut reader = csv::Reader::from_reader(rdr);
+
+        let mut ar = AssetRec::new("NANO");
+        for result in reader.deserialize() {
+            match result {
+                Ok(entry) => {
+                    ar.ttr_vec.push(entry);
+                }
+                Err(e) => panic!("Error: {e}")
+            }
+        }
+
+        let config: Configuration = toml::from_str("").unwrap();
+        ar.consolidate_income(&config).unwrap();
+        assert_eq!(ar.consolidated_ttr_vec.len(), 1);
+        let crec = &ar.consolidated_ttr_vec[0];
+        assert_eq!(crec.buy_currency, "NANO");
+        assert_eq!(crec.buy_amount, Some(dec!(-6.890204)));
     }
 }

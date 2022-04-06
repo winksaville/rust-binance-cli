@@ -1296,10 +1296,13 @@ pub async fn process_binance_us_dist_files(
 
                 println!();
                 println!(
-                    "Total quantity: {} account value: {}",
-                    dec_to_separated_string(total_quantity, 8),
-                    dec_to_usd_string(total_value_usd)
+                    "Total quantity: {}",
+                    dec_to_separated_string(total_quantity, 8)
                 );
+                if usd_value_needed {
+                    println!(" account value: {}", dec_to_usd_string(total_value_usd));
+                }
+                println!();
 
                 println!(
                     "Total txs count: {}",

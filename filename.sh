@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# converts first parameter, $1 to:
-# n: original parameter
-# dn: diretory of "." if none
-# fn: filename with extension
-# bn: filename without exentsion
-# ext: extension of filename or empty if none
+# Exports the following from parsing $1:
+#   on: original name
+#   dn: directory of "." if none
+#   fn: filename with extension
+#   bn: filename without exentsion
+#   ext: extension of filename or empty if none
 
-n=$1
+export on dn fn bn ext
+
+on="$1"
 
 # if $n has not path "." is returned
-dn="$(dirname "$n")"
+dn="$(dirname "$on")"
 
 # Get the "filename" including the extenstion
-fn="$(basename "$n")"
+fn="$(basename "$on")"
 
 # Get the extentsion and basename (filename without extension)
 ext="${fn##*.}"
@@ -22,7 +24,7 @@ if [[ "$ext" == "$fn" ]]; then
   bn="$fn"
 else
   # There is an extention, extract the basename without extension
-  bn="$(basename "$n" ".$ext")"
+  bn="$(basename "$on" ".$ext")"
 fi
 
 # Make a fullname with new extension
@@ -30,7 +32,7 @@ function mkfullname () {
     echo "$1/$2.$3"
 }
 
-# echo n: $n
+# echo on: $on
 # echo dn: $dn
 # echo bn: $bn
 # echo ext: $ext

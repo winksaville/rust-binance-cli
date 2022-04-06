@@ -1347,7 +1347,7 @@ pub async fn process_binance_com_trade_history_files(
         assert_eq!(bc_data.total_count as usize, total_transaction_count);
         println!();
         println!(
-            "Total quantity: {} ",
+            "Total quantity: {}",
             dec_to_separated_string(total_quantity, 8)
         );
         println!(
