@@ -964,7 +964,7 @@ Income,-6.890204,NANO,,,,,binance.us,,"v4,0,341330,,960697047,Distribution,Other
                 Ok(entry) => {
                     ar.ttr_vec.push(entry);
                 }
-                Err(e) => panic!("Error: {e}")
+                Err(e) => panic!("Error: {e}"),
             }
         }
 
