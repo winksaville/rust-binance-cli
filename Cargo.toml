@@ -1,6 +1,6 @@
 [package]
 name = "binance-cli"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Wink Saville <wink@saville.com>"]
 edition = "2021"
 build = "build.rs"
