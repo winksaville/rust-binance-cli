@@ -7,10 +7,18 @@
 > **Note: In no case can the authors of this program be held responsible
 > for any damanges or monetary losses.**
 
-## TODO
+## Table of Contents
 
- - More tests
- - Use csv-async to support tokio::io
+- [Introduction](#introduction)
+- [Prerequistites](#prerequistites)
+- [Build and run](#build-and-run)
+- [Debug](#debug)
+- [Test](#test)
+- [Introduction](#introduction)
+- [Code coverage](#code-coverage)
+- [Before committing](#before-committing)
+- [Other things](#other-things)
+- [License](#license)
 
 ## Introduction
 
@@ -42,35 +50,70 @@ Finally, use the `help` subcommand or `--help` or `-h` flags as a
 source of information while using the program.
 
 ```
-wink@3900x:~/prgs/rust/myrepos/binance-cli (Add-binance-distribution-processing)
+wink@3900x:~/prgs/rust/myrepos/binance-cli (main)
 $ cargo run help
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
      Running `target/debug/binance-cli help`
-binance-cli 0.3.2-f94a15e
+binance-cli 0.6.2-2df56c3
 Binance cli app
 
 USAGE:
-    binance-cli [FLAGS] [OPTIONS] [SUBCOMMAND]
-
-FLAGS:
-        --confirmation-required       Enable comfirmation being required
-    -h, --help                        Prints help information
-        --no-confirmation-required    Disable comfirmation being required
-        --no-test                     Disable test mode
-        --no-verbose                  Disable verbose mode
-    -t, --test                        Enable test mode
-    -V, --version                     Prints version information
-        --verbose                     Enable verbose mode
+    binance-cli [OPTIONS] [SUBCOMMAND]
 
 OPTIONS:
-        --api-key <API-KEY>              Define the api key [env: BINANCE_API_KEY=]
-    -c, --config <FILE>                  Sets a custom config file [env: BINANCE_CONFIG=]  [default:
-                                         configs/config.toml]
-        --default-quote-asset <ASSET>    The name of the asset that is used to buy or sell another asset
-        --domain <BINANCE_DOMAIN>        Domain such as binance.us or binance.com
-        --order-log-path <PATH>          Define order log path
-        --scheme <BINANCE_SCHEME>        Scheme such as https
-        --secret-key <SECRET-KEY>        Define the secret key [env: BINANCE_SECRET_KEY=]
+        --api-key <API-KEY>
+            Define the api key [env: BINANCE_API_KEY=]
+
+    -c, --config <FILE>
+            Sets a custom config file [env: BINANCE_CONFIG=] [default: configs/config.toml]
+
+        --confirmation-required
+            Enable comfirmation being required
+
+        --default-quote-asset <ASSET>
+            The name of the asset that is used to buy or sell another asset
+
+        --domain <BINANCE_DOMAIN>
+            Domain such as binance.us or binance.com
+
+    -h, --help
+            Print help information
+
+        --no-confirmation-required
+            Disable comfirmation being required
+
+        --no-progress-info
+            Disable progress info
+
+        --no-test
+            Disable test mode
+
+        --no-verbose
+            Disable verbose mode
+
+        --order-log-path <PATH>
+            Define order log path
+
+        --progress-info
+            Enable progress info
+
+        --scheme <BINANCE_SCHEME>
+            Scheme such as https
+
+        --secret-key <SECRET-KEY>
+            Define the secret key [env: BINANCE_SECRET_KEY=]
+
+    -t, --test
+            Enable test mode
+
+        --throttle-rate-ms <IN_MILLISECS>
+            Throttle some requests, such as converting. [default: 500]
+
+    -V, --version
+            Print version information
+
+        --verbose
+            Enable verbose mode
 
 SUBCOMMANDS:
     ai                   Display the account info
@@ -81,21 +124,33 @@ SUBCOMMANDS:
     sell-market          Sell a number of assets
     sell-market-value    Sell asset using quote asset value
     withdraw             Withdraw an asset, either quantity, dollars or precent.
-                         Examples:
-                           withdraw ETH '$1000' 1543abcd --keep-min \$200
-                           withdraw ETH 100% 1543abcd --keep-min '$200'
-                           withdraw ETH 100 1543abcd
-                          NOTE: Dollar values must be written
-                          in single quotes '$123' or with a backslash \$1234
+                             Examples:
+                               withdraw ETH '$1000' 1543abcd --keep-min \$200
+                               withdraw ETH 100% 1543abcd --keep-min '$200'
+                               withdraw ETH 100 1543abcd
+                              NOTE: Dollar values must be written
+                              in single quotes '$123' or with a backslash \$1234
     dh                   Display deposit history
     fcdh                 Display fiat currency deposit history
     fcwh                 Display fiat currency withdraw history
     wh                   Display withdrawal history
     mt                   Display my trades for a symbol
     ao                   Dispaly all orders
+    cbcthf               consolidate binance.com trade history files
+    cbudf                consolidate binance.us distribution files
+    cttf                 consolidate Token Tax files
+    obid                 Order by id
     ol                   Display order log
-    pdf                  process distribution files
+    pbcthf               process binance.com trade history files
+    pbudf                process binance.us distribution files
     pol                  process order log
+    ptbf                 process Tax Bit file
+    pttf                 process Token Tax files
+    tbffttf              TaxBit file from Token Tax file
+    ttffbcthf            Token Tax file from binance.com trade history files
+    ttffbudf             Token Tax file from binance.us distribution files
+    ubudf                update binance.us distribution files
+    ucttf                uniq currency transactions in Token Tax files
     ei                   Display the exchange info
     oo                   Display a symbols open orders
     sap                  Display a symbols 5 minute average price
@@ -103,8 +158,8 @@ SUBCOMMANDS:
     skr                  Display a symbols current kline record
     skrs                 Display a symbols kline records
     version              Display version
-    do-nothing           Do nothing used for testing
-    help                 Prints this message or the help of the given subcommand(s)
+    check-params         Used for testing
+    help                 Print this message or the help of the given subcommand(s)
 ```
 
 ## Prerequisites
@@ -154,9 +209,9 @@ SUBCOMMANDS:
     <editor> configs/config.toml
     ```
 
-## Building and run
+## Build and run
 
-Building
+Build
 ```
 wink@3900x:~/prgs/rust/projects/binance-cli (main)
 $ cargo clean ; cargo build
@@ -465,6 +520,21 @@ clippy
     Checking rusty-money v0.4.1
     Finished dev [unoptimized + debuginfo] target(s) in 18.03s
 ```
+
+## Other things
+
+In the root of the project are other scrpts that combine a series of command
+to produce "processed" results. Currently there are two, `b.com.cttf.sh` and
+`b.us.cttf.sh`. These two scripts take a single file as input, in this case
+a "raw" binance.com trade history and binance.us distrubution history
+respectively. And they produce a "consolidated TokenTax CSV file".
+
+This is provided as an example, but allowed a set of 7M+ transactions to be
+consolidated to 13K transactions.
+
+Doing this type of thing produced
+[Provide a way to validate transformations, Issue #11](https://github.com/winksaville/rust-binance-cli/issues/11)
+which I'll hopefull solve at some point in the future.
 
 ## License
 
