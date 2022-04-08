@@ -14,10 +14,16 @@ body = """
 {% else %}\
     ## [unreleased]
 {% endif %}\
+{% if previous %}\
+    {% if previous.commit_id %}
+        [{{ previous.commit_id | truncate(length=7, end="") }}]({{ previous.commit_id }})...\
+            [{{ commit_id | truncate(length=7, end="") }}]({{ commit_id }})
+    {% endif %}\
+{% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | upper_first }}
     {% for commit in commits %}
-        - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}\
+        - {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}]({{ commit.id }}))\
     {% endfor %}
 {% endfor %}\n
 """
@@ -43,7 +49,7 @@ commit_parsers = [
     { message = "^style", group = "Styling"},
     { message = "^test", group = "Testing"},
     { message = "^chore\\(release\\): prepare for", skip = true},
-    { message = ".*", group = "--", default_scope = "other" },
+    { message = ".*", group = "Other", default_scope = "other" },
     { message = "^chore", group = "Miscellaneous Tasks"},
     { body = ".*security", group = "Security"},
 ]
@@ -57,6 +63,6 @@ skip_tags = "v0.1.0-beta.1"
 # regex for ignoring tags
 ignore_tags = ""
 # sort the tags chronologically
-date_order = false
+date_order = true
 # sort the commits inside sections by oldest/newest order
-sort_commits = "oldest"
+sort_commits = "newest"
