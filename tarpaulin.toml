@@ -1,4 +1,4 @@
 [test_config]
-follow_exec = true
+follow-exec = true
 ignore-tests = true
 verbose = false
