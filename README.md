@@ -180,10 +180,10 @@ SUBCOMMANDS:
     > configuration.
     (Add more specific docs here)
 
-1.  Install a version of Tarpaulin >= `0.18.0-alpha1` as I'm using the --follow-exec option,
+1.  Install a version of Tarpaulin >= `0.20.0` as I'm using the --follow-exec option,
     currently I'm installing it with with:
     ```
-    cargo install --git https://github.com/xd009642/tarpaulin.git --branch develop cargo-tarpaulin
+    cargo install cargo-tarpaulin
     ```
 
     You should verify `follow-exec` is in the help:
