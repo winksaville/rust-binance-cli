@@ -152,7 +152,7 @@ pub struct WithdrawParams {
     pub quantity: Decimal,
     #[serde(default)]
     pub quantity_usd: Decimal,
-    pub address: String,
+    pub address: Option<String>,
     pub secondary_address: Option<String>,
     pub label: Option<String>,
     #[serde(default)]
@@ -167,7 +167,7 @@ impl Default for WithdrawParams {
             org_quantity: dec!(0),
             quantity: dec!(0),
             quantity_usd: dec!(0),
-            address: "".to_string(),
+            address: None,
             secondary_address: None,
             label: None,
             keep_min_amount: None,
@@ -191,11 +191,7 @@ impl WithdrawParams {
         };
         let amount = Amount::new(amt_val)?;
 
-        let address = if let Some(a) = sc_matches.value_of("ADDRESS") {
-            a.to_string()
-        } else {
-            return Err("ADDRESS is missing".into());
-        };
+        let withdraw_addr = sc_matches.value_of("withdraw-addr").map(|s| s.to_string());
 
         let keep_min = sc_matches.value_of("keep-min").map(|s| s.to_string());
         let keep_min_amount = match keep_min {
@@ -212,7 +208,7 @@ impl WithdrawParams {
             org_quantity: dec!(0),
             quantity: dec!(0),
             quantity_usd: dec!(0),
-            address,
+            address: withdraw_addr,
             secondary_address,
             label,
             keep_min_amount,
@@ -351,6 +347,21 @@ pub async fn withdraw(
         .await?;
     trace!("org_quantity: {}", org_quantity);
 
+    let config_withdraw_addr = config.withdraw_addr.clone();
+    let params_address = params.address.clone();
+    let withdraw_addr = match params_address {
+        Some(addr) => addr,
+        None => {
+            if let Some(addr) = config_withdraw_addr {
+                addr
+            } else {
+                return Err(ier_new!(2, "No withdraw address given, expecting --withdraw-addr option or withdraw_addr in configuration toml file.").into());
+            }
+        }
+    };
+    // Guranatee that withdraw_addr is not empty
+    assert!(!withdraw_addr.is_empty());
+
     let keep_quantity = match &params.keep_min_amount {
         Some(amount) => Some(amount.to_quantity(config, &ai, &params.sym_name).await?),
         None => None,
@@ -388,6 +399,7 @@ pub async fn withdraw(
 
     let mut params_x = params.clone();
     params_x.org_quantity = org_quantity;
+    params_x.address = Some(withdraw_addr.clone());
     params_x.quantity = quantity;
     params_x.quantity_usd = quantity * get_avg_price(config, &full_name).await?.price;
     let params = params_x;
@@ -397,7 +409,7 @@ pub async fn withdraw(
 
     let mut param_tuples = vec![
         ("asset", params.sym_name.as_str()),
-        ("address", params.address.as_str()),
+        ("address", withdraw_addr.as_str()),
         ("amount", quantity_string.as_str()),
     ];
     let sa_string: String;

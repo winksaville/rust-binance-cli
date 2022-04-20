@@ -277,9 +277,13 @@ impl fmt::Display for WithdrawResponseRec {
             } else {
                 "".to_string()
             },
-            self.params.address,
+            if let Some(a) = &self.params.address {
+                a.to_string()
+            } else {
+                "".to_string()
+            },
             if let Some(sa) = &self.params.secondary_address {
-                format!(":{}", sa)
+                sa.to_string()
             } else {
                 "".to_string()
             },

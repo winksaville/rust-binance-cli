@@ -228,7 +228,8 @@ pub struct Configuration {
     #[serde(default = "default_domain")]
     pub domain: String,
 
-    pub xyz: Option<String>,
+    #[serde(default)]
+    pub withdraw_addr: Option<String>,
 }
 
 fn default_quote_asset() -> String {
@@ -285,7 +286,7 @@ impl Default for Configuration {
             domain: default_domain(),
             keep: None,
             buy: None,
-            xyz: None,
+            withdraw_addr: None,
         }
     }
 }
@@ -402,6 +403,10 @@ impl Configuration {
         if let Some(value) = matches.value_of("domain") {
             self.domain = value.to_string();
         }
+
+        if let Some(value) = matches.value_of("withdraw-addr") {
+            self.withdraw_addr = Some(value.to_string());
+        }
     }
 }
 
@@ -429,6 +434,7 @@ mod test {
         assert_eq!(config.confirmation_required, true);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
+        assert!(config.withdraw_addr.is_none());
     }
 
     #[test]
@@ -446,6 +452,7 @@ mod test {
         assert_eq!(config.confirmation_required, true);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
+        assert!(config.withdraw_addr.is_none());
     }
 
     const TOML_DATA: &str = r#"
@@ -471,6 +478,8 @@ mod test {
         assert_eq!(config.test, true); // The default
         assert_eq!(config.verbose, true); // The default
         assert_eq!(config.confirmation_required, true); // The default
+        assert!(config.keep.is_none());
+        assert!(config.withdraw_addr.is_none());
         let brs = &config.buy.unwrap();
         assert_eq!(
             brs.get("ABC").unwrap(),
@@ -526,6 +535,8 @@ mod test {
         assert_eq!(config.test, true);
         assert_eq!(config.verbose, true);
         assert_eq!(config.confirmation_required, false);
+        assert!(config.buy.is_none());
+        assert!(config.withdraw_addr.is_none());
         let krs = &config.keep.unwrap();
         assert_eq!(
             krs.get("USD").unwrap(),
@@ -579,5 +590,29 @@ mod test {
                 quote_asset: "BNB".to_string()
             }
         );
+    }
+
+    const TOML_DATA_WITHDRAW: &str = r#"
+        API_KEY = "api key"
+        SECRET_KEY = "secret key"
+        withdraw_addr = "a withdraw addr"
+    "#;
+
+    #[test]
+    fn test_config_withdraw() {
+        let config: Configuration = toml::from_str(TOML_DATA_WITHDRAW).unwrap();
+        println!("{:#?}", config);
+        assert_eq!(config.keys.api_key, Some("api key".to_string()));
+        assert_eq!(config.keys.secret_key, Some("secret key".to_string()));
+        assert!(config.order_log_path.is_none()); // The default
+        assert_eq!(config.default_quote_asset, "USD"); // The default
+        assert_eq!(config.scheme, "https"); // The default
+        assert_eq!(config.domain, "binance.us"); // The default
+        assert_eq!(config.test, true); // The default
+        assert_eq!(config.verbose, true); // The default
+        assert_eq!(config.confirmation_required, true); // The default
+        assert!(config.buy.is_none());
+        assert!(config.keep.is_none());
+        assert_eq!(config.withdraw_addr, Some("a withdraw addr".to_owned()));
     }
 }

@@ -132,6 +132,12 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .global(false)
         .long("no-usd-value-needed")
         .help("No USD value needed");
+    let withdraw_addr_arg = Arg::new("withdraw-addr")
+        .global(true)
+        .long("withdraw-addr")
+        .value_name("ADDR")
+        .help("Default destination address for the withdraw command")
+        .takes_value(true);
 
     let matches = Command::new(APP_NAME.as_str())
         .version(APP_VERSION.as_str())
@@ -152,6 +158,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .arg(no_confirmation_required_arg.clone())
         .arg(scheme_arg.clone())
         .arg(domain_arg.clone())
+        .arg(withdraw_addr_arg.clone())
         .subcommand(
             Command::new("ai")
                 .display_order(1)
@@ -246,7 +253,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
         .subcommand(
             Command::new("withdraw")
                 .display_order(5)
-                .about("Withdraw an asset, either quantity, dollars or precent.\nExamples:\n  withdraw ETH '$1000' 1543abcd --keep-min \\$200\n  withdraw ETH 100% 1543abcd --keep-min '$200'\n  withdraw ETH 100 1543abcd\n NOTE: Dollar values must be written\n in single quotes '$123' or with a backslash \\$1234")
+                .about("Withdraw an asset, either quantity, dollars or precent.\nExamples:\n  withdraw ETH '$1000' --withdraw-addr 1543abcd --keep-min \\$200\n  withdraw ETH 100% --withdraw-addr 1543abcd --keep-min '$200'\n  withdraw ETH 100 --withdraw-addr 1543abcd\nNOTE 1: withdraw-addr maybe placed in config.toml as withdraw_addr = \"1543abcd\"\nNOTE 2: Dollar values must be written\n in single quotes '$123' or with a backslash \\$1234")
                 .arg(
                     Arg::new("SYMBOL")
                         .help("Name of asset")
@@ -259,12 +266,7 @@ pub fn arg_matches() -> Result<ArgMatches, Box<dyn Error>> {
                         .required(true)
                         .index(2),
                 )
-                .arg(
-                    Arg::new("ADDRESS")
-                        .help("The destination address")
-                        .required(true)
-                        .index(3),
-                )
+                .arg(withdraw_addr_arg)
                 .arg(
                     Arg::new("keep-min")
                         .global(false)
