@@ -543,6 +543,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore] // Take a long time
     async fn test_convert_shib_to_value_assets() {
         for asset in VALUE_ASSETS.iter() {
             convert_test("SHIB", dec!(10), asset).await;
@@ -551,6 +552,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore] // Take a long time
     async fn test_convert_direct() {
         convert_test("BAT", dec!(1), "USD").await;
         convert_test("BAT", dec!(10), "USD").await;
