@@ -112,7 +112,7 @@ macro_rules! ie_msg {
     };
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, IntoStaticStr)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, IntoStaticStr)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum OrderType {
@@ -125,7 +125,7 @@ pub enum OrderType {
     LIMIT_MAKER,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, IntoStaticStr)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, IntoStaticStr)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Side {
@@ -319,7 +319,7 @@ pub fn are_you_sure_stdout_stdin() -> bool {
 }
 
 pub fn verify_input_files_exist(in_file_paths: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-    for f in &*in_file_paths {
+    for f in in_file_paths {
         if !Path::new(*f).exists() {
             return Err(format!("{} does not exist", *f).into());
         }

@@ -54,7 +54,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
 pub struct KeepRec {
     pub name: String,
 
@@ -111,7 +111,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Eq, PartialEq)]
 pub struct BuyRec {
     pub name: String,
 
@@ -121,7 +121,7 @@ pub struct BuyRec {
     pub quote_asset: String,
 }
 
-#[derive(Clone, Default, Deserialize, PartialEq)]
+#[derive(Clone, Default, Deserialize, Eq, PartialEq)]
 pub struct Keys {
     #[serde(rename = "SECRET_KEY")]
     pub secret_key: Option<String>,

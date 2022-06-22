@@ -26,6 +26,7 @@ pub async fn get_avg_price<'e>(
     let response_body = response.text().await?;
 
     // Log the response
+    #[allow(clippy::let_and_return)]
     let result = if response_status == 200 {
         let avg_price: AvgPrice = serde_json::from_str(&response_body)?;
         trace!("get_avg_price: avg_price={:?}", avg_price);

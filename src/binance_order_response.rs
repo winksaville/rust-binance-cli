@@ -19,7 +19,7 @@ use crate::{
 
 use crate::common::OrderType;
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeaderRec {
     pub app_version: Version,

@@ -59,7 +59,7 @@ impl Default for KlineRec {
 }
 
 #[allow(unused)]
-#[derive(PartialEq, IntoStaticStr)]
+#[derive(Eq, PartialEq, IntoStaticStr)]
 pub enum KlineInterval {
     Mins1,
     Mins3,
@@ -215,6 +215,7 @@ pub async fn get_klines(
     let response_body = response.text().await?;
 
     // Log the response
+    #[allow(clippy::let_and_return)]
     let result = if response_status == 200 {
         // Convert the array of array of klinerec to serde_json::Value
         let values: Value = serde_json::from_str(&response_body)?;

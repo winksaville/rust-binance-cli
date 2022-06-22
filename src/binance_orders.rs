@@ -103,6 +103,7 @@ async fn orders_get_req_and_response(
     let response_body = response.text().await?;
 
     // Log the response
+    #[allow(clippy::let_and_return)]
     let result = if response_status == 200 {
         trace!("response_body={}", response_body);
         let orders: Vec<OrderRec> = serde_json::from_str(&response_body)?;

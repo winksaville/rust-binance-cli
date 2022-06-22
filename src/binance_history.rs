@@ -176,6 +176,7 @@ async fn history_get_req_and_response(
     let response_body = response.text().await?;
 
     // Process the response
+    #[allow(clippy::let_and_return)]
     let result = if response_status == 200 {
         trace!(
             "history_get_req_and_response: response_body={}",

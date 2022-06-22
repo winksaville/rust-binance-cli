@@ -793,7 +793,7 @@ fn dbg_x(
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 enum TradeType {
     Buy,
     Sell,
@@ -1129,13 +1129,13 @@ fn process_entry(
     Ok(())
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum ProcessType {
     Update,
     Process,
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum ProcessDistSubCommand {
     Udf,
     Pdf,

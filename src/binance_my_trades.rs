@@ -91,6 +91,7 @@ async fn trades_get_req_and_response(
     let response_body = response.text().await?;
 
     // Process the response
+    #[allow(clippy::let_and_return)]
     let result = if response_status == 200 {
         trace!("response_body={}", response_body);
         let trade_rec: Vec<TradeRec> = serde_json::from_str(&response_body)?;

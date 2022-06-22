@@ -128,6 +128,7 @@ pub async fn convert(
         }
         let result = match get_kline(config, &cvrt_asset_name, time_ms).await {
             Ok(kr) => {
+                #[allow(clippy::let_and_return)]
                 let direct_result = if invert_result {
                     let tmp = quantity / kr.close;
                     trace!(
@@ -155,6 +156,7 @@ pub async fn convert(
                 if config.throttle_rate_ms > 0 {
                     sleep(Duration::from_millis(config.throttle_rate_ms));
                 }
+                #[allow(clippy::let_and_return)]
                 let indirect_result = if let Some((sym_name, kr)) =
                     get_kline_of_primary_asset_for_value_asset(config, time_ms, lhs, &VALUE_ASSETS)
                         .await
@@ -164,6 +166,7 @@ pub async fn convert(
                     if config.throttle_rate_ms > 0 {
                         sleep(Duration::from_millis(config.throttle_rate_ms));
                     }
+                    #[allow(clippy::let_and_return)]
                     let indirect_result = if let Some((sym_name, kr)) =
                         get_kline_of_primary_asset_for_value_asset(
                             config,
@@ -176,11 +179,13 @@ pub async fn convert(
                         let one_rhs_value_in_usd = kr.close;
                         trace!("{sym_name}: one_rhs_value_in_usd: {one_rhs_value_in_usd}");
                         let ir = if invert_result {
+                            #[allow(clippy::let_and_return)]
                             let tmp = quantity * (one_rhs_value_in_usd / one_lhs_value_in_usd);
                             trace!("{asset}{other_asset}: INVERTED indirect_result: {} = quantity: {} * (one_rhs_value_in_usd: {} / one_lhs_value_in_usd: {}))",
                                 tmp, quantity, one_rhs_value_in_usd, one_lhs_value_in_usd);
                             tmp
                         } else {
+                            #[allow(clippy::let_and_return)]
                             let tmp = quantity * (one_lhs_value_in_usd / one_rhs_value_in_usd);
                             trace!("{asset}{other_asset}: indirect_result: {} = quantity: {} * (one_lhs_value_in_usd: {} / one_rhs_value_in_usd: {})",
                                 tmp, quantity, one_lhs_value_in_usd, one_rhs_value_in_usd);
@@ -319,6 +324,7 @@ pub async fn binance_new_order_or_test(
     trace!("response_body={:#?}", response_body);
 
     // Log the response
+    #[allow(clippy::let_and_return)]
     let result = if response_status == 200 {
         let order_resp = match serde_json::from_str::<FullTradeResponseRec>(&response_body) {
             Ok(mut full) => {
