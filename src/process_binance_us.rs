@@ -307,6 +307,7 @@ impl AssetRec {
                     if dr.category == "Distribution" {
                         match dr.operation.as_str() {
                             "Referral Commission" => state = State::UpdatingDistributionReferral,
+                            "Referral Rewards" => state = State::UpdatingDistributionReferral,
                             "Staking Rewards" => state = State::UpdatingDistributionStaking,
                             "Others" => state = State::UpdatingDistributionOthers,
                             _ => panic!("Unknown operation: {}", &dr.operation),
@@ -321,7 +322,10 @@ impl AssetRec {
                     }
                 }
                 State::UpdatingDistributionReferral => {
-                    if (dr.category == "Distribution") && (dr.operation == "Referral Commission") {
+                    if (dr.category == "Distribution")
+                        && ((dr.operation == "Referral Commission")
+                            || (dr.operation == "Referral Rewards"))
+                    {
                         if (dr.time < time_of_next_consolidation_window) {
                             self.consolidated_dist_rec_vec
                                 .last_mut()
@@ -448,6 +452,11 @@ impl AssetRecMap {
     fn add_quantity(&mut self, asset: &str, val: Decimal) {
         let entry = self.bt.get_mut(asset).unwrap();
         entry.quantity += val;
+        //if let Some(e) = self.bt.get_mut(asset) {
+        //    e.quantity += val;
+        //} else {
+        //    println!("No such asset: {asset}");
+        //}
     }
 
     fn sub_quantity(&mut self, asset: &str, val: Decimal) {
@@ -934,7 +943,7 @@ fn process_entry(
             }
 
             match dr.operation.as_ref() {
-                "Referral Commission" => {
+                "Referral Rewards" | "Referral Commission" => {
                     data.distribution_operation_referral_commission_count += 1;
                     data.distribution_operation_referral_commission_value_usd += value_usd;
                 }
@@ -1200,6 +1209,10 @@ pub async fn process_binance_us_dist_files(
                     "Processing {} {asset}                        \r",
                     dr.line_number
                 );
+                //print!(
+                //    "Processing {} {dr:?}                        \n",
+                //    dr.line_number
+                //);
             }
 
             match process_type {
@@ -1925,6 +1938,7 @@ Time
 12345678,2020-08-16T23:54:01.000+00:00,Withdrawal,Crypto Withdrawal,38078398,38078398,ETH,23.99180186,10407.403729,,,,,,,ETH,0.005,2.16895,Wallet,Wallet,
 12345678,2021-03-18T03:49:18.000+00:00,Quick Buy,Buy,cf9257c74ea243da9f3e64847ad0233b,171875688,,,,USD,27.4684,27.4684,BNB,0.1,26.170481,USD,0.14,0.14,Wallet,,
 12345678,2021-03-22T22:33:06.147+00:00,Quick Sell,Sell,87d5c693897c4a0a8a35534782f6c471,179163493,,,,BTC,0.010946,596.876028,USD,590.5686,590.5686,USD,2.97,2.97,Wallet,,
+12345678,2022-04-23T04:34:28.000+00:00,Distribution,Referral Rewards,,1038479673,USD,10.00000000,10.00000000,,,,,,,,,,Wallet,,
 "#;
         let result_ttr_csv = r#"Type,BuyAmount,BuyCurrency,SellAmount,SellCurrency,FeeAmount,FeeCurrency,Exchange,Group,Comment,Date
 Deposit,5125,USD,,,,,binance.us,,"v4,0,2,1,1,Deposit,USD Deposit",2019-08-01T00:00:00.000+00:00
@@ -1936,6 +1950,7 @@ Trade,0.61,BNB,11.90903,USD,0.0004575,BNB,binance.us,,"v4,0,7,26988333,32890969,
 Withdrawal,,,23.99180186,ETH,0.005,ETH,binance.us,,"v4,0,8,38078398,38078398,Withdrawal,Crypto Withdrawal",2020-08-16T23:54:01.000+00:00
 Trade,27.4684,USD,0.1,BNB,0.14,USD,binance.us,,"v4,0,9,cf9257c74ea243da9f3e64847ad0233b,171875688,Quick Buy,Buy",2021-03-18T03:49:18.000+00:00
 Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,"v4,0,10,87d5c693897c4a0a8a35534782f6c471,179163493,Quick Sell,Sell",2021-03-22T22:33:06.147+00:00
+Income,10,USD,,,,,binance.us,,"v4,0,11,,1038479673,Distribution,Referral Rewards",2022-04-23T04:34:28.000+00:00
 "#;
 
         let rdr = csv.as_bytes();
@@ -1951,12 +1966,12 @@ Trade,590.5686,USD,0.010946,BTC,2.97,USD,binance.us,,"v4,0,10,87d5c693897c4a0a8a
                          //dbg!(dr);
 
             let ttr = ttr_from_dist_rec(&dr);
-            //dbg!(&ttr);
+            println!("{idx}: ttr: {ttr:?}");
             wtr.serialize(&ttr).expect("Error serializing");
         }
 
         let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
-        dbg!(&data);
+        println!("{data}");
 
         assert_eq!(data, result_ttr_csv);
     }
