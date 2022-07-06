@@ -449,18 +449,21 @@ impl AssetRecMap {
         entry.transaction_count += 1;
     }
 
-    fn add_quantity(&mut self, asset: &str, val: Decimal) {
-        let entry = self.bt.get_mut(asset).unwrap();
-        entry.quantity += val;
-        //if let Some(e) = self.bt.get_mut(asset) {
-        //    e.quantity += val;
-        //} else {
-        //    println!("No such asset: {asset}");
-        //}
+    fn add_quantity(&mut self, asset: &str, quantity: Decimal) {
+        //let entry = self.bt.get_mut(asset).unwrap();
+        //entry.quantity += val;
+        if let Some(e) = self.bt.get_mut(asset) {
+            e.quantity += quantity;
+        } else {
+            println!(
+                "WARNING while add_quantity an asset '{asset}' was not found, quantity={quantity}"
+            );
+            self.add_or_update(asset, quantity, dec!(0));
+        }
     }
 
-    fn sub_quantity(&mut self, asset: &str, val: Decimal) {
-        self.add_quantity(asset, -val)
+    fn sub_quantity(&mut self, asset: &str, quantity: Decimal) {
+        self.add_quantity(asset, -quantity)
     }
 
     #[allow(unused)]
@@ -1204,15 +1207,12 @@ pub async fn process_binance_us_dist_files(
             dr.line_number = rec_idx + 2;
 
             if config.progress_info {
-                let asset = dr.get_asset_only();
-                print!(
-                    "Processing {} {asset}                        \r",
-                    dr.line_number
-                );
+                //let asset = dr.get_asset_only();
                 //print!(
-                //    "Processing {} {dr:?}                        \n",
+                //    "Processing {} {asset}                        \r",
                 //    dr.line_number
                 //);
+                println!("Processing {} {dr:?}", dr.line_number);
             }
 
             match process_type {
