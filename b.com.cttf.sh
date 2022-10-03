@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+if (( $# != 1 )); then
+  echo "Expect one parameter, the name of the binance.com trade history file."
+  echo "Concatenate multiple files into one file, they do not need to be sorted!"
+  exit 1
+fi
+
 # Parse the filename
 source "$(dirname "$0")/filename.sh" "$1"
 

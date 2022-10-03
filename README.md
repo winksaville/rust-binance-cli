@@ -527,7 +527,9 @@ In the root of the project are other scrpts that combine a series of command
 to produce "processed" results. Currently there are two, `b.com.cttf.sh` and
 `b.us.cttf.sh`. These two scripts take a single file as input, in this case
 a "raw" binance.com trade history and binance.us distrubution history
-respectively. And they produce a "consolidated TokenTax CSV file".
+respectively. These do not need to be sorted and can be just the concatenated
+"raw" files, they will be sorted during the processing. Both of these scripts
+produce a "consolidated TokenTax CSV file".
 
 This is provided as an example, but allowed a set of 7M+ transactions to be
 consolidated to 13K transactions.

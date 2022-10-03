@@ -10,7 +10,7 @@ export on dn fn bn ext
 
 on="$1"
 
-# if $n has not path "." is returned
+# if $n has no path "." is returned
 dn="$(dirname "$on")"
 
 # Get the "filename" including the extenstion
