@@ -40,7 +40,7 @@ pub fn binance_signature(sig_key: &[u8], qs: &[u8], body: &[u8]) -> [u8; 32] {
 }
 
 pub fn append_signature(query: &mut Vec<u8>, signature: [u8; 32]) {
-    let signature_string = hex::encode(&signature);
+    let signature_string = hex::encode(signature);
 
     let signature_params = vec![("signature", signature_string.as_str())];
     query.append(&mut vec![b'&']);

@@ -643,7 +643,7 @@ pub async fn consolidate_token_tax_files(
     if let Some(w) = &mut csv_ttr_writer {
         println!("Writing consolidated data to {}", out_tt_file_path.unwrap());
         for ttr in &data.consolidated_ttr_vec {
-            w.serialize(&ttr)?;
+            w.serialize(ttr)?;
         }
         w.flush()?;
     }

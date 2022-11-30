@@ -116,7 +116,7 @@ pub async fn auto_buy(
     for pr in &process_recs {
         println!(
             "{0:8} {2:14.1$} of {3:10}",
-            "BUYING", pr.precision as usize, pr.buy_value, pr.symbol_name,
+            "BUYING", pr.precision, pr.buy_value, pr.symbol_name,
         );
     }
 
