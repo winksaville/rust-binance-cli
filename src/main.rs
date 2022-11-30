@@ -94,6 +94,7 @@ fn get_sym_qty_or_val(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
+    //custom_logger::env_logger_init("info");
     trace!("main:+ args().len()={}", std::env::args().len());
 
     // If no commands display a simple usage message to terminal

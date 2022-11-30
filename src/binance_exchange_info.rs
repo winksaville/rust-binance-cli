@@ -63,6 +63,21 @@ pub struct MinNotionalRec {
     pub avg_price_mins: u64,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct TrailingDeltaRec {
+    #[serde(rename = "minTrailingAboveDelta")]
+    pub min_trailing_above_delta: Decimal,
+
+    #[serde(rename = "maxTrailingAboveDelta")]
+    pub max_trailing_above_delta: Decimal,
+
+    #[serde(rename = "minTrailingBelowDelta")]
+    pub min_trailing_below_delta: Decimal,
+
+    #[serde(rename = "maxTrailingBelowDelta")]
+    pub max_trailing_below_delta: Decimal,
+}
+
 // Accessing this requires a match and isn't pretty, IMHO.
 // Maybe [enum-as-inner](https://crates.io/crates/enum-as-inner#:~:text=named%20field%20case)
 // Or [enum variants as types](https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/)
@@ -117,6 +132,9 @@ pub enum SymbolFilters {
         #[serde(rename = "maxPosition")]
         max_position: Decimal,
     },
+
+    #[serde(rename = "TRAILING_DELTA")]
+    TrailingDelta(TrailingDeltaRec),
 }
 
 // from: https://github.com/serde-rs/serde/issues/936#ref-issue-557235055
@@ -835,6 +853,13 @@ mod test {
                      {
                          "filterType": "MAX_NUM_ICEBERG_ORDERS",
                          "maxNumIcebergOrders": 5
+                     },
+                     {
+                         "filterType": "TRAILING_DELTA",
+                         "minTrailingAboveDelta": 10,
+                         "maxTrailingAboveDelta": 2000,
+                         "minTrailingBelowDelta": 10,
+                         "maxTrailingBelowDelta": 2000
                      },
                      {
                          "filterType": "MAX_NUM_ORDERS",

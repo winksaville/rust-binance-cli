@@ -1,5 +1,6 @@
 [toolchain]
 channel = "stable"
+#channel = "nightly"
 components = [ "rustfmt", "rustc-dev" ]
 profile = "minimal"
 
