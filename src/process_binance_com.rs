@@ -343,6 +343,7 @@ impl BcAssetRec {
         self.consolidate_account_operation("Spot", "Commission History");
         self.consolidate_account_operation("Spot", "Commission Rebate");
         self.consolidate_account_operation("Spot", "ETH 2.0 Staking Rewards");
+        self.consolidate_account_operation("Spot", "Leverage token redemption");
         self.consolidate_account_operation("USDT-Futures", "Referrer rebates");
 
         //println!("Consolidatation done          len: {}", self.consolidated_tr_vec.len());
@@ -437,9 +438,9 @@ fn ttr_from_commission_rec(bccr: &CommissionRec) -> TokenTaxRec {
 
 // Create a TokenTaxRec from a TradeRec.
 //
-// Returns: Ok(Some(TokenTaxRec)) if conversion was successful
-//          Ok(None) if the TradeRec::account,operation should be ignored
-//          Err if an error typically the account,operation pair were Unknown
+// Returns: Ok(Vec<TokenTaxRec>) none empty vector the conversion was successful
+//          Ok(Vec<TokenTaxRec>) empty vector if this bctr is being ignored
+//          Err if the account,operation pair is unknown or other field wasn't an expected value
 fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::error::Error>> {
     // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
     // 123456789,2021-01-01 00:00:31,Spot,Commission History,DOT,0.00505120,""
@@ -509,7 +510,12 @@ fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::
     //       1 USDT-Futures,transfer_in
     //      69 USDT-Futures,transfer_out
 
-    // TODO: Handle the all of the above "Account,Operations".
+    // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.d3o9p8u21s4h
+    // New operation in b.com-2022-trade-history-almost-full-year.csv
+    //    wink@3900x 23-01-04T21:39:12.570Z:~/prgs/rust/myrepos/binance-cli/data2/b.com/2022
+    //    $ rg 'Leverage' b.com-2022-trade-history-almost-full-year.csv | wc -l
+    //    80
+
     let mut ttr = TokenTaxRec::new();
 
     // For all acount/operations these are the same
@@ -518,7 +524,7 @@ fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::
     ttr.time = bctr.time;
 
     // Most other account/operations are Income so
-    // we'll assume them too.
+    // we'll assume them that.
     ttr.type_txs = TokenTaxRecType::Income;
     ttr.buy_amount = Some(bctr.change);
     ttr.buy_currency = bctr.coin.clone();
@@ -869,9 +875,32 @@ fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::
 
             result_a.push(ttr);
         }
+        ("Spot", "Leverage token redemption") => {
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.c10goqo7i1l8
+            if bctr.change < dec!(0) {
+                // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                // 123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,ADADOWN,-348.86778353,""
+
+                // Ignore non-taxable events
+            } else {
+                // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                // 123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,2.07089940,""
+
+                // Income
+                assert_eq!(ttr.type_txs, TokenTaxRecType::Income);
+                assert_eq!(ttr.buy_amount, Some(bctr.change));
+                assert!(ttr.buy_amount.unwrap() > dec!(0));
+                assert_eq!(ttr.buy_currency, bctr.coin);
+                assert_eq!(ttr.sell_amount, None);
+                assert_eq!(ttr.sell_currency, "");
+                assert_eq!(ttr.fee_amount, None);
+                assert_eq!(ttr.fee_currency, "");
+                result_a.push(ttr);
+            }
+        }
         _ => {
             return Err(format!(
-                "file_idx: {} line_number: {}, bctr acccount: {} operation {} unknown",
+                "file_idx: {} line_number: {}, bctr acccount: {}, operation: {}, unknown",
                 bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
             )
             .into())
