@@ -867,7 +867,7 @@ fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::
                 assert_eq!(ttr.fee_currency, "");
             } else {
                 return Err(format!(
-                    "file_idx: {} line_number: {}, account: {}, operation: {}, change: {} expected to be negative",
+                    "Error ttr_from_trade_rec: file_idx: {} line_number: {}, account: {}, operation: {}, change: {} expected to be negative",
                     bctr.file_idx, bctr.line_number, bctr.account, bctr.operation, bctr.change,
                 )
                 .into());
@@ -900,7 +900,7 @@ fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::
         }
         _ => {
             return Err(format!(
-                "file_idx: {} line_number: {}, bctr acccount: {}, operation: {}, unknown",
+                "Error ttr_from_trade_rec: file_idx: {} line_number: {}, bctr account: {}, operation: {}, unknown",
                 bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
             )
             .into())
@@ -919,14 +919,14 @@ fn ttr_from_buy_sell_fee(
 
     if len_buy != len_sell {
         return Err(format!(
-            "Error: Expected number of 'Spot,Buy': {} == 'Spot,Transaction Related': {}",
+            "Error ttr_from_buy_sell_fee: Expected number of 'Spot,Buy': {} == 'Spot,Transaction Related': {}",
             len_buy, len_sell
         )
         .into());
     }
     if len_fee > len_buy {
         return Err(format!(
-            "Error: Expected number of 'Spot,Fee': {} <= 'Spot,Buy': {}",
+            "Error ttr_from_buy_sell_fee: Expected number of 'Spot,Fee': {} <= 'Spot,Buy': {}",
             len_fee, len_buy
         )
         .into());
@@ -947,7 +947,7 @@ fn ttr_from_buy_sell_fee(
                     Ordering::Equal => ("".to_owned(), None),
                     Ordering::Greater => {
                         return Err(format!(
-                            r#"Error: fee.change is > 0, file_idx: {} line_number: {}, {fee}"#,
+                            r#"Error ttr_from_buy_sell_fee: fee.change is > 0, file_idx: {} line_number: {}, {fee}"#,
                             fee.file_idx, fee.line_number
                         )
                         .into());
@@ -1241,7 +1241,7 @@ fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn st
                 }
                 _ => {
                     return Err(
-                        format!("Unexpected coin {}, in {}", bctr.account, bctr.operation).into(),
+                        format!("Error process_entry: Unexpected coin {}, in {}", bctr.account, bctr.operation).into(),
                     );
                 }
             }
@@ -1253,9 +1253,21 @@ fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn st
         ("Spot", "Withdraw") => {
             assert!(bctr.change < dec!(0));
         }
+        ("Spot", "Leverage token redemption") => {
+            // https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.c10goqo7i1l8
+            if bctr.change < dec!(0) {
+                // User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+                // 123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,ADADOWN,-348.86778353,""
+
+                // Ignore non-taxable events
+            } else {
+                // Income
+                assert!(bctr.change >= dec!(0));
+            }
+        }
         _ => {
             return Err(format!(
-                "file_idx: {} line_number: {} bctr acccount: {} operation {}, unknown",
+                "Error process_entry: file_idx: {} line_number: {}, bctr account: {}, operation: {}, unknown",
                 bctr.file_idx, bctr.line_number, bctr.account, bctr.operation
             )
             .into())
@@ -1443,14 +1455,14 @@ pub async fn consolidate_binance_com_trade_history_files(
     let out_path_file_stem = if let Some(stem) = out_tr_path.file_stem() {
         stem
     } else {
-        return Err(format!("There was no file in: '{out_tr_path:?}").into());
+        return Err(format!("Error: consolicate_binance_com_trade_history_files: There was no file in: '{out_tr_path:?}").into());
     };
 
     let out_path_extension = if let Some(csv_extension) = out_tr_path.extension() {
         let csv_extension = csv_extension.to_string_lossy().to_string();
         if csv_extension != "csv" {
             return Err(
-                format!("Expecting file extension to be 'csv' found '{csv_extension}").into(),
+                format!("Error: consolicate_binance_com_trade_history_files: Expecting file extension to be 'csv' found '{csv_extension}").into(),
             );
         }
 
@@ -1613,7 +1625,7 @@ pub async fn tt_file_from_binance_com_trade_history_files(
         let in_file = if let Ok(in_f) = File::open(f) {
             in_f
         } else {
-            return Err(format!("Unable to open {f}").into());
+            return Err(format!("Error: consolicate_binance_com_trade_history_files: Unable to open {f}").into());
         };
         let reader = BufReader::new(in_file);
 
@@ -2189,10 +2201,16 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
         let mut tr_a = Vec::<TradeRec>::new();
         let rdr = csv_str.as_bytes();
         let mut reader = csv::Reader::from_reader(rdr);
+
+        let mut bc_data = BcData::new();
+
         for (idx, entry) in reader.deserialize().enumerate() {
             let mut bctr: TradeRec = entry.expect("Should Never Happen");
             bctr.file_idx = 0;
             bctr.line_number = idx + 2;
+
+            // This verifies we can the test entries
+            assert!(process_entry(&mut bc_data, &bctr).is_ok());
 
             //println!("{_idx}: entry: {:?}", entry);
             tr_a.push(bctr);
@@ -2211,7 +2229,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
                 Ok(cr) => {
                     cr_a.push(cr);
                 }
-                Err(e) => panic!("Error: {e}"),
+                Err(e) => panic!("Error csv_str_to_commission_rec_array: {e}"),
             }
         }
 
