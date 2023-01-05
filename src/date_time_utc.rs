@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use chrono::{prelude::*, Datelike, Utc};
+use chrono::{prelude::*, Datelike, Duration, Utc};
 
 use time_ms_conversions::time_ms_to_utc;
 
@@ -31,7 +31,13 @@ impl DateTimeUtc {
         sec: u32,
         nano: u32,
     ) -> DateTimeUtc {
-        DateTimeUtc::from_utc(Utc.ymd(year, month, day).and_hms_nano(hour, min, sec, nano))
+        let dt = NaiveDate::from_ymd_opt(year, month, day)
+            .unwrap()
+            .and_hms_nano_opt(hour, min, sec, nano)
+            .unwrap()
+            .and_local_timezone(Utc)
+            .unwrap();
+        Self::from_utc(dt)
     }
 
     pub fn get_dt(&self) -> DateTime<Utc> {
@@ -46,20 +52,20 @@ impl DateTimeUtc {
 
     pub fn beginning_of_this_month(&self) -> DateTimeUtc {
         let (year, month, _, _, _, _, _) = self.parts();
-        DateTimeUtc::from_utc(Utc.ymd(year, month, 1).and_hms_nano(0, 0, 0, 0))
+        Self::from_utc_ymd_hmsn(year, month, 1, 0, 0, 0, 0)
     }
 
     #[allow(unused)]
     pub fn beginning_of_this_day(&self) -> DateTimeUtc {
         let (year, month, day, _, _, _, _) = self.parts();
-        DateTimeUtc::from_utc(Utc.ymd(year, month, day).and_hms_nano(0, 0, 0, 0))
+        Self::from_utc_ymd_hmsn(year, month, day, 0, 0, 0, 0)
     }
 
     pub fn beginning_of_next_month(&self) -> DateTimeUtc {
         let (y, m, _, _, _, _, _) = self.parts();
-        let (y, m) = Self::calculate_next_month(y, m);
+        let (year, month) = Self::calculate_next_month(y, m);
 
-        DateTimeUtc::from_utc_ymd_hmsn(y, m, 1, 0, 0, 0, 0)
+        Self::from_utc_ymd_hmsn(year, month, 1, 0, 0, 0, 0)
     }
 
     #[allow(unused)]
@@ -67,7 +73,7 @@ impl DateTimeUtc {
         let (year, month, day, _, _, _, _) = self.parts();
         let (year, month, day) = Self::calculate_next_day(year, month, day);
 
-        DateTimeUtc::from_utc_ymd_hmsn(year, month, day, 0, 0, 0, 0)
+        Self::from_utc_ymd_hmsn(year, month, day, 0, 0, 0, 0)
     }
 
     #[allow(unused)]
@@ -136,10 +142,14 @@ impl DateTimeUtc {
     }
 
     fn days_in_month_from_year_month(y_today: i32, m_today: u32) -> u32 {
-        let (y_tomorrow, m_tomorrow) = Self::calculate_next_month(y_today, m_today);
-        Utc.ymd(y_tomorrow, m_tomorrow, 1)
-            .signed_duration_since(Utc.ymd(y_today, m_today, 1))
-            .num_days() as u32
+        let (y_next_month, next_month) = Self::calculate_next_month(y_today, m_today);
+        let utc_next_month = Self::from_utc_ymd_hmsn(y_next_month, next_month, 1, 0, 0, 0, 0);
+        let utc_this_month = Self::from_utc_ymd_hmsn(y_today, m_today, 1, 0, 0, 0, 0);
+        utc_next_month.duration(&utc_this_month).num_days() as u32
+    }
+
+    fn duration(&self, rhs: &Self) -> Duration {
+        self.get_dt().signed_duration_since(rhs.get_dt())
     }
 
     fn calculate_next_month(year: i32, month: u32) -> (i32, u32) {
