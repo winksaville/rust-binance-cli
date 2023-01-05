@@ -1849,7 +1849,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             file_idx: 0,
             line_number: 2,
         };
-        //println!("bcr: {bccr:?}");
+        //println!("bccr: {bccr:?}");
 
         let ttr = ttr_from_commission_rec(&bccr);
         //println!("ttr: {ttr:?}");
@@ -1982,7 +1982,7 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
             bctr.line_number = idx + 2;
             let bctr = &bctr; // Make immutable
 
-            //println!("bcr: {:?}", bctr);
+            //println!("bctr: {:?}", bctr);
             let ttr_a = ttr_from_trade_rec(bctr).unwrap();
             let ttr = &ttr_a[0];
             if bctr.coin != "BNB" {
@@ -2001,6 +2001,112 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
                 assert_eq!(Some(bctr.change), ttr.buy_amount);
                 assert_eq!("", ttr.sell_currency);
                 assert_eq!(None, ttr.sell_amount);
+            }
+        }
+    }
+
+    #[test]
+    fn test_tr_leverage_token_redemption() {
+        let csv_str = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,EOSDOWN,-2060.64855690,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,EOSUP,-1.56253870,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,BCHDOWN,-16.99943640,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,USDT,5.43263336,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,BCHUP,-4.81545410,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,USDT,0.12330761,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,USDT,0.15936698,""
+123456789,2022-02-14 05:51:22,Spot,Leverage token redemption,USDT,0.99600659,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,USDT,0.50328212,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,1INCHDOWN,-53.53138350,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,SXPUP,-4.52097980,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,USDT,0.00142041,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,1INCHUP,-0.19005140,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,USDT,0.71107628,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,USDT,0.15854076,""
+123456789,2022-02-16 04:46:22,Spot,Leverage token redemption,SXPDOWN,-14.47074757,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,ADAUP,-0.23339250,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,BNBUP,-0.10752250,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,BTCUP,-2.28084780,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,BNBDOWN,-19.96653936,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,BTCDOWN,-3621.81403021,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,ADADOWN,-348.86778353,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,2.07089940,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,153.07844010,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,0.37245817,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,6.55130535,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,4.22354583,""
+123456789,2022-12-01 11:43:52,Spot,Leverage token redemption,USDT,0.07467382,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,2.92987125,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,DOTDOWN,-0.04630235,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,3.33888679,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,ETHDOWN,-3.05628114,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,0.68944298,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,0.24161848,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,1.87386053,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,LINKUP,-372.32100150,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,ETHUP,-1.08907060,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,0.14157173,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,DOTUP,-2.33060420,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,USDT,3.83980476,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,TRXDOWN,-0.13185128,""
+123456789,2022-12-01 11:43:53,Spot,Leverage token redemption,LINKDOWN,-842.07381956,""
+123456789,2022-12-01 11:43:54,Spot,Leverage token redemption,TRXUP,-5.60043440,""
+123456789,2022-12-01 11:43:54,Spot,Leverage token redemption,USDT,0.22171947,""
+123456789,2022-12-01 11:43:54,Spot,Leverage token redemption,USDT,0.19891976,""
+123456789,2022-12-01 11:43:54,Spot,Leverage token redemption,USDT,0.05174230,""
+123456789,2022-12-01 11:43:54,Spot,Leverage token redemption,XRPUP,-1.91225930,""
+123456789,2022-12-01 11:43:54,Spot,Leverage token redemption,XRPDOWN,-212.50602747,""
+123456789,2022-02-15 04:34:08,Spot,Leverage token redemption,USDT,0.05744346,""
+123456789,2022-02-15 04:34:08,Spot,Leverage token redemption,YFIDOWN,-0.00780523,""
+123456789,2022-02-15 04:34:08,Spot,Leverage token redemption,XLMUP,-3.89461050,""
+123456789,2022-02-15 04:34:08,Spot,Leverage token redemption,USDT,0.01392852,""
+123456789,2022-02-15 04:34:08,Spot,Leverage token redemption,XLMDOWN,-0.00283802,""
+123456789,2022-02-15 04:34:08,Spot,Leverage token redemption,USDT,0.00167362,""
+123456789,2022-02-15 04:34:09,Spot,Leverage token redemption,YFIUP,-2.47973190,""
+123456789,2022-02-15 04:34:09,Spot,Leverage token redemption,USDT,0.07807097,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,USDT,0.09982537,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,UNIDOWN,-0.61892438,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,USDT,1.77062381,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,USDT,0.04515625,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,USDT,1.33655260,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,UNIUP,-0.30661440,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,AAVEDOWN,-321.83032298,""
+123456789,2022-02-17 04:38:41,Spot,Leverage token redemption,AAVEUP,-0.86675950,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,SUSHIUP,-14.95745600,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,USDT,0.01343824,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,SUSHIDOWN,-0.24651630,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,USDT,0.02458478,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,FILDOWN,-3937.00817770,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,USDT,4.54961941,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,FILUP,-0.87157840,""
+123456789,2022-02-18 04:38:25,Spot,Leverage token redemption,USDT,5.89792491,""
+123456789,2022-04-21 04:07:26,Spot,Leverage token redemption,LTCUP,-0.47291270,""
+123456789,2022-04-21 04:07:26,Spot,Leverage token redemption,USDT,0.87041623,""
+123456789,2022-04-21 04:07:26,Spot,Leverage token redemption,LTCDOWN,-0.09753541,""
+123456789,2022-04-21 04:07:26,Spot,Leverage token redemption,USDT,0.09160917,""
+123456789,2022-04-21 04:07:26,Spot,Leverage token redemption,XTZDOWN,-1.32625173,""
+123456789,2022-04-21 04:07:26,Spot,Leverage token redemption,USDT,0.23941651,""
+123456789,2022-04-21 04:07:27,Spot,Leverage token redemption,XTZUP,-9.40422330,""
+123456789,2022-04-21 04:07:27,Spot,Leverage token redemption,USDT,0.02397257,""
+"#;
+
+        let bctr_a = csv_str_to_trade_rec_array(csv_str);
+
+        for (idx, bctr) in bctr_a.iter().enumerate() {
+            let mut bctr = bctr.clone();
+            bctr.file_idx = 0;
+            bctr.line_number = idx + 2;
+            let bctr = &bctr; // Make immutable
+
+            //println!("bctr: {:?}", bctr);
+            let ttr_a = ttr_from_trade_rec(bctr).unwrap();
+            if bctr.coin != "USDT" {
+                assert_eq!(ttr_a.len(), 0);
+            } else {
+                let ttr = &ttr_a[0];
+                assert_eq!(bctr.coin, "USDT");
+                assert_eq!(ttr.buy_currency, bctr.coin);
+                assert_eq!(ttr.buy_amount, Some(bctr.change));
             }
         }
     }
