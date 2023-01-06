@@ -898,6 +898,9 @@ fn ttr_from_trade_rec(bctr: &TradeRec) -> Result<Vec<TokenTaxRec>, Box<dyn std::
                 result_a.push(ttr);
             }
         }
+        ("Spot", "Stablecoins Auto-Conversion") => {
+            // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.nwybc7s567pz
+        }
         _ => {
             return Err(format!(
                 "Error ttr_from_trade_rec: file_idx: {} line_number: {}, bctr account: {}, operation: {}, unknown",
@@ -1262,6 +1265,9 @@ fn process_entry(bc_data: &mut BcData, bctr: &TradeRec) -> Result<(), Box<dyn st
                 // Income
                 assert!(bctr.change >= dec!(0));
             }
+        }
+        ("Spot", "Stablecoins Auto-Conversion") => {
+            // Non-taxable event: https://docs.google.com/document/d/1O1kSLV81cHmFDZVC12OhwRGj8z9tm83LHpcPrETSSYs/edit#bookmark=id.nwybc7s567pz
         }
         _ => {
             return Err(format!(
@@ -2121,6 +2127,31 @@ USDT-futures,42254326,"",USDT,0.00608292,0.00608300,2022-01-01 07:49:33,2021-03-
                 assert_eq!(ttr.buy_currency, bctr.coin);
                 assert_eq!(ttr.buy_amount, Some(bctr.change));
             }
+        }
+    }
+
+    #[test]
+    fn test_tr_auto_conversion() {
+        let csv_str = r#"User_ID,UTC_Time,Account,Operation,Coin,Change,Remark
+123456789,2022-09-29 04:47:06,Spot,Stablecoins Auto-Conversion,USDC,-2183.18779304,""
+123456789,2022-09-29 04:47:06,Spot,Stablecoins Auto-Conversion,BUSD,2183.18779304,""
+123456789,2022-09-29 04:47:07,Spot,Stablecoins Auto-Conversion,USDP,-0.25045314,""
+123456789,2022-09-29 04:47:07,Spot,Stablecoins Auto-Conversion,BUSD,0.25045314,""
+123456789,2022-09-29 04:47:09,Spot,Stablecoins Auto-Conversion,BUSD,36.92905811,""
+123456789,2022-09-29 04:47:09,Spot,Stablecoins Auto-Conversion,TUSD,-36.92905811,""
+"#;
+
+        let bctr_a = csv_str_to_trade_rec_array(csv_str);
+
+        for (idx, bctr) in bctr_a.iter().enumerate() {
+            let mut bctr = bctr.clone();
+            bctr.file_idx = 0;
+            bctr.line_number = idx + 2;
+            let bctr = &bctr; // Make immutable
+
+            //println!("bctr: {:?}", bctr);
+            let ttr_a = ttr_from_trade_rec(bctr).unwrap();
+            assert_eq!(ttr_a.len(), 0);
         }
     }
 
