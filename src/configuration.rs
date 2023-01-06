@@ -304,17 +304,13 @@ impl Configuration {
                         cfg
                     }
                     Err(e) => {
-                        return Err(
-                            ier_new!(9, &format!("Error processing {}: {}", path_str, e)).into(),
-                        )
+                        return Err(ier_new!(9, &format!("Error processing {path_str}: {e}")).into())
                     }
                 },
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::NotFound => Configuration::default(),
                     _ => {
-                        return Err(
-                            ier_new!(9, &format!("Error reading {}: {}", path_str, e)).into()
-                        );
+                        return Err(ier_new!(9, &format!("Error reading {path_str}: {e}")).into());
                     }
                 },
             };
@@ -331,7 +327,7 @@ impl Configuration {
 
     pub fn make_url(&self, subdomain: &str, full_path: &str) -> String {
         let sd = if !subdomain.is_empty() {
-            format!("{}.", subdomain)
+            format!("{subdomain}.")
         } else {
             "".to_string()
         };
@@ -412,12 +408,9 @@ impl Configuration {
 
 #[cfg(test)]
 mod test {
-    use crate::configuration::BuyRec;
-
     use super::*;
-
+    use crate::configuration::BuyRec;
     use rust_decimal_macros::dec;
-    use toml;
 
     #[test]
     fn test_config_empty() {
@@ -429,9 +422,9 @@ mod test {
         assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(config.scheme, "https");
         assert_eq!(config.domain, "binance.us");
-        assert_eq!(config.test, true);
-        assert_eq!(config.verbose, true);
-        assert_eq!(config.confirmation_required, true);
+        assert!(config.test);
+        assert!(config.verbose);
+        assert!(config.confirmation_required);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
         assert!(config.withdraw_addr.is_none());
@@ -447,9 +440,9 @@ mod test {
         assert_eq!(config.default_quote_asset, "USD");
         assert_eq!(config.scheme, "https");
         assert_eq!(config.domain, "binance.us");
-        assert_eq!(config.test, true);
-        assert_eq!(config.verbose, true);
-        assert_eq!(config.confirmation_required, true);
+        assert!(config.test);
+        assert!(config.verbose);
+        assert!(config.confirmation_required);
         assert!(config.keep.is_none());
         assert!(config.buy.is_none());
         assert!(config.withdraw_addr.is_none());
@@ -475,9 +468,9 @@ mod test {
         assert_eq!(config.default_quote_asset, "USD"); // The default
         assert_eq!(config.scheme, "https"); // The default
         assert_eq!(config.domain, "binance.us"); // The default
-        assert_eq!(config.test, true); // The default
-        assert_eq!(config.verbose, true); // The default
-        assert_eq!(config.confirmation_required, true); // The default
+        assert!(config.test); // The default
+        assert!(config.verbose); // The default
+        assert!(config.confirmation_required); // The default
         assert!(config.keep.is_none());
         assert!(config.withdraw_addr.is_none());
         let brs = &config.buy.unwrap();
@@ -532,9 +525,9 @@ mod test {
         assert_eq!(config.default_quote_asset, "BTC");
         assert_eq!(config.scheme, "http");
         assert_eq!(config.domain, "binance.com");
-        assert_eq!(config.test, true);
-        assert_eq!(config.verbose, true);
-        assert_eq!(config.confirmation_required, false);
+        assert!(config.test);
+        assert!(config.verbose);
+        assert!(!config.confirmation_required);
         assert!(config.buy.is_none());
         assert!(config.withdraw_addr.is_none());
         let krs = &config.keep.unwrap();
@@ -601,16 +594,16 @@ mod test {
     #[test]
     fn test_config_withdraw() {
         let config: Configuration = toml::from_str(TOML_DATA_WITHDRAW).unwrap();
-        println!("{:#?}", config);
+        println!("{config:#?}");
         assert_eq!(config.keys.api_key, Some("api key".to_string()));
         assert_eq!(config.keys.secret_key, Some("secret key".to_string()));
         assert!(config.order_log_path.is_none()); // The default
         assert_eq!(config.default_quote_asset, "USD"); // The default
         assert_eq!(config.scheme, "https"); // The default
         assert_eq!(config.domain, "binance.us"); // The default
-        assert_eq!(config.test, true); // The default
-        assert_eq!(config.verbose, true); // The default
-        assert_eq!(config.confirmation_required, true); // The default
+        assert!(config.test); // The default
+        assert!(config.verbose); // The default
+        assert!(config.confirmation_required); // The default
         assert!(config.buy.is_none());
         assert!(config.keep.is_none());
         assert_eq!(config.withdraw_addr, Some("a withdraw addr".to_owned()));

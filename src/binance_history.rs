@@ -165,7 +165,7 @@ async fn history_get_req_and_response(
         &query_string
     );
 
-    let mut url = config.make_url("api", &format!("{}?", full_path));
+    let mut url = config.make_url("api", &format!("{full_path}?"));
     url.push_str(&query_string);
     trace!("history_get_req_and_response: url={}", url);
 

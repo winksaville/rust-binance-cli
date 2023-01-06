@@ -195,7 +195,7 @@ pub async fn get_account_info<'e>(
     let secret_key = &config.keys.get_sk_vec_u8_or_err()?;
 
     let mut params = vec![];
-    let ts_string: String = format!("{}", time_ms);
+    let ts_string: String = format!("{time_ms}");
     params.append(&mut vec![("timestamp", ts_string.as_str())]);
 
     let mut query = query_vec_u8(&params);
@@ -222,17 +222,15 @@ pub async fn get_account_info<'e>(
         let ai: AccountInfo = match serde_json::from_str(&response_body) {
             Ok(info) => info,
             Err(e) => {
-                let err = format!(
-                    "Error converting body to AccountInfo: e={} body={}",
-                    e, response_body
-                );
+                let err =
+                    format!("Error converting body to AccountInfo: e={e} body={response_body}");
                 trace!("get_account_info: err: {}", err);
                 return Err(err.into());
             }
         };
         ai
     } else {
-        let err = format!("response status={} body={}", response_status, response_body);
+        let err = format!("response status={response_status} body={response_body}");
         trace!("get_account_info: err: {}", err);
         return Err(err.into());
     };
@@ -267,15 +265,15 @@ mod test {
     fn test_account_info() {
         let account_info: AccountInfo = match serde_json::from_str(ACCOUNT_INFO_DATA) {
             Ok(info) => info,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         // println!("account_info={:#?}", account_info);
         assert_eq!(dec!(10), account_info.maker_commission);
         assert_eq!(dec!(10), account_info.taker_commission);
         assert_eq!(dec!(0), account_info.buyer_commission);
         assert_eq!(dec!(0), account_info.seller_commission);
-        assert_eq!(true, account_info.can_trade);
-        assert_eq!(true, account_info.can_deposit);
+        assert!(account_info.can_trade);
+        assert!(account_info.can_deposit);
         assert_eq!(1616461066366, account_info.update_time);
         assert_eq!("SPOT", account_info.account_type);
         assert_eq!("SPOT", account_info.permissions[0]);

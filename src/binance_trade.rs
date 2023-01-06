@@ -34,14 +34,14 @@ impl Display for MarketQuantityType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let qty_str = match self {
             MarketQuantityType::Quantity(qty) => {
-                format!("Quantity:{}", qty)
+                format!("Quantity:{qty}")
             }
             MarketQuantityType::QuoteOrderQty(qty) => {
-                format!("QuoteOrderQty:{}", qty)
+                format!("QuoteOrderQty:{qty}")
             }
         };
 
-        write!(f, "{}", qty_str)
+        write!(f, "{qty_str}")
     }
 }
 
@@ -60,7 +60,7 @@ impl Display for TradeOrderType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TradeOrderType::Market(mot) => {
-                write!(f, "Market::{}", mot)
+                write!(f, "Market::{mot}")
             }
         }
     }
@@ -196,8 +196,7 @@ pub async fn convert(
                         ir
                     } else {
                         return Err(format!(
-                            "convert error, asset: {} not convertable to {}",
-                            asset, other_asset
+                            "convert error, asset: {asset} not convertable to {other_asset}"
                         )
                         .into());
                     };
@@ -205,8 +204,7 @@ pub async fn convert(
                     indirect_result
                 } else {
                     return Err(format!(
-                        "convert error, asset: {} not convertable to {}",
-                        asset, other_asset
+                        "convert error, asset: {asset} not convertable to {other_asset}"
                     )
                     .into());
                 };
@@ -259,7 +257,7 @@ pub async fn binance_new_order_or_test(
     let ei_symbol = match ei.get_symbol(symbol) {
         Some(s) => s,
         None => {
-            return Err(format!("{} was not found in exchange_info", symbol).into());
+            return Err(format!("{symbol} was not found in exchange_info").into());
         }
     };
 
@@ -280,12 +278,12 @@ pub async fn binance_new_order_or_test(
     match order_type {
         TradeOrderType::Market(MarketQuantityType::Quantity(qty)) => {
             params.push(("type", "MARKET"));
-            qty_string = format!("{}", qty);
+            qty_string = format!("{qty}");
             params.push(("quantity", &qty_string));
         }
         TradeOrderType::Market(MarketQuantityType::QuoteOrderQty(qty)) => {
             params.push(("type", "MARKET"));
-            qty_string = format!("{}", qty);
+            qty_string = format!("{qty}");
             params.push(("quoteOrderQty", &qty_string));
         }
     };
@@ -426,8 +424,7 @@ pub async fn binance_new_order_or_test(
         trace!(
             "{}",
             format!(
-                "binance_market_order_or_test: symbol={} side={} test={} order_resp={:#?}",
-                symbol, side_str, test, order_resp
+                "binance_market_order_or_test: symbol={symbol} side={side_str} test={test} order_resp={order_resp:#?}"
             )
         );
 
@@ -484,19 +481,13 @@ mod test {
         let asset_to_other_value = convert(&config, time_ms, asset, quantity, other_asset)
             .await
             .unwrap();
-        println!(
-            "converted {} {asset} -> {} {other_asset}",
-            quantity, asset_to_other_value
-        );
+        println!("converted {quantity} {asset} -> {asset_to_other_value} {other_asset}");
 
         let other_to_asset_value = convert(&config, time_ms, other_asset, quantity, asset)
             .await
             .unwrap();
 
-        println!(
-            "converted {} {other_asset} -> {} {asset}",
-            quantity, other_to_asset_value
-        );
+        println!("converted {quantity} {other_asset} -> {other_to_asset_value} {asset}");
 
         // Validate the convsersion by checking
         //    ((convert(asset, quantity, other_asset) * convert(other_asset, quantity, asset)) / quantity * quantity)

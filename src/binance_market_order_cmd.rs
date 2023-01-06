@@ -54,8 +54,7 @@ pub async fn market_order(
             let tr = TradeResponse::FailureInternal(ier_new!(
                 2,
                 &format!(
-                    "No asset named: {} order_type: {} side: {} test: {}",
-                    symbol_name, order_type, side, test
+                    "No asset named: {symbol_name} order_type: {order_type} side: {side} test: {test}"
                 )
             ));
             log_order_response(&mut log_writer, &tr)?;
@@ -77,8 +76,7 @@ pub async fn market_order(
                 let tr = TradeResponse::FailureInternal(ier_new!(
                     3,
                     &format!(
-                        "adjusted quantity: {} <= 0 for symbol_name {} order_type: {} side: {} test: {}",
-                        qty, symbol_name, order_type, side, test
+                        "adjusted quantity: {qty} <= 0 for symbol_name {symbol_name} order_type: {order_type} side: {side} test: {test}"
                     )
                 ));
                 log_order_response(&mut log_writer, &tr)?;
@@ -162,7 +160,7 @@ pub async fn buy_market_order_cmd(
 
     let ei = &get_exchange_info(config).await?;
     let tr = market_order(config, ei, sym_name, &order_type, Side::BUY, config.test).await?;
-    println!("{}", tr);
+    println!("{tr}");
 
     Ok(())
 }
@@ -181,7 +179,7 @@ pub async fn sell_market_order_cmd(
 
     let ei = &get_exchange_info(config).await?;
     let tr = market_order(config, ei, sym_name, &order_type, Side::SELL, config.test).await?;
-    println!("{}", tr);
+    println!("{tr}");
 
     Ok(())
 }

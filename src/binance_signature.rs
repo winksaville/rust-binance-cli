@@ -12,7 +12,7 @@ pub fn query_vec_u8(query_params: &[(&str, &str)]) -> Vec<u8> {
     for (i, kv) in query_params.iter().enumerate() {
         let (k, v) = kv;
         // println!("query_str: i={}: k={:?} v={:?}", i, k, v);
-        let kv_pair = format!("{}={}", k, v);
+        let kv_pair = format!("{k}={v}");
 
         if i > 0 {
             // println!("query_str: append i={} '&'", i);

@@ -47,9 +47,9 @@ impl Default for Amount {
 impl Display for Amount {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Amount::Percent(p) => write!(f, "{:.4}%", p),
-            Amount::Quantity(q) => write!(f, "{:.4}", q),
-            Amount::Dollars(d) => write!(f, "${:.2}", d),
+            Amount::Percent(p) => write!(f, "{p:.4}%"),
+            Amount::Quantity(q) => write!(f, "{q:.4}"),
+            Amount::Dollars(d) => write!(f, "${d:.2}"),
         }
     }
 }
@@ -62,7 +62,7 @@ impl Amount {
             let percent = match Decimal::from_str(amt) {
                 Ok(qty) => qty,
                 Err(e) => {
-                    return Err(format!("converting {} to Decimal: e={}", amt, e).into());
+                    return Err(format!("converting {amt} to Decimal: e={e}").into());
                 }
             };
 
@@ -72,7 +72,7 @@ impl Amount {
             //println!("Dollars amt={}", amt);
             let quantity = match Decimal::from_str(amt) {
                 Ok(qty) => qty,
-                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
+                Err(e) => return Err(format!("converting {amt_val} to Decimal: e={e}").into()),
             };
             //println!("Dollars quantity={}", amt);
 
@@ -81,7 +81,7 @@ impl Amount {
             //println!("Quantity amt_val={}", amt_val);
             let quantity = match Decimal::from_str(amt_val) {
                 Ok(qty) => qty,
-                Err(e) => return Err(format!("converting {} to Decimal: e={}", amt_val, e).into()),
+                Err(e) => return Err(format!("converting {amt_val} to Decimal: e={e}").into()),
             };
 
             //println!("Quantity quantity={}", quantity);
@@ -102,7 +102,7 @@ impl Amount {
                 let balance = if let Some(b) = ai.balances_map.get(sym_name) {
                     b
                 } else {
-                    return Err(format!("Error, {} is not in your account", sym_name).into());
+                    return Err(format!("Error, {sym_name} is not in your account").into());
                 };
 
                 let q = (p / dec!(100)) * balance.free;
@@ -126,11 +126,9 @@ impl Amount {
                 let avp = match get_avg_price(config, &full_symbol).await {
                     Ok(v) => v,
                     Err(e) => {
-                        return Err(format!(
-                            "Unable to determin avg price of {}, {}",
-                            full_symbol, e
+                        return Err(
+                            format!("Unable to determin avg price of {full_symbol}, {e}").into(),
                         )
-                        .into())
                     }
                 };
 
@@ -243,7 +241,7 @@ async fn withdraw_post_and_response(
     let query_string = String::from_utf8(query)?;
     trace!("withdraw_post_and_repsonse: query_string={}", &query_string);
 
-    let url = config.make_url("api", &format!("{}?", full_path));
+    let url = config.make_url("api", &format!("{full_path}?"));
     trace!("withdraw_post_and_repsonse: url={}", url);
 
     let tr = if !config.test {
@@ -282,7 +280,7 @@ async fn withdraw_post_and_response(
                 response_status.as_u16(),
                 &query_string,
                 response_headers,
-                &format!(r#"response_body: {}"#, response_body),
+                &format!(r#"response_body: {response_body}"#),
             );
             trace!(
                 "{}",

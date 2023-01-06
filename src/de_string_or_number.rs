@@ -130,13 +130,13 @@ mod tests {
         //let js = js_val.to_string();
         //let js = r#"{ "value_i64": "a string" }"#;
         let js = r#"{ "value_i64": null }"#;
-        println!("js={}", js);
-        let ap: Result<Vi64ToTest, _> = serde_json::from_str(&js);
-        println!("ap={:#?}", ap);
+        println!("js={js}");
+        let ap: Result<Vi64ToTest, _> = serde_json::from_str(js);
+        println!("ap={ap:#?}");
         match ap {
             Ok(_) => panic!("Should never happen"),
             Err(e) => {
-                println!("ap Err e={:#?}", e);
+                println!("ap Err e={e:#?}");
                 //assert!(e.to_string().contains("invalid type: map, expected i64"));
             }
         }
@@ -151,7 +151,7 @@ mod tests {
         }
         let js = r#"{ "value_u64": null }"#;
         let ap: Result<Vu64ToTest, serde_json::Error> = serde_json::from_str(js);
-        println!("ap={:#?}", ap);
+        println!("ap={ap:#?}");
         match ap {
             Ok(_) => panic!("Should never happen"),
             Err(e) => {
@@ -169,7 +169,7 @@ mod tests {
         }
         let js = r#"{ "value_f64": null }"#;
         let ap: Result<Vf64ToTest, serde_json::Error> = serde_json::from_str(js);
-        println!("ap={:#?}", ap);
+        println!("ap={ap:#?}");
         match ap {
             Ok(_) => panic!("Should never happen"),
             Err(e) => {

@@ -1672,7 +1672,7 @@ pub async fn consolidate_binance_us_dist_files(
             dec_to_separated_string(Decimal::from_f64(post_len as f64).unwrap(), 0),
         );
     }
-    println!("Consolidated from {} to {}", total_pre_len, total_post_len);
+    println!("Consolidated from {total_pre_len} to {total_post_len}");
 
     println!("Sorting");
     data.consolidated_dist_rec_vec.sort();
@@ -1795,11 +1795,11 @@ Time
         let mut reader = csv::Reader::from_reader(rdr);
         //let mut reader = csv::Reader::from_reader(csv.as_bytes());
         for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+            println!("{idx}: entry: {entry:?}");
             match entry {
                 Ok(tr) => {
                     let tr: TimeRec = tr;
-                    println!("tr: {:?}", tr);
+                    println!("tr: {tr:?}");
                     match idx {
                         0 => assert_eq!(tr.time, 0),
                         1 => assert_eq!(tr.time, 123),
@@ -1846,11 +1846,11 @@ Time
         let mut reader = csv::Reader::from_reader(rdr);
         //let mut reader = csv::Reader::from_reader(csv.as_bytes());
         for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+            println!("{idx}: entry: {entry:?}");
             match entry {
                 Ok(dr) => {
                     let dr: DistRec = dr;
-                    println!("tr: {:?}", dr);
+                    println!("tr: {dr:?}");
                     match idx {
                         0 => {
                             assert_eq!(dr.category, "Deposit");
@@ -1958,7 +1958,7 @@ Income,10,USD,,,,,binance.us,,"v4,0,11,,1038479673,Distribution,Referral Rewards
 
         let mut wtr = csv::Writer::from_writer(vec![]);
         for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+            println!("{idx}: entry: {entry:?}");
             let mut dr: DistRec = entry.unwrap();
             dr.file_idx = 0;
             dr.line_number = idx + 2;

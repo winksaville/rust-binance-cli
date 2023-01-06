@@ -230,22 +230,22 @@ mod test {
         //println!("symbols: {:#?}", symbol);
         let mut quantity = dec!(1.0000009);
         let mut adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity);
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
+        println!("quantity: {quantity} adj_quantity: {adj_quantity}");
         assert_eq!(adj_quantity, dec!(1.000000));
 
         quantity = dec!(1.000001);
         adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity);
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
+        println!("quantity: {quantity} adj_quantity: {adj_quantity}");
         assert_eq!(adj_quantity, dec!(1.000001));
 
         quantity = dec!(1.0000014);
         adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity);
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
+        println!("quantity: {quantity} adj_quantity: {adj_quantity}");
         assert_eq!(adj_quantity, dec!(1.000001));
 
         quantity = dec!(1.0000019999999999999999999999); // OK
         adj_quantity = adj_quantity_verify_lot_size(&symbol, quantity);
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity); // ""
+        println!("quantity: {quantity} adj_quantity: {adj_quantity}"); // ""
         assert_eq!(adj_quantity, dec!(1.000001));
 
         // Now fails at compile time!
@@ -264,17 +264,17 @@ mod test {
             }
         }
 
-        let mut s = symbol.clone();
+        let mut s = symbol;
         set_lot_size_max_qty(&mut s, dec!(999999999999999999999999999));
         //quantity = dec!(9999999999999999999999.000001); //no ..999.000002
         quantity = dec!(999999999999999999999.000001); // ..999.000001
         adj_quantity = adj_quantity_verify_lot_size(&s, quantity);
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
+        println!("quantity: {quantity} adj_quantity: {adj_quantity}");
         assert_eq!(adj_quantity, dec!(999999999999999999999.000001));
 
         quantity = dec!(999999999999999999999.0000019);
         adj_quantity = adj_quantity_verify_lot_size(&s, quantity);
-        println!("quantity: {} adj_quantity: {}", quantity, adj_quantity);
+        println!("quantity: {quantity} adj_quantity: {adj_quantity}");
         assert_eq!(adj_quantity, dec!(999999999999999999999.000001));
 
         // Now fails at compile time!

@@ -80,12 +80,10 @@ fn get_sym_qty_or_val(
         .unwrap_or_else(|| panic!("SYMBOL is missing"));
     let q = sc_matches
         .value_of(quantity_or_value)
-        .unwrap_or_else(|| panic!("{} is missing", quantity_or_value));
+        .unwrap_or_else(|| panic!("{quantity_or_value} is missing"));
     let quantity = match Decimal::from_str(q) {
         Ok(qty) => qty,
-        Err(e) => {
-            return Err(format!("converting {} to Decimal: e={}", quantity_or_value, e).into())
-        }
+        Err(e) => return Err(format!("converting {quantity_or_value} to Decimal: e={e}").into()),
     };
 
     Ok((sym_name.to_string(), quantity))
@@ -178,7 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "ei" => {
                 let ei = get_exchange_info(&config).await?;
-                println!("ei={:#?}", ei);
+                println!("ei={ei:#?}");
             }
             "sei" => {
                 let sym_name = sc_matches.value_of("SYMBOL").expect("SYMBOL is missing");
@@ -186,7 +184,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(sym) = ei.get_symbol(sym_name) {
                     println!("{}: {:#?}", sym.symbol, sym);
                 } else {
-                    println!("No such symbol {}", sym_name);
+                    println!("No such symbol {sym_name}");
                 }
             }
             "sap" => {
@@ -209,26 +207,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 let kr: KlineRec = get_kline(&config, sym_name, start_time_ms).await?;
-                println!("{}", kr);
+                println!("{kr}");
             }
             "skrs" => {
                 let mut rec = GetKlinesCmdRec::default();
                 let sym_name = sc_matches.value_of("SYMBOL").expect("SYMBOL is missing");
                 rec.sym_name = sym_name.to_string();
                 if let Some(limit_str) = sc_matches.value_of("LIMIT") {
-                    println!("skrs: limit={}", limit_str);
+                    println!("skrs: limit={limit_str}");
                     rec.limit = Some(u16::from_str(limit_str)?);
                 } else {
                     rec.limit = None;
                 };
                 if let Some(st_str) = sc_matches.value_of("START-TIME") {
-                    println!("skrs: start_date_time={}", st_str);
+                    println!("skrs: start_date_time={st_str}");
                     rec.start_date_time = Some(st_str.to_string());
                 } else {
                     rec.start_date_time = None;
                 }
                 if let Some(interval_str) = sc_matches.value_of("INTERVAL") {
-                    println!("skrs: interval={}", interval_str);
+                    println!("skrs: interval={interval_str}");
                     rec.interval = Some(interval_str.to_string());
                 } else {
                     rec.interval = None;
@@ -247,7 +245,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let o: Orders =
                         get_all_orders(&config, &symbol.symbol, None, None, None, None).await?;
                     if !o.orders.is_empty() {
-                        println!("o: {:#?}", o);
+                        println!("o: {o:#?}");
                     }
                 }
             }
@@ -265,7 +263,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     get_all_orders(&config, sym_name, Some(order_id), None, None, Some(limit))
                         .await?;
                 if !o.orders.is_empty() {
-                    println!("o: {:#?}", o);
+                    println!("o: {o:#?}");
                 }
             }
             "mt" => {
@@ -276,7 +274,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     s
                 } else {
                     return Err(
-                        crate::ier_new!(9, &format!("Symbol {} isn't valid: ", sym_name)).into(),
+                        crate::ier_new!(9, &format!("Symbol {sym_name} isn't valid: ")).into(),
                     );
                 };
                 let asset = &symbol.base_asset;
@@ -391,14 +389,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let asset = sc_matches.value_of("ASSET");
                 let dh: Vec<DepositRec> =
                     get_deposit_history(&config, asset, None, None, None).await?;
-                println!("{:#?}", dh);
+                println!("{dh:#?}");
             }
             "wh" => {
                 // TODO: Add support for getting status, start_data_time, end_data_time
                 let asset = sc_matches.value_of("ASSET");
                 let wh: Vec<WithdrawRec> =
                     get_withdraw_history(&config, asset, None, None, None).await?;
-                println!("{:#?}", wh);
+                println!("{wh:#?}");
             }
             "fcdh" => {
                 // TODO: Add support for getting status, start_data_time, end_data_time
@@ -407,7 +405,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &config, asset, None, None, None, None, None, None,
                 )
                 .await?;
-                println!("{:#?}", dhfc);
+                println!("{dhfc:#?}");
             }
             "fcwh" => {
                 // TODO: Add support for getting status, start_data_time, end_data_time
@@ -416,7 +414,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &config, asset, None, None, None, None, None, None,
                 )
                 .await?;
-                println!("{:#?}", whfc);
+                println!("{whfc:#?}");
             }
             "ol" => display_order_log(&config).await?,
             "pol" => process_order_log(&config, sc_matches).await?,
@@ -454,7 +452,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "ucttf" => uniq_currency_token_tax_files(&config, sc_matches).await?,
             "ptbf" => process_tax_bit_files(&config, sc_matches).await?,
             "tbffttf" => tb_file_from_token_tax_file(&config, sc_matches).await?,
-            _ => println!("Unknown subcommand: {}", sc_name),
+            _ => println!("Unknown subcommand: {sc_name}"),
         }
     }
 

@@ -919,15 +919,13 @@ fn ttr_from_buy_sell_fee(
 
     if len_buy != len_sell {
         return Err(format!(
-            "Error ttr_from_buy_sell_fee: Expected number of 'Spot,Buy': {} == 'Spot,Transaction Related': {}",
-            len_buy, len_sell
+            "Error ttr_from_buy_sell_fee: Expected number of 'Spot,Buy': {len_buy} == 'Spot,Transaction Related': {len_sell}"
         )
         .into());
     }
     if len_fee > len_buy {
         return Err(format!(
-            "Error ttr_from_buy_sell_fee: Expected number of 'Spot,Fee': {} <= 'Spot,Buy': {}",
-            len_fee, len_buy
+            "Error ttr_from_buy_sell_fee: Expected number of 'Spot,Fee': {len_fee} <= 'Spot,Buy': {len_buy}"
         )
         .into());
     }

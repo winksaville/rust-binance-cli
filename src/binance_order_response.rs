@@ -273,7 +273,7 @@ impl fmt::Display for WithdrawResponseRec {
             self.params.sym_name,
             self.params.quantity_usd,
             if let Some(l) = &self.params.label {
-                format!("{}:", l)
+                format!("{l}:")
             } else {
                 "".to_string()
             },
@@ -390,16 +390,16 @@ impl Error for TradeResponse {}
 impl fmt::Display for TradeResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TradeResponse::SuccessAck(tr) => write!(f, "{}", tr),
-            TradeResponse::SuccessResult(tr) => write!(f, "{}", tr),
-            TradeResponse::SuccessFull(tr) => write!(f, "{}", tr),
-            TradeResponse::SuccessTest(tr) => write!(f, "{}", tr),
-            TradeResponse::SuccessWithdraw(tr) => write!(f, "{}", tr),
-            TradeResponse::FailureWithdraw(tr) => write!(f, "{}", tr),
-            TradeResponse::SuccessTestWithdraw(tr) => write!(f, "{}", tr),
-            TradeResponse::SuccessUnknown(tr) => write!(f, "{}", tr),
-            TradeResponse::FailureResponse(ber) => write!(f, "{}", ber),
-            TradeResponse::FailureInternal(ier) => write!(f, "{}", ier),
+            TradeResponse::SuccessAck(tr) => write!(f, "{tr}"),
+            TradeResponse::SuccessResult(tr) => write!(f, "{tr}"),
+            TradeResponse::SuccessFull(tr) => write!(f, "{tr}"),
+            TradeResponse::SuccessTest(tr) => write!(f, "{tr}"),
+            TradeResponse::SuccessWithdraw(tr) => write!(f, "{tr}"),
+            TradeResponse::FailureWithdraw(tr) => write!(f, "{tr}"),
+            TradeResponse::SuccessTestWithdraw(tr) => write!(f, "{tr}"),
+            TradeResponse::SuccessUnknown(tr) => write!(f, "{tr}"),
+            TradeResponse::FailureResponse(ber) => write!(f, "{ber}"),
+            TradeResponse::FailureInternal(ier) => write!(f, "{ier}"),
         }
     }
 }
@@ -408,7 +408,7 @@ pub async fn iterate_order_log(
     order_log_path: Option<PathBuf>,
     process_line: impl Fn(&str, usize) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("terate_order_log: order_log_path={:?}", order_log_path);
+    println!("terate_order_log: order_log_path={order_log_path:?}");
 
     match &order_log_path {
         Some(path) => {
@@ -447,13 +447,13 @@ pub fn display_order_log_line(
             return Err(format!("line: {} Err: {}", line_number + 1, e).into());
         }
     };
-    println!("{:#?}", tr);
+    println!("{tr:#?}");
 
     Ok(())
 }
 
 pub async fn display_order_log(config: &Configuration) -> Result<(), Box<dyn std::error::Error>> {
-    println!("display_order_log: config={:?}", config);
+    println!("display_order_log: config={config:?}");
 
     iterate_order_log(config.order_log_path.clone(), display_order_log_line).await?;
 
@@ -479,10 +479,10 @@ pub async fn process_order_log(
 
         match tr {
             TradeResponse::SuccessFull(tr) => {
-                println!("{} SuccessFull: {:#?}", line_number, tr);
+                println!("{line_number} SuccessFull: {tr:#?}");
             }
             TradeResponse::SuccessWithdraw(tr) => {
-                println!("{} SuccessWithdraw: {:#?}", line_number, tr);
+                println!("{line_number} SuccessWithdraw: {tr:#?}");
             }
             _ => (),
         }
@@ -522,11 +522,11 @@ mod test {
         // Verify SUCCESS_ACK is ok
         let mut order_response: AckTradeResponseRec = match serde_json::from_str(SUCCESS_ACK) {
             Ok(response) => response,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         order_response.query = "a_query".to_owned();
         // println!("order_response={:#?}", order_response);
-        assert_eq!(order_response.test, false);
+        assert!(!order_response.test);
         assert_eq!(order_response.query, "a_query");
         assert_eq!(order_response.symbol, "BNBUSD");
         assert_eq!(order_response.order_id, 93961452);
@@ -565,11 +565,11 @@ mod test {
         let mut order_response: ResultTradeResponseRec = match serde_json::from_str(SUCCESS_RESULT)
         {
             Ok(response) => response,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         order_response.query = "a_query".to_owned();
         // println!("order_response={:#?}", order_response);
-        assert_eq!(order_response.test, false);
+        assert!(!order_response.test);
         assert_eq!(order_response.query, "a_query");
         assert_eq!(order_response.symbol, "BNBUSD");
         assert_eq!(order_response.order_id, 93961452);
@@ -623,11 +623,11 @@ mod test {
         // Verify SUCCESS_FULL is ok
         let mut order_response: FullTradeResponseRec = match serde_json::from_str(SUCCESS_FULL) {
             Ok(response) => response,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         order_response.query = "a_query".to_owned();
         // println!("order_response={:#?}", order_response);
-        assert_eq!(order_response.test, false);
+        assert!(!order_response.test);
         assert_eq!(order_response.query, "a_query");
         assert_eq!(order_response.symbol, "BNBUSD");
         assert_eq!(order_response.order_id, 93961452);
@@ -674,11 +674,11 @@ mod test {
         let mut order_response: UnknownTradeResponseRec =
             match serde_json::from_str(SUCCESS_UNKNOWN) {
                 Ok(response) => response,
-                Err(e) => panic!("Error processing response: e={}", e),
+                Err(e) => panic!("Error processing response: e={e}"),
             };
         order_response.query = "a_unknown_query".to_owned();
         // println!("order_response={:#?}", order_response);
-        assert_eq!(order_response.test, false);
+        assert!(!order_response.test);
         assert_eq!(order_response.query, "a_unknown_query");
         assert_eq!(order_response.response_body, "a body with unknown contents");
         assert_eq!(order_response.error_internal, "some error message");
@@ -687,11 +687,11 @@ mod test {
     #[test]
     fn test_order_response_semver() {
         let ver = Version::parse("1.2.3-alpha1+1234").unwrap();
-        println!("ver:         {:?}", ver);
+        println!("ver:         {ver:?}");
         let ver_json = serde_json::to_string(&ver).unwrap();
-        println!("ver_json:    {:?}", ver_json);
+        println!("ver_json:    {ver_json:?}");
         let ver_json_de: Version = serde_json::from_str(&ver_json).unwrap();
-        println!("ver_json_de: {:?}", ver_json_de);
+        println!("ver_json_de: {ver_json_de:?}");
         assert_eq!(ver, ver_json_de);
     }
 
@@ -715,16 +715,16 @@ mod test {
     #[test]
     fn test_order_response_header_rec_min() {
         let hr: HeaderRec = serde_json::from_str(HEADER_REC_MIN).unwrap();
-        println!("hr: {:?}", hr);
+        println!("hr: {hr:?}");
         println!("app_version: {:?}", hr.app_version);
         let expected = Version::parse("1.2.3-alpha1+1234").unwrap();
-        println!("expected:    {:?}", expected);
+        println!("expected:    {expected:?}");
         assert!(expected == hr.app_version);
-        assert!(None == hr.rec_version);
-        assert!(None == hr.test);
-        assert!(None == hr.query);
-        assert!(None == hr.value_usd);
-        assert!(None == hr.commission_usd);
+        assert!(hr.rec_version.is_none());
+        assert!(hr.test.is_none());
+        assert!(hr.query.is_none());
+        assert!(hr.value_usd.is_none());
+        assert!(hr.commission_usd.is_none());
         assert!(hr.internal_errors.is_empty());
     }
 
@@ -748,21 +748,21 @@ mod test {
     #[test]
     fn test_order_response_header_rec_app_rec_versions() {
         let hr: HeaderRec = serde_json::from_str(HEADER_REC_APP_REC_VERSIONS).unwrap();
-        println!("hr: {:?}", hr);
+        println!("hr: {hr:?}");
 
         println!("app_version: {:?}", hr.app_version);
         let expected = Version::parse("1.2.3-alpha1+1234").unwrap();
-        println!("expected:    {:?}", expected);
+        println!("expected:    {expected:?}");
         assert!(expected == hr.app_version);
 
         println!("rec_version: {:?}", hr.rec_version);
         let expected = Some(Version::parse("3.2.1-beta2+9e0cec6").unwrap());
-        println!("expected:    {:?}", expected);
+        println!("expected:    {expected:?}");
         assert!(expected == hr.rec_version);
-        assert!(None == hr.test);
-        assert!(None == hr.query);
-        assert!(None == hr.value_usd);
-        assert!(None == hr.commission_usd);
+        assert!(hr.test.is_none());
+        assert!(hr.query.is_none());
+        assert!(hr.value_usd.is_none());
+        assert!(hr.commission_usd.is_none());
         assert!(hr.internal_errors.is_empty());
     }
 
@@ -782,7 +782,7 @@ mod test {
     #[test]
     fn test_order_response_header_rec_max() {
         let hr: HeaderRec = serde_json::from_str(HEADER_REC_MAX).unwrap();
-        println!("hr: {:?}", hr);
+        println!("hr: {hr:?}");
 
         let expected = Version::parse("1.2.3-alpha1+1234").unwrap();
         assert!(expected == hr.app_version);

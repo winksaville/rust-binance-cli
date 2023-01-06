@@ -80,7 +80,7 @@ async fn trades_get_req_and_response(
     let query_string = String::from_utf8(query)?;
     trace!("query_string={}", &query_string);
 
-    let mut url = config.make_url("api", &format!("/api/v3/{}?", cmd));
+    let mut url = config.make_url("api", &format!("/api/v3/{cmd}?"));
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 
@@ -185,7 +185,7 @@ mod test {
     fn test_trade_rec() {
         let tr: TradeRec = match serde_json::from_str(TRADE_REC_1) {
             Ok(info) => info,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         assert_eq!("ETHUSD", tr.symbol);
         assert_eq!(7203346, tr.id);
@@ -196,16 +196,16 @@ mod test {
         assert_eq!(dec!(0.00185538), tr.commission);
         assert_eq!("ETH", tr.commission_asset);
         assert_eq!(1620832760334, tr.time);
-        assert_eq!(true, tr.is_buyer);
-        assert_eq!(true, tr.is_maker);
-        assert_eq!(true, tr.is_best_match);
+        assert!(tr.is_buyer);
+        assert!(tr.is_maker);
+        assert!(tr.is_best_match);
     }
 
     #[test]
     fn test_trade_rec_is_buyer_factor() {
         let mut tr: TradeRec = match serde_json::from_str(TRADE_REC_1) {
             Ok(info) => info,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         assert_eq!(dec!(1), tr.is_buyer_factor());
         tr.is_buyer = false;

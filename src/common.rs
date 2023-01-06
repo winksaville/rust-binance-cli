@@ -29,7 +29,7 @@ lazy_static! {
     // I'm not sure this is the right approach but
     // having a static String seems to be reasonable
     // so it's computed only once.
-    pub static ref APP_VERSION: String = format!("{}-{}", PKG_VER, GIT_SHORT_SHA);
+    pub static ref APP_VERSION: String = format!("{PKG_VER}-{GIT_SHORT_SHA}");
     pub static ref APP_NAME: String = PKG_NAME.to_string();
 
     #[derive(Debug)]
@@ -141,7 +141,7 @@ impl Display for Side {
             Side::BUY => "Buy",
         };
 
-        write!(f, "{}", side_str)
+        write!(f, "{side_str}")
     }
 }
 
@@ -395,7 +395,7 @@ mod test {
 
         let response = ResponseErrorRec::new(false, 400, "a_query", headers, RESPONSE_FAILURE_BODY);
 
-        assert_eq!(response.test, false);
+        assert!(!response.test);
         assert_eq!(response.query, "a_query");
         assert_eq!(response.status, 400);
         assert_eq!(response.code, -1121);
@@ -440,7 +440,7 @@ mod test {
 
         let response = ResponseErrorRec::new(false, 505, "a_query", headers, RESPONSE_FAILURE_BODY);
 
-        assert_eq!(response.test, false);
+        assert!(!response.test);
         assert_eq!(response.query, "a_query");
         assert_eq!(response.status, 505);
         assert_eq!(response.code, 0);
@@ -454,7 +454,7 @@ mod test {
     #[test]
     fn test_internal_error() {
         let ie1 = ier_new!(1, "err 1");
-        println!("{:#?}", ie1);
+        println!("{ie1:#?}");
         assert_eq!(ie1.code, 1);
         assert_eq!(ie1.line, line!() - 3);
         assert_eq!(ie1.file, file!());

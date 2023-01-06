@@ -360,7 +360,7 @@ mod test {
     #[test]
     fn test_signed_duration_since_in_secs() {
         const TYPICAL_SECS_PER_DAY: i64 = 60 * 60 * 24;
-        let normal_day = DateTimeUtc::from_utc_ymd_hmsn(2022, 02, 26, 1, 2, 3, 4);
+        let normal_day = DateTimeUtc::from_utc_ymd_hmsn(2022, 2, 26, 1, 2, 3, 4);
         let normal_day = normal_day.beginning_of_this_day();
         let next_day = normal_day.beginning_of_next_day();
         let duration = next_day.signed_duration_since_in_secs(&normal_day);

@@ -90,13 +90,13 @@ pub async fn auto_buy(
                 Some(s) => s,
                 None => {
                     return Err(
-                        format!("{} is not a valid symbol on the exchange", symbol_name).into(),
+                        format!("{symbol_name} is not a valid symbol on the exchange").into(),
                     )
                 }
             };
 
             if !sym.quote_order_qty_market_allowed {
-                return Err(format!("{} is not allowed to be a QuoteOrderQty", symbol_name).into());
+                return Err(format!("{symbol_name} is not allowed to be a QuoteOrderQty").into());
             }
             let precision = sym.quote_precision as usize;
             let buy_value = buy_value.round_dp(sym.quote_precision);
@@ -155,13 +155,13 @@ pub async fn auto_buy(
                                 );
                         }
                         TradeResponse::SuccessResult(rtrr) => {
-                            println!("{}", rtrr);
+                            println!("{rtrr}");
                         }
                         TradeResponse::SuccessFull(ftrr) => {
-                            println!("{}", ftrr);
+                            println!("{ftrr}");
                         }
                         TradeResponse::SuccessUnknown(utrr) => {
-                            println!("{}", utrr);
+                            println!("{utrr}");
                         }
                         TradeResponse::FailureResponse(rer) => {
                             println!("{:8}, {:10} {}", "SKIPPING", pr.symbol_name, rer);
@@ -169,7 +169,7 @@ pub async fn auto_buy(
                         TradeResponse::FailureInternal(ier) => {
                             println!("{:8}, {:10} {}", "SKIPPING", pr.symbol_name, ier.msg);
                         }
-                        _ => println!("Unexpected response: {}", tr),
+                        _ => println!("Unexpected response: {tr}"),
                     },
                     Err(e) => println!("{:8} {:10}, {}", "SKIPPING", pr.symbol_name, e),
                 }

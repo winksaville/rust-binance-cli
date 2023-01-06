@@ -587,7 +587,7 @@ pub async fn get_exchange_info<'e>(
     let response_status = response.status();
     let response_body = response.text().await?;
     if response_status != 200 {
-        let err = format!("error  status={} body={}", response_status, response_body);
+        let err = format!("error  status={response_status} body={response_body}");
         trace!("get_account_info: err: {}", err);
         return Err(err.into());
     }
@@ -607,7 +607,7 @@ mod test {
     fn test_exchange_info() {
         let ei: ExchangeInfo = match serde_json::from_str(EXCHANGE_INFO_DATA) {
             Ok(info) => info,
-            Err(e) => panic!("Error processing response: e={}", e),
+            Err(e) => panic!("Error processing response: e={e}"),
         };
         // println!("ei.server_time={:#?}", ei.server_time);
         assert_eq!(ei.server_time, 1618003698059);
@@ -622,13 +622,13 @@ mod test {
         assert_eq!(btcusd.quote_asset, "USD");
         assert_eq!(btcusd.base_asset_precision, 8);
         assert_eq!(btcusd.base_commission_precision, 8);
-        assert_eq!(btcusd.iceberg_allowed, true);
-        assert_eq!(btcusd.is_margin_trading_allowed, false);
-        assert_eq!(btcusd.is_spot_trading_allowed, true);
-        assert_eq!(btcusd.oco_allowed, true);
+        assert!(btcusd.iceberg_allowed);
+        assert!(!btcusd.is_margin_trading_allowed);
+        assert!(btcusd.is_spot_trading_allowed);
+        assert!(btcusd.oco_allowed);
         assert_eq!(btcusd.quote_asset_precision, 4);
         assert_eq!(btcusd.quote_commission_precision, 2);
-        assert_eq!(btcusd.quote_order_qty_market_allowed, true);
+        assert!(btcusd.quote_order_qty_market_allowed);
         assert_eq!(btcusd.quote_precision, 4);
         assert_eq!(btcusd.status, "TRADING");
         assert_eq!(btcusd.permissions, ["SPOT"]);
@@ -727,7 +727,7 @@ mod test {
         assert!(mnr.is_some(), "Should always succeed");
         let mnr = mnr.unwrap();
         assert_eq!(mnr.min_notional, dec!(0.001));
-        assert_eq!(mnr.apply_to_market, true);
+        assert!(mnr.apply_to_market);
         assert_eq!(mnr.avg_price_mins, 5);
 
         let ibp = btcusd.get_iceberg_parts();

@@ -317,10 +317,7 @@ fn process_entry(
     // TODO: For all the category and operations we need to save asset_value_usd as "usd_cost_basis"
     match ttr.type_txs {
         TokenTaxRecType::Unknown => {
-            println!(
-                "{leading_nl}{} Unknown transaction type: {:?}",
-                line_number, ttr
-            );
+            println!("{leading_nl}{line_number} Unknown transaction type: {ttr:?}");
             data.type_txs_unknown_count += 1;
         }
         TokenTaxRecType::Trade => {
@@ -632,7 +629,7 @@ pub async fn consolidate_token_tax_files(
             dec_to_separated_string(Decimal::from_f64(post_len as f64).unwrap(), 0),
         );
     }
-    println!("Consolidated from {} to {}", total_pre_len, total_post_len);
+    println!("Consolidated from {total_pre_len} to {total_post_len}");
 
     data.consolidated_ttr_vec.sort();
     //println!("consolidate_tt_files:");
@@ -793,11 +790,11 @@ Gift,,,100,USD,,,,,\"Gift to friend\",1970-01-01 00:00:00
         let rdr = csv.as_bytes();
         let mut reader = csv::Reader::from_reader(rdr);
         for (idx, entry) in reader.deserialize().enumerate() {
-            println!("{idx}: entry: {:?}", entry);
+            println!("{idx}: entry: {entry:?}");
             match entry {
                 Ok(rec) => {
                     let ttcr: TokenTaxRec = rec;
-                    println!("tr: {:?}", ttcr);
+                    println!("tr: {ttcr:?}");
                     match idx {
                         0 => {
                             // Deposit,5125,USD,,,,,binance.us,,,1970-01-01 00:00:00

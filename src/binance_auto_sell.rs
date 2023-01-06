@@ -208,13 +208,13 @@ pub async fn auto_sell(
                                     );
                             }
                             TradeResponse::SuccessResult(rtrr) => {
-                                println!("{}", rtrr);
+                                println!("{rtrr}");
                             }
                             TradeResponse::SuccessFull(ftrr) => {
-                                println!("{}", ftrr);
+                                println!("{ftrr}");
                             }
                             TradeResponse::SuccessUnknown(utrr) => {
-                                println!("{}", utrr);
+                                println!("{utrr}");
                             }
                             TradeResponse::FailureResponse(rer) => {
                                 println!("{:8}, {} {}", "SKIPPING", kr.symbol_name, rer);
@@ -222,7 +222,7 @@ pub async fn auto_sell(
                             TradeResponse::FailureInternal(ier) => {
                                 println!("{:8}, {} {}", "SKIPPING", kr.symbol_name, ier.msg);
                             }
-                            _ => println!("Unexpected response: {}", tr),
+                            _ => println!("Unexpected response: {tr}"),
                         },
                         Err(e) => println!("SKIPPING {}, {}", kr.symbol_name, e),
                     }

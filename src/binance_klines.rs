@@ -126,7 +126,7 @@ impl KlineInterval {
             "3d" => KlineInterval::Days3,
             "1w" => KlineInterval::Weeks,
             "1M" => KlineInterval::Months,
-            _ => return Err(format!("Unknown kline interval, {}, expecting: 1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M", s).into()),
+            _ => return Err(format!("Unknown kline interval, {s}, expecting: 1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M").into()),
         };
 
         Ok(interval)
@@ -205,7 +205,7 @@ pub async fn get_klines(
     let query_string = String::from_utf8(query)?;
     trace!("get_klines: query_string: {}", &query_string);
 
-    let url = config.make_url("api", &format!("/api/v3/klines?{}", query_string));
+    let url = config.make_url("api", &format!("/api/v3/klines?{query_string}"));
     trace!("get_klines: url={}", url);
 
     let response = get_req_get_response(config.keys.get_ak_or_err()?, &url).await?;
@@ -267,7 +267,7 @@ pub async fn get_kline(
     .await?;
 
     if krs.is_empty() {
-        Err(format!("No KlineRec available for {}", sym_name).into())
+        Err(format!("No KlineRec available for {sym_name}").into())
     } else {
         let kr = krs[0];
         trace!(

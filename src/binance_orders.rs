@@ -92,7 +92,7 @@ async fn orders_get_req_and_response(
     let query_string = String::from_utf8(query)?;
     trace!("query_string={}", &query_string);
 
-    let mut url = config.make_url("api", &format!("/api/v3/{}?", cmd));
+    let mut url = config.make_url("api", &format!("/api/v3/{cmd}?"));
     url.push_str(&query_string);
     trace!("get_open_orders: url={}", url);
 

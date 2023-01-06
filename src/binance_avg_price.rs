@@ -17,7 +17,7 @@ pub async fn get_avg_price<'e>(
     config: &Configuration,
     symbol: &str,
 ) -> Result<AvgPrice, Box<dyn std::error::Error>> {
-    let url = config.make_url("api", &format!("/api/v3/avgPrice?symbol={}", symbol));
+    let url = config.make_url("api", &format!("/api/v3/avgPrice?symbol={symbol}"));
     trace!("get_avg_price: url={}", url);
 
     let response = get_req_get_response(config.keys.get_ak_or_err()?, &url).await?;

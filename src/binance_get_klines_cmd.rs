@@ -78,7 +78,7 @@ pub async fn get_klines_cmd(
             time_ms_to_utc(kr.close_time),
             (kr.close_time - kr.open_time) as f64 / MIN as f64
         );
-        println!("{:#?}", kr);
+        println!("{kr:#?}");
     }
 
     Ok(())
