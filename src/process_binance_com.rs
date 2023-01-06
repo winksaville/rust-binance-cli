@@ -1625,7 +1625,10 @@ pub async fn tt_file_from_binance_com_trade_history_files(
         let in_file = if let Ok(in_f) = File::open(f) {
             in_f
         } else {
-            return Err(format!("Error: consolicate_binance_com_trade_history_files: Unable to open {f}").into());
+            return Err(format!(
+                "Error: consolicate_binance_com_trade_history_files: Unable to open {f}"
+            )
+            .into());
         };
         let reader = BufReader::new(in_file);
 
