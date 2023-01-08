@@ -106,10 +106,23 @@ impl AssetRec {
 
                     cur_ttr = ttr.clone();
                     first_dt = DateTimeUtc::from_utc_time_ms(cur_ttr.time);
-                    start_period =
-                        DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_month();
-                    end_period = start_period.beginning_of_next_month();
-                    end_period_ms = end_period.time_ms();
+                    match ttr.buy_currency.as_str() {
+                        // These will be consolidated on a daily basis
+                        "LUNA" | "LUNC" => {
+                            start_period =
+                                DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_day();
+                            end_period = start_period.beginning_of_next_day();
+                            end_period_ms = end_period.time_ms();
+                        }
+                        // These will be consolidated on a monthly basis
+                        _ => {
+                            start_period =
+                                DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_month();
+                            end_period = start_period.beginning_of_next_month();
+                            end_period_ms = end_period.time_ms();
+                        }
+                    }
+
                     consolidated_quantity = dec!(0);
                     trace!(
                         "New  period      Q {consolidated_quantity} start_period:  {start_period} end_period: {end_period}"
