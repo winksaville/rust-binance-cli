@@ -118,9 +118,13 @@ impl AssetRec {
                         // These will be consolidated on a monthly basis
                         _ => {
                             start_period =
-                                DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_month();
-                            end_period = start_period.beginning_of_next_month();
+                                DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_day();
+                            end_period = start_period.beginning_of_next_day();
                             end_period_ms = end_period.time_ms();
+                            //start_period =
+                            //    DateTimeUtc::from_utc_time_ms(ttr.time).beginning_of_this_month();
+                            //end_period = start_period.beginning_of_next_month();
+                            //end_period_ms = end_period.time_ms();
                         }
                     }
 
